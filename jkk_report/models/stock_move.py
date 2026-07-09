@@ -1,5 +1,5 @@
-from odoo import api, fields, models
-
+from odoo import api, fields, models, _
+from odoo.exceptions import ValidationError
 
 class StockMove(models.Model):
     _inherit = "stock.move"
@@ -32,3 +32,52 @@ class StockMove(models.Model):
             move.location_internal_id = (
                 move.location_id.id if move.location_id else False
             )
+
+    def _action_done(self, cancel_backorder=False):
+
+        for move in self:
+
+            if (
+                move.purchase_line_id
+                and move.product_id
+                and move.quantity
+            ):
+
+                purchase_line = move.purchase_line_id
+
+                # Cantidad comprada
+                ordered_qty = purchase_line.product_qty
+
+                # Todo lo recibido anteriormente
+                previous_received = sum(
+                    purchase_line.move_ids.filtered(
+                        lambda m:
+                        m.state == "done"
+                        and m.id != move.id
+                    ).mapped("quantity")
+                )
+
+                total_received = previous_received + move.quantity
+
+
+                if total_received > ordered_qty:
+
+                    raise ValidationError(
+                        _(
+                            "No puede recibir más cantidad de la comprada.\n\n"
+                            "Producto: %s\n"
+                            "Cantidad solicitada: %s\n"
+                            "Cantidad recibida anteriormente: %s\n"
+                            "Cantidad que intenta recibir: %s\n"
+                            "Total recibido: %s"
+                        )
+                        % (
+                            move.product_id.display_name,
+                            ordered_qty,
+                            previous_received,
+                            move.quantity,
+                            total_received,
+                        )
+                    )
+
+        return super()._action_done(cancel_backorder)

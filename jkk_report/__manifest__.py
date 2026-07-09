@@ -19,6 +19,8 @@ Report Purchase Sale
         "views/mrp_production_views.xml",
         "views/report_mrporder_inherit.xml",
         "views/report_mrp_components.xml",
+        "views/purchase_order_views.xml",
+        "views/purchase_order_report.xml"
     ],
     "license": "OPL-1",
 }

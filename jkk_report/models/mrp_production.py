@@ -1,8 +1,16 @@
+from dateutil.relativedelta import relativedelta
 from odoo import api, fields, models
+
 
 
 class MrpProduction(models.Model):
     _inherit = "mrp.production"
+
+    expiration_date = fields.Date(
+        string="Fecha de Caducidad",
+        compute="_compute_expiration_date",
+        store=True,
+    )
 
     # Diseño
     design_no = fields.Char(string="Diseño No")
@@ -72,3 +80,16 @@ class MrpProduction(models.Model):
             if production.origin:
                 so = SaleOrder.search([("name", "=", production.origin)], limit=1)
                 production.sale_order_id = so
+
+    @api.depends("date_start", "date_finished")
+    def _compute_expiration_date(self):
+        for production in self:
+            base_date = (
+                production.date_finished
+                or production.date_start
+                or fields.Datetime.now()
+            )
+
+            production.expiration_date = fields.Date.to_date(
+                base_date
+            ) + relativedelta(years=1)
