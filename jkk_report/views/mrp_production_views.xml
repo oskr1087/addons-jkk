@@ -1,0 +1,56 @@
+<odoo>
+
+  <record id="mrp_production_form_inherit_jkk" model="ir.ui.view">
+
+    <field name="name">mrp.production.form.jkk</field>
+    <field name="model">mrp.production</field>
+    <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+
+    <field name="arch" type="xml">
+
+      <xpath expr="//sheet/group" position="inside">
+
+        <group string="Información Cliente">
+          <group>
+            <field name="design_no" readonly="state != 'draft'"/>
+            <field name="sale_order_id" readonly="state != 'draft'"/>
+            <field name="sale_reference" readonly="state != 'draft'"/>
+            <field name="customer_code" readonly="state != 'draft'"/>
+            <field name="customer_name" readonly="state != 'draft'"/>
+          </group>
+
+          <group>
+            <field name="bom_reference" readonly="state != 'draft'"/>
+            <field name="production_type" readonly="state != 'draft'"/>
+            <field name="origin_type" readonly="state != 'draft'"/>
+            <field name="order_type" readonly="state != 'draft'"/>
+          </group>
+
+        </group>
+
+      </xpath>
+
+    </field>
+
+  </record>
+
+  <record id="mrp_production_form_components_jkk" model="ir.ui.view">
+    <field name="name">mrp.production.form.components.jkk</field>
+    <field name="model">mrp.production</field>
+    <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+    <field name="arch" type="xml">
+
+      <!-- Columna # -->
+      <xpath expr="//page[@name='components']//field[@name='product_id']" position="before">
+        <field name="line_number" string="#" readonly="1"/>
+      </xpath>
+
+      <!-- Columna Almacén -->
+      <xpath expr="//page[@name='components']//field[@name='product_uom']" position="after">
+        <field name="location_internal_id" string="Almacén" readonly="1"/>
+      </xpath>
+
+    </field>
+  </record>
+
+</odoo>
