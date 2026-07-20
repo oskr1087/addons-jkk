@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Extender vista formulario de product.category -->
+        <record id="product_category_lot_sequence_form" model="ir.ui.view">
+            <field name="name">product.category.lot.sequence.form</field>
+            <field name="model">product.category</field>
+            <field name="inherit_id" ref="product.product_category_form_view"/>
+            <field name="arch" type="xml">
+                <xpath expr="//group[@name='first']" position="after">
+                    <group name="lot_sequence" string="Configuración de Secuencia de Lote">
+                        <field name="lot_sequence_prefix" placeholder="Ej: PROD-, ALM-, TEX-"/>
+                        <field name="lot_sequence_id" readonly="1" string="Secuencia"/>
+                    </group>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Extender vista árbol de product.category -->
+        <record id="product_category_lot_sequence_tree" model="ir.ui.view">
+            <field name="name">product.category.lot.sequence.tree</field>
+            <field name="model">product.category</field>
+            <field name="inherit_id" ref="product.product_category_list_view"/>
+            <field name="arch" type="xml">
+                <list position="inside">
+                    <field name="lot_sequence_prefix"/>
+                </list>
+            </field>
+        </record>
+    </data>
+</odoo>
