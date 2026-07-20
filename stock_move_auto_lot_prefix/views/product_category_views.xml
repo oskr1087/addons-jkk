@@ -11,6 +11,7 @@
                     <group name="lot_sequence" string="Configuración de Secuencia de Lote">
                         <field name="lot_sequence_prefix" placeholder="Ej: PROD-, ALM-, TEX-"/>
                         <field name="lot_sequence_id" readonly="1" string="Secuencia"/>
+                        <field name="lot_sequence_next_number" readonly="0" string="Próximo Número"/>
                     </group>
                 </xpath>
             </field>
