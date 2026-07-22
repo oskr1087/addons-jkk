@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+  <!-- ============================
+         Tree
+    ============================= -->
+
+  <record id="view_contact_payment_method_tree" model="ir.ui.view">
+    <field name="name">contact.payment.method.tree</field>
+    <field name="model">contact.payment.method</field>
+    <field name="arch" type="xml">
+
+      <list string="Métodos de Pago" editable="bottom" create="1" delete="1">
+
+        <field name="name"/>
+
+      </list>
+
+    </field>
+  </record>
+
+
+  <!-- ============================
+         Action
+    ============================= -->
+
+  <record id="action_contact_payment_method" model="ir.actions.act_window">
+
+    <field name="name">Métodos de Pago</field>
+    <field name="res_model">contact.payment.method</field>
+    <field name="view_mode">list</field>
+    <field name="view_id" ref="view_contact_payment_method_tree"/>
+    <field name="help" type="html">
+
+      <p class="o_view_nocontent_smiling_face">
+                Create the first payment method.
+      </p>
+
+    </field>
+
+  </record>
+
+</odoo>

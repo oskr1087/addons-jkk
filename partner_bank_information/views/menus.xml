@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <menuitem id="menu_contact_payment_method" name="Métodos de Pago JKK" parent="contacts.res_partner_menu_config" action="action_contact_payment_method" sequence="100"/>
+
+</odoo>

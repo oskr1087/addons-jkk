@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record id="view_partner_form_bank_information" model="ir.ui.view">
+
+        <field name="name">res.partner.form.bank.information</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+
+        <field name="arch" type="xml">
+
+            <!-- Agregar una nueva pestaña dentro del notebook -->
+
+            <xpath expr="//notebook" position="inside">
+
+                <page name="bank_information" string="Información Bancaria">
+
+                    <group>
+
+                        <group>
+
+                            <field name="bank_name" placeholder="Banco"/>
+
+                            <field name="bank_branch" placeholder="Sucursal del Banco"/>
+
+                            <field name="bank_account" placeholder="Número de Cuenta"/>
+
+                        </group>
+
+                        <group>
+
+                            <field name="bank_iban" placeholder="IBAN"/>
+
+                            <field name="payment_method_id" options="{'no_create_edit': False}"/>
+
+                        </group>
+
+                    </group>
+
+                </page>
+
+            </xpath>
+
+        </field>
+
+    </record>
+
+</odoo>
