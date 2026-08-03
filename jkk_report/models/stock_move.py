@@ -33,14 +33,41 @@ class StockMove(models.Model):
                 move.location_id.id if move.location_id else False
             )
 
+    def _is_inbound_receipt(self):
+        """Determina si es una recepción normal (no devolución)"""
+        # No es devolución si NO tiene referencia a devolución
+        if 'Devolución' in (self.origin or ''):
+            return False
+        
+        # Es recepción si viene de ubicación externa (proveedor) a interna (almacén)
+        return (
+            self.location_id.usage == 'supplier'
+            and self.location_dest_id.usage == 'internal'
+        )
+    
+    def _is_return_move(self):
+        """Detecta si es una devolución/retorno"""
+        # Es devolución si:
+        # 1. Viene de almacén (interno) a proveedor (supplier)
+        # 2. O tiene 'Devolución' en el origen
+        is_return_location = (
+            self.location_id.usage == 'internal'
+            and self.location_dest_id.usage == 'supplier'
+        )
+        is_return_document = 'Devolución' in (self.origin or '')
+        
+        return is_return_location or is_return_document
+
     def _action_done(self, cancel_backorder=False):
 
         for move in self:
-
+            # SOLO valida si es una recepción NORMAL (no es devolución)
             if (
                 move.purchase_line_id
                 and move.product_id
                 and move.quantity
+                and move._is_inbound_receipt()  # ✅ Recepciones normales: VALIDA
+                and not move._is_return_move()  # ❌ Devoluciones: NO VALIDA
             ):
 
                 purchase_line = move.purchase_line_id
@@ -48,17 +75,18 @@ class StockMove(models.Model):
                 # Cantidad comprada
                 ordered_qty = purchase_line.product_qty
 
-                # Todo lo recibido anteriormente
+                # Todo lo recibido anteriormente (solo recepciones normales, excluyendo devoluciones)
                 previous_received = sum(
                     purchase_line.move_ids.filtered(
                         lambda m:
                         m.state == "done"
                         and m.id != move.id
+                        and m._is_inbound_receipt()  # Solo cuenta recepciones normales
+                        and not m._is_return_move()  # Excluye devoluciones
                     ).mapped("quantity")
                 )
 
                 total_received = previous_received + move.quantity
-
 
                 if total_received > ordered_qty:
 
