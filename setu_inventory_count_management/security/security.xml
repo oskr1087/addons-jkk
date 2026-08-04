@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <record id="categ_setu_inventory_count" model="res.groups.privilege">
+            <field name="name">Inventory Count</field>
+            <field name="sequence">10</field>
+        </record>
+
+        <record id="group_setu_inventory_count_user" model="res.groups">
+            <field name="name">User</field>
+            <field name="privilege_id" ref="setu_inventory_count_management.categ_setu_inventory_count"/>
+            <field name="implied_ids" eval="[(4, ref('stock.group_stock_user'))]"/>
+        </record>
+
+        <record id="group_setu_inventory_count_manager" model="res.groups">
+            <field name="name">Manager</field>
+            <field name="privilege_id" ref="setu_inventory_count_management.categ_setu_inventory_count"/>
+            <field name="user_ids" eval="[(4, ref('base.user_root')),(4, ref('base.user_admin'))]"/>
+            <field name="implied_ids"
+                   eval="[(4, ref('setu_inventory_count_management.group_setu_inventory_count_user'))]"/>
+        </record>
+        <record id="group_setu_inventory_count_admin" model="res.groups">
+            <field name="name">Admin</field>
+            <field name="privilege_id" ref="setu_inventory_count_management.categ_setu_inventory_count"/>
+            <field name="implied_ids"
+                   eval="[(4, ref('setu_inventory_count_management.group_setu_inventory_count_manager'))]"/>
+            <field name="user_ids" eval="[(4, ref('base.user_admin'))]"/>
+        </record>
+
+        <record id="ir_rule_stock_inventory_count" model="ir.rule">
+            <field name="name">Inventory Count multi-company</field>
+            <field name="model_id" ref="model_setu_stock_inventory_count"/>
+            <field name="domain_force">[('warehouse_id.company_id', 'in', company_ids)]</field>
+        </record>
+
+
+        <record id="ir_rule_user_wise_inventory_count_session_MultiCompany" model="ir.rule">
+            <field name="name">Inventory Count Session Multi Company</field>
+            <field name="active">True</field>
+            <field name="model_id" ref="model_setu_inventory_count_session"/>
+            <field name="domain_force">[('warehouse_id.company_id', 'in', company_ids + [False])]</field>
+        </record>
+
+        <record id="ir_rule_setu_stock_inventory_MultiCompany" model="ir.rule">
+            <field name="name">Setu Stock Inventory Multi Company</field>
+            <field name="active">True</field>
+            <field name="model_id" ref="model_setu_stock_inventory"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
+
+
+        <record id="ir_rule_user_wise_inventory_count_session" model="ir.rule">
+            <field name="name">Inventory Count Session User</field>
+            <field name="active">True</field>
+            <field name="model_id" ref="model_setu_inventory_count_session"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_user'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="False"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_user'))]"/>
+            <field name="domain_force">['|', ('user_ids','=',user.id), ('approver_id','=',user.id)]</field>
+
+        </record>
+        <record id="ir_rule_user_wise_inventory_count_session_manager" model="ir.rule">
+            <field name="name">Inventory Count Session Manager</field>
+            <field name="active">True</field>
+            <field name="model_id" ref="model_setu_inventory_count_session"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
+            <field name="domain_force">['|', ('user_ids','=',user.id), ('approver_id','=',user.id)]</field>
+
+        </record>
+        <record id="ir_rule_user_wise_inventory_count_manager" model="ir.rule">
+            <field name="name">Inventory Count Manager</field>
+            <field name="active">True</field>
+            <field name="model_id" ref="model_setu_stock_inventory_count"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
+            <field name="domain_force">[('approver_id', '=', user.id)]</field>
+        </record>
+        <record id="ir_rule_user_wise_inventory_count_planner_manager" model="ir.rule">
+            <field name="name">Inventory Count Planner Manager</field>
+            <field name="active">True</field>
+            <field name="model_id" ref="model_setu_stock_inventory_count_planner"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
+            <field name="domain_force">[('approver_id', '=', user.id)]</field>
+        </record>
+        <record id="rule_inventory_count_session_admin_all" model="ir.rule">
+            <field name="name">Inventory Count session: Admin All Records</field>
+            <field name="model_id" ref="model_setu_inventory_count_session"/>
+            <field name="groups" eval="[(4, ref('setu_inventory_count_management.group_setu_inventory_count_admin'))]"/>
+            <field name="domain_force">[(1,'=',1)]</field>
+        </record>
+        <record id="rule_inventory_count_admin_all" model="ir.rule">
+            <field name="name">Inventory Count: Admin All Records</field>
+            <field name="model_id" ref="model_setu_stock_inventory_count"/>
+            <field name="groups" eval="[(4, ref('setu_inventory_count_management.group_setu_inventory_count_admin'))]"/>
+            <field name="domain_force">[(1,'=',1)]</field>
+        </record>
+        <record id="rule_inventory_count_planner_admin_all" model="ir.rule">
+            <field name="name">Inventory Count Planner: Admin All Records</field>
+            <field name="model_id" ref="model_setu_stock_inventory_count_planner"/>
+            <field name="groups" eval="[(4, ref('setu_inventory_count_management.group_setu_inventory_count_admin'))]"/>
+            <field name="domain_force">[(1,'=',1)]</field>
+        </record>
+        <record id="setu_count_wise_discrepancy_report_rule" model="ir.rule">
+            <field name="name">Count-wise Discrepancy Report: Company Restriction</field>
+            <field name="model_id" ref="model_setu_count_wise_discrepancy_report"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
+        </record>
+        <record id="setu_location_wise_discrepancy_report_rule" model="ir.rule">
+            <field name="name">Location-wise Discrepancy Report: Company Restriction</field>
+            <field name="model_id" ref="model_setu_location_wise_discrepancy_report"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
+        </record>
+        <record id="setu_product_wise_discrepancy_report_rule" model="ir.rule">
+            <field name="name">Product-wise Discrepancy Report: Company Restriction</field>
+            <field name="model_id" ref="model_setu_product_wise_discrepancy_report"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
+        </record>
+        <record id="setu_inventory_session_performance_report_rule" model="ir.rule">
+            <field name="name">Session Performance Report: Company Restriction</field>
+            <field name="model_id" ref="model_setu_inventory_session_performance_report"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
+        </record>
+        <record id="setu_inventory_session_user_report_rule" model="ir.rule">
+            <field name="name">User statistic Report: Company Restriction</field>
+            <field name="model_id" ref="model_setu_inventory_session_user_report"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
+        </record>
+    </data>
+</odoo>

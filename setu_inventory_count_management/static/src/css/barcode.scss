@@ -1,0 +1,41 @@
+    .custom_o_stock_mobile_barcode_container{
+        position:  relative;
+        display: inline-block;
+        .custom_o_stock_mobile_barcode{
+            width: 100%;
+            bottom: 0px;
+            position: absolute;
+            opacity: 0.75;
+            font-size: 12px;
+            .o_mobile_barcode_camera{
+                margin: 5px;
+                font-size: 1.5em;
+            }
+        }
+    }
+
+ .custom_o_stock_barcode_container {
+        span.custom_o_stock_barcode_laser {
+            @include o-position-absolute(50%, -15px, auto, -15px);
+            height: 4px;
+            margin:0px auto !important;
+            width: 103% !important;
+            background: rgba(red, 0.6);
+            box-shadow: 0 1px 10px 1px rgba(red, 0.8);
+            animation: o_barcode_scanner_intro 3s cubic-bezier(0.6, -0.28, 0.735, 0.045) 7;
+        }
+
+    .img_barcode {
+
+
+        @include media-breakpoint-down(xxl) {
+            width: 178px;
+            height: 91px;
+        }
+
+
+    }
+    .o_stock_mobile_barcode {
+            height: 50px;
+    }
+}

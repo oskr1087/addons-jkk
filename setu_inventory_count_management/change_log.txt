@@ -1,0 +1,48 @@
+Date : 8th june 2026
+Version : '6.0' (in __manifest__.py)
+Odoo Version : 19
+Developer : Devangi Pabari
+Senior : Devangi Pabari
+Tested By : Devangi Pabari
+Changes : Refactored the approval flow of sessions as previously done based on discussion with payal madam
+
+Date : 25th March 2026
+Version : '5.0' (in __manifest__.py)
+Odoo Version : 19
+Developer : Devangi Pabari
+Senior : Devangi Pabari
+Tested By : Devangi Pabari
+Changes : Updated manifest dependancy and qty_done to quantity change 
+
+Date : 18th March 2026
+Version : '4.0' (in __manifest__.py)
+Odoo Version : 19
+Developer : Devangi Pabari
+Senior : Devangi Pabari
+Tested By : Devangi Pabari
+Changes : Updated manifest dependancy 
+
+Date : 2nd january 2026
+Version : '3.0' (in __manifest__.py)
+Odoo Version : 19
+Developer : Hemangi Desai
+Senior : Devangi Pabari
+Tested By : Hemangi Desai
+Changes : Fixed the issue related to dashboard open session data,theoratical qty issue for serial tracking products in inventort loss report, theoratical quantities not correct in sessions for serial products, approval changes in session,count
+
+Date : 24th October 2025
+Version : '2.0' (in __manifest__.py)
+Odoo Version : 19
+Developer : Devangi Pabari
+Senior : Devangi Pabari
+Tested By : Devangi Pabari
+Changes : Removed unscanned functionality
+
+
+Date : 15th October 2025
+Version : '1.0' (in __manifest__.py)
+Odoo Version : 19
+Developer : Chintan Makwana
+Senior : Devangi Pabari
+Tested By : Nikhil Sudra
+Changes : Migrated v18 to v19
