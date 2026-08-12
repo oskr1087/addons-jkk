@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="seq_mrp_production_lot" model="ir.sequence">
+            <field name="name">Secuencia de lotes de producción</field>
+            <field name="code">mrp.production.lot.sequence</field>
+            <field name="padding">8</field>
+            <field name="company_id" eval="False"/>
+        </record>
+    </data>
+</odoo>
