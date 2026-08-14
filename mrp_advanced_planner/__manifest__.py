@@ -1,6 +1,6 @@
 {
     'name': 'Planificador Simple de Fabricación',
-    'version': '19.0.7.2.0',
+    'version': '19.0.7.3.0',
     'category': 'Fabricación/Fabricación',
     'summary': 'Planificación rápida de fabricación basada en ventas pendientes hasta una fecha',
     'author': 'Planificador APS',
