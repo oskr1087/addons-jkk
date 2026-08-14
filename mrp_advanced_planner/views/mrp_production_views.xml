@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mrp_production_form_planning_origin" model="ir.ui.view">
+        <field name="name">mrp.production.form.planning.origin</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_advanced_plan"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-calendar-check-o"
+                        invisible="not advanced_plan_id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Planificación</span>
+                        <span class="o_stat_value"><field name="advanced_plan_id"/></span>
+                    </div>
+                </button>
+            </xpath>
+            <xpath expr="//group[@name='group_extra_info']" position="inside">
+                <field name="advanced_plan_id" string="Planificación de origen" readonly="1" invisible="not advanced_plan_id"/>
+                <field name="planning_sale_line_id" string="Línea de venta origen" readonly="1" invisible="not planning_sale_line_id"/>
+                <field name="planning_plan_line_id" string="Línea del plan" readonly="1" invisible="not planning_plan_line_id"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_mrp_production_list_planning_origin" model="ir.ui.view">
+        <field name="name">mrp.production.list.planning.origin</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_tree_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='origin']" position="after">
+                <field name="advanced_plan_id" string="Planificación" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

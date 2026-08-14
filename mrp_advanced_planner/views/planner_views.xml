@@ -1,0 +1,138 @@
+<odoo>
+  <record id="view_advanced_plan_list" model="ir.ui.view">
+    <field name="name">mrp.advanced.plan.list</field>
+    <field name="model">mrp.advanced.plan</field>
+    <field name="arch" type="xml">
+      <list decoration-danger="state == 'failed'" decoration-success="state == 'applied'">
+        <field name="name"/>
+        <field name="warehouse_id"/>
+        <field name="date_start"/>
+        <field name="date_end"/>
+        <field name="state" widget="badge"/>
+        <field name="demand_count"/>
+        <field name="supply_count"/>
+        <field name="conflict_count"/>
+      </list>
+    </field>
+  </record>
+  <record id="view_advanced_plan_form" model="ir.ui.view">
+    <field name="name">mrp.advanced.plan.form</field>
+    <field name="model">mrp.advanced.plan</field>
+    <field name="arch" type="xml">
+      <form>
+        <header>
+          <button name="action_calculate" type="object" string="Calcular" class="btn-primary" invisible="state not in ('draft','calculated','failed')"/>
+          <button name="action_approve" type="object" string="Aprobar" invisible="state != 'calculated'"/>
+          <button name="action_apply" type="object" string="Aplicar plan" class="btn-primary" invisible="state != 'approved'"/>
+          <button name="action_cancel" type="object" string="Cancelar" invisible="state in ('applied','cancelled')"/>
+          <field name="state" widget="statusbar" statusbar_visible="draft,running,calculated,approved,applied"/>
+        </header>
+        <sheet>
+          <div class="oe_button_box" name="button_box">
+            <button name="%(action_advanced_supply)d" type="action" class="oe_stat_button" icon="fa-truck">
+              <field name="supply_count" widget="statinfo" string="Suministro"/>
+            </button>
+            <button name="%(action_advanced_conflict)d" type="action" class="oe_stat_button" icon="fa-warning">
+              <field name="conflict_count" widget="statinfo" string="Conflictos"/>
+            </button>
+          </div>
+          <div class="oe_title">
+            <h1>
+              <field name="name"/>
+            </h1>
+          </div>
+          <group>
+            <group>
+              <field name="company_id"/>
+              <field name="warehouse_id"/>
+              <field name="date_start"/>
+              <field name="date_end"/>
+            </group>
+            <group>
+              <field name="finite_capacity"/>
+              <field name="include_purchase"/>
+              <field name="include_manufacturing"/>
+              <field name="use_alternatives"/>
+              <field name="priority"/>
+            </group>
+          </group>
+          <notebook>
+            <page string="Demanda">
+              <field name="demand_ids">
+                <list editable="bottom">
+                  <field name="product_id"/>
+                  <field name="quantity"/>
+                  <field name="qty_available"/>
+                  <field name="qty_short"/>
+                  <field name="date_required"/>
+                  <field name="state"/>
+                </list>
+              </field>
+            </page>
+            <page string="Requisitos">
+              <field name="requirement_ids">
+                <list>
+                  <field name="product_id"/>
+                  <field name="quantity"/>
+                  <field name="level"/>
+                  <field name="date_required"/>
+                  <field name="state"/>
+                </list>
+              </field>
+            </page>
+            <page string="Suministro">
+              <field name="supply_ids">
+                <list>
+                  <field name="product_id"/>
+                  <field name="supply_type"/>
+                  <field name="quantity"/>
+                  <field name="date_required"/>
+                  <field name="applied"/>
+                </list>
+              </field>
+            </page>
+            <page string="Operations">
+              <field name="operation_ids">
+                <list>
+                  <field name="name"/>
+                  <field name="workcenter_id"/>
+                  <field name="date_start"/>
+                  <field name="date_end"/>
+                  <field name="duration"/>
+                  <field name="state"/>
+                </list>
+              </field>
+            </page>
+            <page string="Conflictos">
+              <field name="conflict_ids">
+                <list>
+                  <field name="severity"/>
+                  <field name="conflict_type"/>
+                  <field name="product_id"/>
+                  <field name="workcenter_id"/>
+                  <field name="message"/>
+                  <field name="resolved"/>
+                </list>
+              </field>
+            </page>
+          </notebook>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="action_advanced_plan" model="ir.actions.act_window">
+    <field name="name">Planes de planificación</field>
+    <field name="res_model">mrp.advanced.plan</field>
+    <field name="view_mode">list,form</field>
+  </record>
+  <record id="action_advanced_supply" model="ir.actions.act_window">
+    <field name="name">Propuestas de suministro</field>
+    <field name="res_model">mrp.advanced.supply</field>
+    <field name="view_mode">list,form</field>
+  </record>
+  <record id="action_advanced_conflict" model="ir.actions.act_window">
+    <field name="name">Conflictos de planificación</field>
+    <field name="res_model">mrp.advanced.conflict</field>
+    <field name="view_mode">list,form</field>
+  </record>
+</odoo>

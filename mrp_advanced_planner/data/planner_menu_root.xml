@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_mrp_advanced_planner_root" name="Planificador de fabricación" sequence="60" groups="mrp_advanced_planner.group_planner_user"/>
+</odoo>

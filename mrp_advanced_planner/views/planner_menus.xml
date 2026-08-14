@@ -1,0 +1,4 @@
+<odoo>
+    <menuitem id="menu_advanced_planner_root" name="Advanced Planner" sequence="30"/>
+    <menuitem id="menu_advanced_plan" name="Planning Plans" parent="menu_advanced_planner_root" action="action_advanced_plan"/>
+</odoo>

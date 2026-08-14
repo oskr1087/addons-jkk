@@ -1,0 +1,7 @@
+<odoo>
+    <record id="action_planning_dashboard" model="ir.actions.client">
+        <field name="name">Panel de fabricación</field>
+        <field name="tag">mrp_advanced_planner.dashboard</field>
+    </record>
+    <menuitem id="menu_mrp_advanced_planner_dashboard" name="Panel de fabricación" parent="menu_mrp_advanced_planner_root" action="action_planning_dashboard" sequence="1" groups="mrp_advanced_planner.group_planner_user"/>
+</odoo>

@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+<t t-name="mrp_advanced_planner.PlanningDashboard">
+<div class="o_mrp_advanced_dashboard p-3 p-lg-4 overflow-auto h-100">
+    <div class="card aps-hero shadow-sm mb-4">
+        <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+                <div class="text-uppercase small aps-muted fw-semibold">Control de producción</div>
+                <h2 class="mb-1">Panel de fabricación</h2>
+                <div class="aps-muted" t-if="state.data.plan">
+                    <i class="fa fa-calendar me-1"/> <t t-esc="state.data.plan.name"/> · Hasta <t t-esc="state.data.plan.date_end"/> · <t t-esc="state.data.plan.warehouse"/>
+                </div>
+                <div class="aps-muted" t-else="">Cree y calcule una planificación para obtener el pronóstico.</div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <select class="form-select" style="min-width:220px" t-on-change="onPlanChange.bind(this)">
+                    <option value="">Último plan calculado</option>
+                    <t t-foreach="state.data.plans" t-as="plan" t-key="plan.id"><option t-att-value="plan.id"><t t-esc="plan.name"/> · <t t-esc="plan.date_end"/></option></t>
+                </select>
+                <button class="btn btn-light border" t-on-click="loadData.bind(this)"><i class="fa fa-refresh me-1"/> Actualizar</button>
+                <button class="btn btn-primary" t-on-click="openPlan.bind(this)" t-att-disabled="!state.data.plan"><i class="fa fa-external-link me-1"/> Abrir planificación</button>
+            </div>
+        </div>
+    </div>
+
+    <t t-if="state.loading"><div class="text-center p-5"><i class="fa fa-spinner fa-spin fa-2x"/><div class="mt-2">Cargando producción...</div></div></t>
+    <t t-else="">
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-sm-6 col-xl-3"><div class="card aps-kpi aps-kpi-demand shadow-sm h-100"><div class="card-body"><div class="d-flex justify-content-between"><div><div class="small text-uppercase aps-muted fw-semibold">Pedidos pendientes</div><div class="aps-big-number mt-2"><t t-esc="state.data.kpis.pending_sales_qty || 0"/></div><div class="small aps-muted mt-2">Demanda hasta la fecha</div></div><div class="aps-kpi-icon"><i class="fa fa-shopping-cart"/></div></div></div></div></div>
+            <div class="col-12 col-sm-6 col-xl-3"><div class="card aps-kpi aps-kpi-stock shadow-sm h-100"><div class="card-body"><div class="d-flex justify-content-between"><div><div class="small text-uppercase aps-muted fw-semibold">Cubierto por inventario</div><div class="aps-big-number mt-2"><t t-esc="state.data.kpis.stock_qty || 0"/></div><div class="small aps-muted mt-2">Demanda cubierta por stock</div></div><div class="aps-kpi-icon"><i class="fa fa-cubes"/></div></div></div></div></div>
+            <div class="col-12 col-sm-6 col-xl-3"><div class="card aps-kpi aps-kpi-running shadow-sm h-100"><div class="card-body"><div class="d-flex justify-content-between"><div><div class="small text-uppercase aps-muted fw-semibold">Cubierto por OF abiertas</div><div class="aps-big-number mt-2"><t t-esc="state.data.kpis.manufacturing_qty || 0"/></div><div class="small aps-muted mt-2"><t t-esc="state.data.kpis.open_mo_count || 0"/> OF abiertas</div></div><div class="aps-kpi-icon"><i class="fa fa-industry"/></div></div></div></div></div>
+            <div class="col-12 col-sm-6 col-xl-3"><div class="card aps-kpi aps-kpi-primary shadow-sm h-100"><div class="card-body"><div class="d-flex justify-content-between"><div><div class="small text-uppercase fw-bold">A fabricar</div><div class="aps-big-number mt-2"><t t-esc="state.data.kpis.to_produce_qty || 0"/></div><div class="small aps-muted mt-2"><t t-esc="state.data.kpis.lines_to_produce || 0"/> líneas · <t t-esc="state.data.kpis.products_to_produce || 0"/> productos</div></div><div class="aps-kpi-icon"><i class="fa fa-gears"/></div></div></div></div></div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-xl-8"><div class="card aps-panel shadow-sm h-100"><div class="card-header d-flex justify-content-between"><div><strong>¿Qué tengo que fabricar?</strong><div class="small aps-muted">Pronóstico editable desde la planificación</div></div><span class="aps-badge"><t t-esc="state.data.kpis.products_to_produce || 0"/> productos</span></div>
+                <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Entrega</th><th>Pedido / Cliente</th><th>Producto</th><th class="text-end">Pendiente</th><th class="text-end">Stock</th><th class="text-end">OF</th><th class="text-end">Sugerido</th><th class="text-end">Fabricar</th></tr></thead><tbody>
+                <tr t-if="!state.data.forecast_products.length"><td colspan="8" class="text-center aps-muted py-5">No hay líneas de venta pendientes de fabricación.</td></tr>
+                <t t-foreach="state.data.forecast_products" t-as="line" t-key="line.id"><tr class="aps-product-row" t-att-class="line.blocked ? 'table-danger' : ''" t-on-click="() => this.openForecastLine(line.id)"><td><t t-esc="line.delivery_date"/></td><td><div class="fw-semibold"><t t-esc="line.sale_order"/></div><div class="small aps-muted"><t t-esc="line.customer"/></div></td><td><div class="fw-semibold"><t t-esc="line.product"/></div><div class="small aps-muted"><t t-esc="line.uom"/><t t-if="line.blocked"> · Sin LdM</t></div></td><td class="text-end"><t t-esc="line.sales_qty"/></td><td class="text-end"><t t-esc="line.stock_qty"/></td><td class="text-end"><t t-esc="line.manufacturing_qty"/></td><td class="text-end"><t t-esc="line.suggested_qty"/></td><td class="text-end fw-bold"><t t-esc="line.to_produce_qty"/></td></tr></t>
+                </tbody><tfoot t-if="state.data.forecast_products.length"><tr class="fw-bold"><td colspan="7" class="text-end">TOTAL A FABRICAR</td><td class="text-end"><t t-esc="state.data.kpis.to_produce_qty || 0"/></td></tr></tfoot></table></div>
+            </div></div>
+            <div class="col-12 col-xl-4"><div class="card aps-panel shadow-sm h-100"><div class="card-header"><strong>Cobertura de demanda</strong><div class="small aps-muted">Stock + fabricación existente frente a pedidos</div></div><div class="card-body">
+                <div class="d-flex justify-content-between mb-2"><span>Cobertura actual</span><strong><t t-esc="coveragePercent()"/>%</strong></div><div class="aps-progress mb-4"><div t-att-style="'width:' + coveragePercent() + '%'"/></div>
+                <div class="d-flex justify-content-between py-2 border-bottom"><span class="aps-muted">Demanda</span><strong><t t-esc="state.data.kpis.pending_sales_qty || 0"/></strong></div>
+                <div class="d-flex justify-content-between py-2 border-bottom"><span class="aps-muted">Cubierto con stock</span><strong><t t-esc="state.data.kpis.stock_qty || 0"/></strong></div>
+                <div class="d-flex justify-content-between py-2 border-bottom"><span class="aps-muted">Cubierto por OF</span><strong><t t-esc="state.data.kpis.manufacturing_qty || 0"/></strong></div>
+                <div class="d-flex justify-content-between py-2"><span class="fw-semibold">Falta planificar</span><strong><t t-esc="state.data.kpis.to_produce_qty || 0"/></strong></div>
+            </div></div></div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-xl-7"><div class="card aps-panel shadow-sm h-100"><div class="card-header d-flex justify-content-between align-items-center"><div><strong>Órdenes de fabricación</strong><div class="small aps-muted">Estado real y planificación que originó cada OF</div></div><button class="btn btn-sm btn-light border" t-on-click="() => this.openMOs(false)">Ver todas</button></div>
+                <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>OF</th><th>Producto</th><th>Estado</th><th class="text-end">Cantidad</th><th>Planificación</th></tr></thead><tbody>
+                    <tr t-if="!state.data.manufacturing_orders.length"><td colspan="5" class="text-center aps-muted py-4">No existen órdenes de fabricación.</td></tr>
+                    <t t-foreach="state.data.manufacturing_orders" t-as="mo" t-key="mo.id">
+                        <tr class="aps-product-row" t-on-click="() => this.openMO(mo.id)">
+                            <td><div class="fw-semibold"><t t-esc="mo.name"/></div><div class="small aps-muted"><t t-esc="mo.sale_order"/></div></td>
+                            <td><div><t t-esc="mo.product"/></div><div class="aps-progress mt-1"><div t-att-class="progressSemaphoreClass(mo.progress)" t-att-style="progressStyle(mo.progress)"/></div><div class="small aps-muted mt-1"><t t-esc="mo.produced"/> / <t t-esc="mo.qty"/> <t t-esc="mo.uom"/> · <t t-esc="mo.progress"/>%</div></td>
+                            <td><span t-att-class="'aps-status-pill '+moSemaphoreClass(mo.state)"><span class="aps-dot"/><t t-esc="mo.state_label"/></span></td>
+                            <td class="text-end"><t t-esc="mo.qty"/></td>
+                            <td><t t-if="mo.plan"><span class="fw-semibold"><t t-esc="mo.plan"/></span></t><t t-else=""><span class="aps-muted">Sin planificación</span></t></td>
+                        </tr>
+                    </t>
+                </tbody></table></div>
+            </div></div>
+            <div class="col-12 col-xl-5"><div class="card aps-panel shadow-sm h-100"><div class="card-header"><strong>Órdenes por estado</strong><div class="small aps-muted">Pulse un estado para abrir las OF</div></div><div class="card-body">
+                <t t-if="!state.data.states.length"><div class="aps-muted py-4 text-center">No existen órdenes de fabricación.</div></t>
+                <t t-foreach="state.data.states" t-as="item" t-key="item.key"><div class="aps-state-row mb-2" t-on-click="() => this.openMOs(item.key)"><div class="d-flex justify-content-between align-items-center"><div><strong><t t-esc="item.label"/></strong><div class="small aps-muted">Pendiente: <t t-esc="item.remaining_qty"/></div></div><span t-att-class="'aps-status-pill '+moSemaphoreClass(item.key)"><span class="aps-dot"/><t t-esc="item.count"/> OF</span></div><div class="aps-progress mt-2"><div t-att-class="moSemaphoreClass(item.key)" t-att-style="'width:' + statePercent(item) + '%'"/></div></div></t>
+            </div></div></div>
+        </div>
+
+        <div class="card aps-panel shadow-sm mb-4"><div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><div><strong>Centros de trabajo</strong><div class="small aps-muted">Qué se está fabricando ahora y qué está en cola</div></div><div class="d-flex gap-2"><span class="aps-badge"><t t-esc="state.data.kpis.workcenters_running || 0"/> activos</span><button class="btn btn-sm btn-light border" t-on-click="() => this.openWorkorders(false)">Ver órdenes de trabajo</button></div></div>
+            <div class="card-body"><div class="row g-3">
+                <div t-if="!state.data.workcenters.length" class="col-12 text-center aps-muted py-4">No hay centros de trabajo configurados.</div>
+                <t t-foreach="state.data.workcenters" t-as="wc" t-key="wc.id"><div class="col-12 col-lg-6 col-xxl-4"><div t-att-class="'border rounded-3 p-3 h-100 aps-workcenter '+workcenterSemaphoreClass(wc)">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-3"><div><button class="btn btn-link p-0 fw-bold text-start" t-on-click="() => this.openWorkcenter(wc.id)"><t t-esc="wc.name"/></button><div class="small aps-muted"><t t-esc="wc.working_state_label"/> · OEE <t t-esc="wc.oee"/>%</div></div><span t-att-class="'aps-status-pill '+workcenterSemaphoreClass(wc)"><span class="aps-dot"/><t t-esc="wc.running_count"/> en curso · <t t-esc="wc.queue_count"/> cola</span></div>
+                    <t t-if="wc.current_mo"><div class="aps-current-production p-3 rounded mb-3"><div class="small text-uppercase aps-muted fw-semibold">Fabricando ahora</div><div class="fw-bold mt-1"><t t-esc="wc.current_product"/></div><div class="small"><t t-esc="wc.current_mo"/> · <t t-esc="wc.current_operation"/></div><div class="aps-progress mt-2"><div t-att-class="progressSemaphoreClass(wc.current_progress)" t-att-style="progressStyle(wc.current_progress)"/></div><div class="small aps-muted mt-1"><t t-esc="wc.current_progress"/>% de progreso</div></div></t>
+                    <t t-else=""><div class="aps-muted border rounded p-3 mb-3">Sin operación en progreso actualmente.</div></t>
+                    <div class="small text-uppercase aps-muted fw-semibold mb-2">Operaciones activas / próximas</div>
+                    <div t-if="!wc.orders.length" class="small aps-muted">Sin órdenes pendientes.</div>
+                    <t t-foreach="wc.orders" t-as="wo" t-key="wo.id"><button class="btn btn-light border w-100 text-start mb-2 p-2" t-on-click="() => this.openMO(wo.mo_id)"><div class="d-flex justify-content-between gap-2"><div><div class="fw-semibold"><t t-esc="wo.product"/></div><div class="small aps-muted"><t t-esc="wo.mo"/> · <t t-esc="wo.operation"/></div></div><span t-att-class="'aps-status-pill '+moSemaphoreClass(wo.state)"><span class="aps-dot"/><t t-esc="wo.state_label"/></span></div><div class="aps-progress mt-2"><div t-att-class="progressSemaphoreClass(wo.progress)" t-att-style="progressStyle(wo.progress)"/></div></button></t>
+                    <button class="btn btn-sm btn-link px-0" t-on-click="() => this.openWorkorders(wc.id)">Ver centro y cola completa</button>
+                </div></div></t>
+            </div></div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-12"><div class="card aps-panel shadow-sm"><div class="card-header"><strong>Alertas de producción</strong><div class="small aps-muted">Situaciones que requieren revisión</div></div><div class="card-body d-flex flex-wrap gap-2">
+                <button class="btn aps-alert aps-alert-danger p-3 flex-grow-1 text-start" t-on-click="openLateMOs.bind(this)"><div class="d-flex justify-content-between"><span><i class="fa fa-clock-o me-2"/>OF atrasadas</span><strong><t t-esc="state.data.alerts.late_mo_count || 0"/></strong></div></button>
+                <div class="d-flex justify-content-between p-3 rounded flex-grow-1 aps-alert aps-alert-warning"><span><i class="fa fa-warning me-2"/>Productos sin LdM</span><strong><t t-esc="state.data.alerts.without_bom_count || 0"/></strong></div>
+                <div class="d-flex justify-content-between p-3 rounded flex-grow-1 aps-alert aps-alert-success"><span><i class="fa fa-check-circle me-2"/>OF terminadas</span><strong><t t-esc="state.data.alerts.done_mo_count || 0"/></strong></div>
+            </div></div></div>
+        </div>
+    </t>
+</div>
+</t>
+</templates>

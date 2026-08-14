@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_production_proposals" name="Propuestas de fabricación" parent="menu_mrp_advanced_planner_root" action="action_production_proposals" sequence="30"/>
+    <menuitem id="menu_purchase_proposals" name="Propuestas de compra" parent="menu_mrp_advanced_planner_root" action="action_purchase_proposals" sequence="40"/>
+</odoo>

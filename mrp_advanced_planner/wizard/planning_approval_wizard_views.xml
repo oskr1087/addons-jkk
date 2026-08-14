@@ -1,0 +1,25 @@
+<odoo>
+    <record id="view_mrp_planning_approval_wizard_form" model="ir.ui.view">
+        <field name="name">mrp.planning.approval.wizard.form</field>
+        <field name="model">mrp.planning.approval.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Aprobar planificación">
+                <group>
+                    <field name="plan_id"/>
+                </group>
+                <div class="alert alert-info" role="alert">
+                    Revise el resumen. Al confirmar se crearán las órdenes de fabricación usando exactamente las cantidades definidas en <strong>Fabricar</strong>.
+                </div>
+                <group col="3">
+                    <field name="product_count" readonly="1"/>
+                    <field name="total_qty" readonly="1"/>
+                    <field name="production_count" readonly="1"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Confirmar y crear OF" class="btn-primary"/>
+                    <button string="Cancelar" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

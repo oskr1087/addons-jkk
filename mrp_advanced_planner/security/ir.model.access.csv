@@ -1,0 +1,19 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_planning_plan_user,planning plan user,model_mrp_planning_plan,group_planner_user,1,1,1,0
+access_planning_plan_line_user,planning line user,model_mrp_planning_plan_line,group_planner_user,1,1,1,1
+access_planning_demand_user,planning demand user,model_mrp_planning_demand,group_planner_user,1,1,1,1
+access_planning_requirement_user,planning requirement user,model_mrp_planning_requirement,group_planner_user,1,1,1,1
+access_planning_supply_user,planning supply user,model_mrp_planning_supply,group_planner_user,1,1,1,1
+access_planning_conflict_user,planning conflict user,model_mrp_planning_conflict,group_planner_user,1,1,1,1
+access_planning_run_user,planning run user,model_mrp_planning_run,group_planner_user,1,1,1,1
+access_physical_roll_user,physical roll user,model_mrp_physical_roll,group_planner_user,1,1,1,1
+access_physical_roll_assignment_user,physical roll assignment user,model_mrp_physical_roll_assignment,group_planner_user,1,1,1,1
+access_physical_roll_cut_user,physical roll cut user,model_mrp_physical_roll_cut,group_planner_user,1,1,1,1
+access_production_proposal_user,production proposal user,model_mrp_planning_production_proposal,group_planner_user,1,1,1,1
+access_purchase_proposal_user,purchase proposal user,model_mrp_planning_purchase_proposal,group_planner_user,1,1,1,1
+access_planning_operation_user,planning operation user,model_mrp_planning_operation,group_planner_user,1,1,1,1
+access_planning_workcenter_load_user,workcenter load user,model_mrp_planning_workcenter_load,group_planner_user,1,1,1,1
+access_planning_snapshot_user,planning snapshot user,model_mrp_planning_snapshot,group_planner_user,1,1,1,1
+access_planning_dashboard_user,planning dashboard user,model_mrp_planning_dashboard,group_planner_user,1,0,0,0
+access_planner_wizard_user,planner wizard user,model_mrp_planning_planner_wizard,group_planner_user,1,1,1,1
+access_mrp_planning_approval_wizard,mrp.planning.approval.wizard,model_mrp_planning_approval_wizard,mrp_advanced_planner.group_planner_user,1,1,1,1

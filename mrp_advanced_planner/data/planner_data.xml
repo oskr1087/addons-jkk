@@ -1,0 +1,9 @@
+<odoo noupdate="1">
+    <record id="seq_mrp_planning_plan" model="ir.sequence">
+        <field name="name">Plan APS</field>
+        <field name="code">mrp.planning.plan</field>
+        <field name="prefix">APS/</field>
+        <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
+    </record>
+</odoo>
