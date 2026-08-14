@@ -1,6 +1,6 @@
 {
     'name': 'Planificador Simple de Fabricación',
-    'version': '19.0.7.3.0',
+    'version': '19.0.7.4.0',
     'category': 'Fabricación/Fabricación',
     'summary': 'Planificación rápida de fabricación basada en ventas pendientes hasta una fecha',
     'author': 'Planificador APS',
@@ -22,7 +22,7 @@
         'web.assets_backend': [
             'mrp_advanced_planner/static/src/js/planning_dashboard.js',
             'mrp_advanced_planner/static/src/xml/planning_dashboard.xml',
-            'mrp_advanced_planner/static/src/scss/planning_dashboard.scss',
+            'mrp_advanced_planner/static/src/css/planning_dashboard.css',
         ],
     },
     'installable': True, 'application': True,

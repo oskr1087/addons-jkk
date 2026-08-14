@@ -1,0 +1,54 @@
+/* Planificador de fabricación - dashboard visual. CSS plano para Odoo 19. */
+.o_mrp_advanced_dashboard { background: var(--o-view-background-color, #f6f7f9); min-height: 100%; }
+.o_mrp_advanced_dashboard .aps-hero { border:0; border-radius:14px; background:var(--o-card-background-color, #fff); border-left:5px solid var(--o-brand-primary, #714B67); }
+.o_mrp_advanced_dashboard .aps-kpi { position:relative; overflow:hidden; border:0; border-radius:14px; border-top:4px solid transparent; transition:transform .15s ease, box-shadow .15s ease; }
+.o_mrp_advanced_dashboard .aps-kpi:hover { transform:translateY(-2px); box-shadow:0 .5rem 1rem rgba(0,0,0,.08)!important; }
+.o_mrp_advanced_dashboard .aps-kpi-icon { width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; background:rgba(113,75,103,.10); }
+.o_mrp_advanced_dashboard .aps-kpi-demand { border-top-color:#f0ad4e; }
+.o_mrp_advanced_dashboard .aps-kpi-stock { border-top-color:#28a745; }
+.o_mrp_advanced_dashboard .aps-kpi-running { border-top-color:#2f80ed; }
+.o_mrp_advanced_dashboard .aps-kpi-primary { border-top-color:#dc3545; border-left:0; background:rgba(220,53,69,.06); }
+.o_mrp_advanced_dashboard .aps-kpi-demand .aps-kpi-icon { color:#9a6500; background:rgba(240,173,78,.16); }
+.o_mrp_advanced_dashboard .aps-kpi-stock .aps-kpi-icon { color:#1f7a35; background:rgba(40,167,69,.14); }
+.o_mrp_advanced_dashboard .aps-kpi-running .aps-kpi-icon { color:#1d67c1; background:rgba(47,128,237,.14); }
+.o_mrp_advanced_dashboard .aps-kpi-primary .aps-kpi-icon { color:#b02a37; background:rgba(220,53,69,.14); }
+.o_mrp_advanced_dashboard .aps-panel { border:0; border-radius:14px; overflow:hidden; box-shadow:0 .18rem .65rem rgba(0,0,0,.055)!important; }
+.o_mrp_advanced_dashboard .aps-panel .card-header { background:transparent; border-bottom:1px solid var(--border-color, #dee2e6); padding:1rem 1.25rem; }
+.o_mrp_advanced_dashboard .aps-state-row { cursor:pointer; border-radius:10px; padding:.65rem .75rem; }
+.o_mrp_advanced_dashboard .aps-state-row:hover { background:rgba(113,75,103,.06); }
+.o_mrp_advanced_dashboard .aps-progress { height:9px; border-radius:99px; overflow:hidden; background:rgba(127,127,127,.16); }
+.o_mrp_advanced_dashboard .aps-progress > div { height:100%; border-radius:99px; background:var(--o-brand-primary, #714B67); }
+.o_mrp_advanced_dashboard .aps-progress > div.aps-progress-green,
+.o_mrp_advanced_dashboard .aps-progress > div.aps-sem-green { background:#28a745; }
+.o_mrp_advanced_dashboard .aps-progress > div.aps-progress-blue,
+.o_mrp_advanced_dashboard .aps-progress > div.aps-sem-blue { background:#2f80ed; }
+.o_mrp_advanced_dashboard .aps-progress > div.aps-progress-yellow,
+.o_mrp_advanced_dashboard .aps-progress > div.aps-sem-yellow { background:#f0ad4e; }
+.o_mrp_advanced_dashboard .aps-progress > div.aps-progress-gray,
+.o_mrp_advanced_dashboard .aps-progress > div.aps-sem-gray { background:#adb5bd; }
+.o_mrp_advanced_dashboard .aps-progress > div.aps-sem-red { background:#dc3545; }
+.o_mrp_advanced_dashboard .aps-product-row { cursor:pointer; }
+.o_mrp_advanced_dashboard .aps-product-row:hover { background:rgba(113,75,103,.05); }
+.o_mrp_advanced_dashboard .aps-badge { border-radius:999px; padding:.25rem .6rem; font-size:.75rem; font-weight:600; background:rgba(113,75,103,.10); }
+.o_mrp_advanced_dashboard .aps-big-number { font-size:2rem; line-height:1; font-weight:700; }
+.o_mrp_advanced_dashboard .aps-muted { color:var(--o-main-text-color, #666); opacity:.68; }
+.o_mrp_advanced_dashboard .aps-status-pill { display:inline-flex; align-items:center; gap:.4rem; border-radius:999px; padding:.28rem .62rem; font-size:.75rem; font-weight:700; border:1px solid transparent; white-space:nowrap; }
+.o_mrp_advanced_dashboard .aps-dot { width:.58rem; height:.58rem; border-radius:50%; background:currentColor; box-shadow:0 0 0 3px rgba(127,127,127,.10); }
+.o_mrp_advanced_dashboard .aps-sem-green { color:#18753a; background:rgba(40,167,69,.12); border-color:rgba(40,167,69,.28); }
+.o_mrp_advanced_dashboard .aps-sem-yellow { color:#946200; background:rgba(255,193,7,.16); border-color:rgba(255,193,7,.34); }
+.o_mrp_advanced_dashboard .aps-sem-red { color:#b02a37; background:rgba(220,53,69,.12); border-color:rgba(220,53,69,.28); }
+.o_mrp_advanced_dashboard .aps-sem-blue { color:#1d67c1; background:rgba(47,128,237,.12); border-color:rgba(47,128,237,.28); }
+.o_mrp_advanced_dashboard .aps-sem-gray { color:#626b73; background:rgba(108,117,125,.11); border-color:rgba(108,117,125,.24); }
+.o_mrp_advanced_dashboard .aps-workcenter { background:var(--o-card-background-color, #fff); border-left-width:5px!important; transition:transform .15s ease, box-shadow .15s ease; }
+.o_mrp_advanced_dashboard .aps-workcenter:hover { transform:translateY(-2px); box-shadow:0 .4rem 1rem rgba(0,0,0,.08); }
+.o_mrp_advanced_dashboard .aps-workcenter.aps-sem-green { border-left-color:#28a745!important; }
+.o_mrp_advanced_dashboard .aps-workcenter.aps-sem-yellow { border-left-color:#f0ad4e!important; }
+.o_mrp_advanced_dashboard .aps-workcenter.aps-sem-blue { border-left-color:#2f80ed!important; }
+.o_mrp_advanced_dashboard .aps-workcenter.aps-sem-red { border-left-color:#dc3545!important; }
+.o_mrp_advanced_dashboard .aps-current-production { background:rgba(113,75,103,.06); }
+.o_mrp_advanced_dashboard .aps-workcenter .btn-link { text-decoration:none; }
+.o_mrp_advanced_dashboard .aps-alert { border:1px solid transparent; border-radius:12px; }
+.o_mrp_advanced_dashboard .aps-alert-danger { color:#842029; background:rgba(220,53,69,.10); border-color:rgba(220,53,69,.25); }
+.o_mrp_advanced_dashboard .aps-alert-warning { color:#7a5200; background:rgba(255,193,7,.13); border-color:rgba(255,193,7,.28); }
+.o_mrp_advanced_dashboard .aps-alert-success { color:#155d2d; background:rgba(40,167,69,.10); border-color:rgba(40,167,69,.24); }
+.o_mrp_advanced_dashboard .table thead th { font-size:.76rem; text-transform:uppercase; letter-spacing:.025em; color:var(--o-main-text-color, #555); opacity:.72; }
