@@ -17,3 +17,4 @@ access_planning_snapshot_user,planning snapshot user,model_mrp_planning_snapshot
 access_planning_dashboard_user,planning dashboard user,model_mrp_planning_dashboard,group_planner_user,1,0,0,0
 access_planner_wizard_user,planner wizard user,model_mrp_planning_planner_wizard,group_planner_user,1,1,1,1
 access_mrp_planning_approval_wizard,mrp.planning.approval.wizard,model_mrp_planning_approval_wizard,mrp_advanced_planner.group_planner_user,1,1,1,1
+access_planning_line_warehouse_user,planning line warehouse user,model_mrp_planning_plan_line_warehouse,group_planner_user,1,1,1,1

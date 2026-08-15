@@ -1,17 +1,16 @@
 {
-    'name': 'Planificador Simple de Fabricación',
-    'version': '19.0.7.4.0',
+    'name': 'Planificador de Producción y Abastecimiento',
+    'version': '19.0.8.4.0',
     'category': 'Fabricación/Fabricación',
-    'summary': 'Planificación rápida de fabricación basada en ventas pendientes hasta una fecha',
+    'summary': 'Planificación agrupada por producto: fabricar, comprar o reabastecer entre almacenes',
     'author': 'Planificador APS',
     'license': 'LGPL-3',
-    'depends': ['base', 'stock', 'sale_management', 'purchase', 'mrp', 'resource'],
+    'depends': ['base', 'mail', 'stock', 'sale_management', 'sale_stock', 'purchase', 'purchase_stock', 'mrp', 'resource'],
     'data': [
         'security/planner_security.xml',
         'security/ir.model.access.csv',
         'data/planner_data.xml',
         'data/planner_menu_root.xml',
-        'wizard/planning_approval_wizard_views.xml',
         'views/sale_order_views.xml',
         'views/mrp_production_views.xml',
         'views/planning_plan_views.xml',
@@ -21,7 +20,9 @@
     'assets': {
         'web.assets_backend': [
             'mrp_advanced_planner/static/src/js/planning_dashboard.js',
+            'mrp_advanced_planner/static/src/js/planning_stock_tooltip.js',
             'mrp_advanced_planner/static/src/xml/planning_dashboard.xml',
+            'mrp_advanced_planner/static/src/xml/planning_stock_tooltip.xml',
             'mrp_advanced_planner/static/src/css/planning_dashboard.css',
         ],
     },

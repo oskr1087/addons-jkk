@@ -1,190 +1,217 @@
 <odoo>
     <record id="view_mrp_planning_plan_tree" model="ir.ui.view">
-        <field name="name">mrp.planning.plan.list.simple</field>
+        <field name="name">mrp.planning.plan.list.procurement</field>
         <field name="model">mrp.planning.plan</field>
         <field name="arch" type="xml">
             <list decoration-success="state == 'approved'">
                 <field name="name"/>
-                <field name="warehouse_id"/>
-                <field name="date_end" string="Fabricar hasta"/>
-                <field name="total_sales_qty" string="Pedidos"/>
-                <field name="total_stock_qty" string="Inventario"/>
-                <field name="total_open_mo_qty" string="Fabricando"/>
-                <field name="total_to_manufacture_qty" string="A fabricar"/>
+                <field name="warehouse_ids" widget="many2many_tags"/>
+                <field name="date_end" string="Planificar hasta"/>
+                <field name="total_sales_qty" string="Demanda"/>
+                <field name="total_to_manufacture_qty" string="Fabricar"/>
+                <field name="total_to_purchase_qty" string="Comprar"/>
+                <field name="total_to_move_qty" string="Mover"/>
                 <field name="state"/>
             </list>
         </field>
     </record>
 
+    <record id="view_mrp_planning_line_warehouse_list" model="ir.ui.view">
+        <field name="name">mrp.planning.plan.line.warehouse.list</field>
+        <field name="model">mrp.planning.plan.line.warehouse</field>
+        <field name="arch" type="xml">
+            <list create="0" delete="0" edit="0" decoration-danger="local_shortage_qty &gt; 0" decoration-success="transferable_excess_qty &gt; 0">
+                <field name="warehouse_id"/>
+                <field name="demand_qty" sum="Demanda"/>
+                <field name="stock_qty" sum="Stock"/>
+                <field name="open_mo_qty" sum="OF abiertas"/>
+                <field name="local_shortage_qty" sum="Faltante"/>
+                <field name="transferable_excess_qty" sum="Excedente"/>
+            </list>
+        </field>
+    </record>
+
     <record id="view_mrp_planning_plan_form" model="ir.ui.view">
-        <field name="name">mrp.planning.plan.form.simple</field>
+        <field name="name">mrp.planning.plan.form.procurement</field>
         <field name="model">mrp.planning.plan</field>
         <field name="arch" type="xml">
             <form>
                 <header>
                     <button name="action_calculate" type="object" string="Calcular" class="oe_highlight" invisible="state not in ('draft', 'calculated')"/>
                     <button name="action_calculate" type="object" string="Recalcular" invisible="state != 'calculated'"/>
-                    <button name="action_open_approval" type="object" string="Aprobar planificación" class="oe_highlight" invisible="state != 'calculated'"/>
+                    <button name="action_create_manufacturing" type="object" string="Fabricar" class="btn-primary" icon="fa-industry" invisible="state != 'calculated' or pending_manufacture_count == 0" confirm="Se crearán las órdenes de fabricación pendientes. ¿Continuar?"/>
+                    <button name="action_create_purchases" type="object" string="Comprar" class="btn-secondary" icon="fa-shopping-cart" invisible="state != 'calculated' or pending_purchase_count == 0" confirm="Se crearán las solicitudes de cotización pendientes. ¿Continuar?"/>
+                    <button name="action_create_replenishments" type="object" string="Reabastecer" class="btn-secondary" icon="fa-exchange" invisible="state != 'calculated' or pending_move_count == 0" confirm="Se crearán las transferencias internas pendientes. ¿Continuar?"/>
+                    <button name="action_finalize_plan" type="object" string="Finalizar planificación" class="oe_highlight" icon="fa-check-circle" invisible="not can_finalize_plan" confirm="La planificación pasará a Finalizado y ya no permitirá generar más documentos. ¿Continuar?"/>
+                    <field name="pending_manufacture_count" invisible="1"/>
+                    <field name="pending_purchase_count" invisible="1"/>
+                    <field name="pending_move_count" invisible="1"/>
+                    <field name="pending_decision_count" invisible="1"/>
+                    <field name="can_finalize_plan" invisible="1"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,calculated,approved"/>
                 </header>
                 <sheet>
                     <field name="date_start" invisible="1"/>
-                    <field name="approved_at" invisible="1"/>
+                    <field name="warehouse_id" invisible="1"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_open_created_productions" type="object" class="oe_stat_button" icon="fa-industry" invisible="created_mo_count == 0">
-                            <field name="created_mo_count" widget="statinfo" string="OF creadas"/>
+                            <field name="created_mo_count" widget="statinfo" string="OF"/>
+                        </button>
+                        <button name="action_open_created_purchases" type="object" class="oe_stat_button" icon="fa-shopping-cart" invisible="created_po_count == 0">
+                            <field name="created_po_count" widget="statinfo" string="Compras"/>
+                        </button>
+                        <button name="action_open_created_transfers" type="object" class="oe_stat_button" icon="fa-exchange" invisible="created_transfer_count == 0">
+                            <field name="created_transfer_count" widget="statinfo" string="Traslados"/>
                         </button>
                     </div>
 
-                    <div class="oe_title">
-                        <h1><field name="name" readonly="1"/></h1>
-                    </div>
+                    <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
                     <group>
                         <group>
-                            <field name="warehouse_id" readonly="state != 'draft'"/>
+                            <field name="warehouse_ids" widget="many2many_tags" readonly="state != 'draft'" options="{'no_create': True}"/>
                             <field name="company_id" readonly="state != 'draft'" groups="base.group_multi_company"/>
                         </group>
                         <group>
-                            <field name="date_end" string="Fabricar hasta" readonly="state != 'draft'"/>
+                            <field name="date_end" string="Planificar hasta" readonly="state != 'draft'"/>
                             <field name="user_id" readonly="1"/>
                             <field name="calculated_at" readonly="1" invisible="not calculated_at"/>
                         </group>
                     </group>
 
                     <div class="row g-3 my-3" invisible="state == 'draft'">
-                        <div class="col-12 col-md-6 col-xl-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="text-muted text-uppercase small">Pedidos pendientes</div>
-                                    <h2 class="mb-0"><field name="total_sales_qty" nolabel="1" readonly="1"/></h2>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-md-6 col-xl-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="text-muted text-uppercase small">Cubierto por inventario</div>
-                                    <h2 class="mb-0"><field name="total_stock_qty" nolabel="1" readonly="1"/></h2>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-md-6 col-xl-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="text-muted text-uppercase small">Cubierto por OF abiertas</div>
-                                    <h2 class="mb-0"><field name="total_open_mo_qty" nolabel="1" readonly="1"/></h2>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-md-6 col-xl-3">
-                            <div class="card h-100 border-primary">
-                                <div class="card-body">
-                                    <div class="text-primary text-uppercase small fw-bold">A fabricar</div>
-                                    <h2 class="mb-0"><field name="total_to_manufacture_qty" nolabel="1" readonly="1"/></h2>
-                                </div>
-                            </div>
-                        </div>
+                        <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-warning"><div class="card-body"><div class="text-muted text-uppercase small">Demanda</div><h2 class="mb-0"><field name="total_sales_qty" nolabel="1" readonly="1"/></h2></div></div></div>
+                        <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-success"><div class="card-body"><div class="text-muted text-uppercase small">Stock</div><h2 class="mb-0"><field name="total_stock_qty" nolabel="1" readonly="1"/></h2></div></div></div>
+                        <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-info"><div class="card-body"><div class="text-muted text-uppercase small">OF abiertas</div><h2 class="mb-0"><field name="total_open_mo_qty" nolabel="1" readonly="1"/></h2></div></div></div>
+                        <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-primary"><div class="card-body"><div class="text-primary text-uppercase small fw-bold">Fabricar</div><h2 class="mb-0"><field name="total_to_manufacture_qty" nolabel="1" readonly="1"/></h2></div></div></div>
+                        <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-warning"><div class="card-body"><div class="text-warning text-uppercase small fw-bold">Comprar</div><h2 class="mb-0"><field name="total_to_purchase_qty" nolabel="1" readonly="1"/></h2></div></div></div>
+                        <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-info"><div class="card-body"><div class="text-info text-uppercase small fw-bold">Mover</div><h2 class="mb-0"><field name="total_to_move_qty" nolabel="1" readonly="1"/></h2></div></div></div>
                     </div>
 
-                    <div class="alert alert-info" role="alert" invisible="state != 'calculated'">
-                        La planificación se calcula por línea de pedido y fecha de entrega. El valor <strong>Fabricar</strong> es editable. También puede eliminar una línea si ese producto no debe incluirse en esta planificación. Solo las líneas existentes con Fabricar &gt; 0 crearán órdenes de fabricación.
+                    <div class="alert alert-info" role="alert" invisible="state == 'draft'">
+                        Cada fila representa <strong>un producto agrupado</strong>. La demanda conserva todas las líneas de venta de origen. Seleccione una sola acción: <strong>Fabricar, Comprar o Mover</strong>. La cantidad planificada es editable antes de generar documentos.
                     </div>
 
-                    <group string="¿QUÉ TENGO QUE FABRICAR?" invisible="state == 'draft'">
-                        <field name="line_ids" nolabel="1" readonly="state == 'approved'" domain="[('net_requirement_qty', '&gt;', 0)]">
-                            <list editable="bottom" create="0" delete="1" decoration-danger="state == 'blocked'" decoration-success="state == 'applied'">
+                    <div class="alert alert-warning" role="alert" invisible="state != 'calculated' or pending_decision_count == 0">
+                        Hay <field name="pending_decision_count" nolabel="1" readonly="1"/> producto(s) con cantidad planificada sin decisión. Debe seleccionar <strong>Fabricar, Comprar o Mover</strong> antes de finalizar.
+                    </div>
+
+                    <group string="PLANIFICACIÓN POR PRODUCTO" invisible="state == 'draft'">
+                        <field name="line_ids" nolabel="1" readonly="state == 'approved'">
+                            <list editable="bottom" create="0" delete="1" decoration-success="state == 'applied'" decoration-warning="action_purchase" decoration-info="action_move">
                                 <field name="plan_id" column_invisible="1"/>
                                 <field name="plan_state" column_invisible="1"/>
-                                <field name="date_required" string="Entrega" readonly="1"/>
-                                <field name="sale_order_id" string="Pedido" readonly="1"/>
-                                <field name="partner_id" string="Cliente" readonly="1" optional="show"/>
+                                <field name="state" column_invisible="1"/>
+                                <field name="date_required" string="Entrega próxima" readonly="1" optional="hide"/>
                                 <field name="product_id" readonly="1"/>
-                                <field name="sales_qty" string="Pendiente" readonly="1"/>
-                                <field name="stock_qty" string="Stock aplicado" readonly="1"/>
-                                <field name="production_qty" string="OF aplicada" readonly="1"/>
-                                <field name="net_requirement_qty" string="Sugerido" readonly="1"/>
-                                <field name="planned_production_qty" string="Fabricar" readonly="plan_state == 'approved'"/>
-                                <field name="product_uom_id" string="UdM" readonly="1" optional="show"/>
-                                <field name="bom_id" string="LdM" readonly="1" optional="show"/>
-                                <field name="state" readonly="1" optional="hide"/>
-                                <button name="action_open_sales" type="object" icon="fa-shopping-cart" title="Ver pedidos"/>
+                                <field name="sale_order_count" string="Pedidos" readonly="1" optional="hide"/>
+                                <field name="sale_line_count" string="Líneas" readonly="1" optional="hide"/>
+                                <field name="sales_qty" string="Demanda" readonly="1"/>
+                                <field name="stock_warehouse_tooltip" column_invisible="1"/>
+                                <field name="stock_qty" string="Stock" readonly="1" widget="planning_stock_tooltip"/>
+                                <field name="production_qty" string="OF abiertas" readonly="1" optional="hide"/>
+                                <field name="net_requirement_qty" string="Necesidad" readonly="1"/>
+                                <field name="move_suggested_qty" string="Movible" readonly="1" optional="hide"/>
+                                <field name="action_manufacture" string="Fabricar" widget="boolean_toggle" readonly="state == 'applied'"/>
+                                <field name="action_purchase" string="Comprar" widget="boolean_toggle" readonly="state == 'applied'"/>
+                                <field name="action_move" string="Mover" widget="boolean_toggle" readonly="state == 'applied'"/>
+                                <field name="planner_production_qty" string="Cantidad" readonly="state == 'applied'"/>
+                                <field name="target_warehouse_id" string="Destino" readonly="state == 'applied'" domain="[('id', 'in', parent.warehouse_ids)]" options="{'no_create': True}" optional="hide"/>
+                                <field name="product_uom_id" string="UdM" readonly="1" optional="hide"/>
+                                <field name="bom_id" string="LdM" readonly="1" optional="hide"/>
+                                <field name="action_label" string="Acción" readonly="1" optional="hide"/>
+                                <button name="action_open_sales" type="object" icon="fa-shopping-cart" title="Ver ventas origen"/>
                                 <button name="action_open_inventory" type="object" icon="fa-cubes" title="Ver inventario"/>
                                 <button name="action_open_manufacturing" type="object" icon="fa-industry" title="Ver fabricación"/>
                                 <button name="action_open_purchases" type="object" icon="fa-truck" title="Ver compras"/>
                                 <button name="action_open_product" type="object" icon="fa-external-link" title="Ver producto"/>
                             </list>
                         </field>
-                        <group class="oe_subtotal_footer oe_right" col="2">
-                            <field name="total_to_manufacture_qty" string="TOTAL A FABRICAR" readonly="1"/>
-                        </group>
                     </group>
                 </sheet>
+
+                <chatter/>
             </form>
         </field>
     </record>
 
+
+    <record id="action_mrp_planning_plan" model="ir.actions.act_window">
+        <field name="name">Planificaciones</field>
+        <field name="res_model">mrp.planning.plan</field>
+        <field name="view_mode">list,form</field>
+        <field name="views" eval="[(ref('view_mrp_planning_plan_tree'), 'list'), (ref('view_mrp_planning_plan_form'), 'form')]"/>
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Cree una planificación de producción y abastecimiento.
+            </p>
+            <p>
+                Seleccione los almacenes y la fecha límite para calcular qué productos deben fabricarse, comprarse o reabastecerse.
+            </p>
+        </field>
+    </record>
+
     <record id="view_mrp_planning_plan_line_list" model="ir.ui.view">
-        <field name="name">mrp.planning.plan.line.list.forecast</field>
+        <field name="name">mrp.planning.plan.line.list.procurement</field>
         <field name="model">mrp.planning.plan.line</field>
         <field name="arch" type="xml">
-            <list create="0" delete="0" decoration-danger="state == 'blocked'" decoration-success="state == 'applied'">
+            <list create="0" delete="0">
                 <field name="plan_id"/>
-                <field name="date_required" string="Entrega"/>
-                <field name="sale_order_id" string="Pedido"/>
-                <field name="partner_id" string="Cliente"/>
                 <field name="product_id"/>
-                <field name="sales_qty" string="Pendiente"/>
-                <field name="stock_qty" string="Stock aplicado"/>
-                <field name="production_qty" string="OF aplicada"/>
-                <field name="net_requirement_qty" string="Sugerido"/>
-                <field name="planned_production_qty" string="Fabricar"/>
-                <field name="product_uom_id"/>
-                <field name="bom_id"/>
+                <field name="sales_qty"/>
+                <field name="stock_qty"/>
+                <field name="production_qty"/>
+                <field name="net_requirement_qty"/>
+                <field name="action_label"/>
+                <field name="planner_production_qty"/>
+                <field name="target_warehouse_id"/>
                 <field name="created_production_id" optional="show"/>
+                <field name="created_purchase_line_id" optional="show"/>
             </list>
         </field>
     </record>
 
     <record id="view_mrp_planning_plan_line_form" model="ir.ui.view">
-        <field name="name">mrp.planning.plan.line.form.forecast</field>
+        <field name="name">mrp.planning.plan.line.form.procurement</field>
         <field name="model">mrp.planning.plan.line</field>
         <field name="arch" type="xml">
             <form create="0" delete="0">
                 <sheet>
-                    <field name="plan_state" invisible="1"/>
+                    <field name="state" invisible="1"/>
                     <div class="oe_title"><h1><field name="product_id" readonly="1"/></h1></div>
                     <group>
                         <group>
                             <field name="plan_id" readonly="1"/>
-                            <field name="sale_order_id" string="Pedido de venta" readonly="1"/>
-                            <field name="partner_id" string="Cliente" readonly="1"/>
-                            <field name="date_required" string="Fecha de entrega" readonly="1"/>
-                            <field name="sales_qty" string="Pendiente de entregar" readonly="1"/>
-                            <field name="stock_qty" string="Inventario aplicado" readonly="1"/>
-                            <field name="production_qty" string="Fabricación aplicada" readonly="1"/>
+                            <field name="date_required" readonly="1"/>
+                            <field name="sale_order_count" readonly="1"/>
+                            <field name="sale_line_count" readonly="1"/>
                         </group>
                         <group>
-                            <field name="net_requirement_qty" string="Necesidad / Sugerido" readonly="1"/>
-                            <field name="planned_production_qty" string="Fabricar" readonly="plan_state == 'approved'"/>
-                            <field name="product_uom_id" readonly="1"/>
-                            <field name="bom_id" readonly="1"/>
+                            <field name="sales_qty" readonly="1"/>
+                            <field name="stock_qty" readonly="1"/>
+                            <field name="production_qty" readonly="1"/>
+                            <field name="net_requirement_qty" readonly="1"/>
                         </group>
                     </group>
-                    <div class="d-flex gap-2">
-                        <button name="action_open_sales" type="object" string="Ver pedidos" class="btn-secondary"/>
-                        <button name="action_open_inventory" type="object" string="Ver inventario" class="btn-secondary"/>
-                        <button name="action_open_manufacturing" type="object" string="Ver fabricación" class="btn-secondary"/>
-                        <button name="action_open_purchases" type="object" string="Ver compras" class="btn-secondary"/>
-                        <button name="action_open_product" type="object" string="Ver producto" class="btn-secondary"/>
-                    </div>
+                    <group string="Decisión">
+                        <field name="action_manufacture" readonly="state == 'applied'"/>
+                        <field name="action_purchase" readonly="state == 'applied'"/>
+                        <field name="action_move" readonly="state == 'applied'"/>
+                        <field name="planner_production_qty" readonly="state == 'applied'"/>
+                        <field name="target_warehouse_id" readonly="state == 'applied'"/>
+                    </group>
+                    <field name="warehouse_detail_ids" readonly="1">
+                        <list create="0" delete="0">
+                            <field name="warehouse_id"/>
+                            <field name="demand_qty"/>
+                            <field name="stock_qty"/>
+                            <field name="open_mo_qty"/>
+                            <field name="local_shortage_qty"/>
+                            <field name="transferable_excess_qty"/>
+                        </list>
+                    </field>
                 </sheet>
             </form>
         </field>
-    </record>
-
-    <record id="action_mrp_planning_plan" model="ir.actions.act_window">
-        <field name="name">Planificación de fabricación</field>
-        <field name="res_model">mrp.planning.plan</field>
-        <field name="view_mode">list,form</field>
     </record>
 </odoo>

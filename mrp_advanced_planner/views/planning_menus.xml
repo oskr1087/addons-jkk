@@ -1,3 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_mrp_advanced_planner_plans" name="Planificación de fabricación" parent="menu_mrp_advanced_planner_root" action="action_mrp_planning_plan" sequence="10" groups="mrp_advanced_planner.group_planner_user"/>
+    <menuitem id="menu_mrp_advanced_planner_plans"
+              name="Planificaciones"
+              parent="menu_mrp_advanced_planner_root"
+              action="action_mrp_planning_plan"
+              sequence="10"
+              groups="mrp_advanced_planner.group_planner_user"/>
 </odoo>

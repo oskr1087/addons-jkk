@@ -52,3 +52,154 @@
 .o_mrp_advanced_dashboard .aps-alert-warning { color:#7a5200; background:rgba(255,193,7,.13); border-color:rgba(255,193,7,.28); }
 .o_mrp_advanced_dashboard .aps-alert-success { color:#155d2d; background:rgba(40,167,69,.10); border-color:rgba(40,167,69,.24); }
 .o_mrp_advanced_dashboard .table thead th { font-size:.76rem; text-transform:uppercase; letter-spacing:.025em; color:var(--o-main-text-color, #555); opacity:.72; }
+
+/* -------------------------------------------------------------------------
+   Stock por almacén: popover visual tipo Odoo.
+   ------------------------------------------------------------------------- */
+.o_planning_stock_widget {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    cursor: default;
+    position: relative;
+}
+
+.o_planning_stock_value {
+    font-variant-numeric: tabular-nums;
+}
+
+.o_planning_stock_icon {
+    color: #008a95;
+    font-size: .85rem;
+    cursor: help;
+}
+
+.o_planning_stock_widget:hover .o_planning_stock_value {
+    color: #008a95;
+}
+
+.o_planning_stock_popover {
+    position: fixed;
+    z-index: 2000;
+    width: 260px;
+    transform: translateY(-100%);
+    background: var(--o-view-background-color, #fff);
+    color: var(--o-main-text-color, #212529);
+    border: 1px solid rgba(0, 0, 0, .13);
+    border-radius: 10px;
+    box-shadow: 0 .45rem 1.25rem rgba(0, 0, 0, .18);
+    overflow: visible;
+    pointer-events: none;
+}
+
+.o_planning_stock_popover_header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: .75rem;
+    padding: .8rem .9rem .65rem;
+    border-bottom: 1px solid rgba(0, 0, 0, .08);
+}
+
+.o_planning_stock_popover_title {
+    font-weight: 700;
+    font-size: .95rem;
+}
+
+.o_planning_stock_popover_subtitle {
+    margin-top: .1rem;
+    color: var(--o-main-text-color, #666);
+    opacity: .6;
+    font-size: .75rem;
+}
+
+.o_planning_stock_total {
+    min-width: 62px;
+    text-align: right;
+}
+
+.o_planning_stock_total span {
+    display: block;
+    font-size: .7rem;
+    color: var(--o-main-text-color, #666);
+    opacity: .6;
+}
+
+.o_planning_stock_total strong {
+    display: block;
+    font-size: 1rem;
+    color: #008a95;
+}
+
+.o_planning_stock_popover_body {
+    padding: .4rem 0;
+}
+
+.o_planning_stock_warehouse_row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .75rem;
+    padding: .52rem .9rem;
+}
+
+.o_planning_stock_warehouse_row + .o_planning_stock_warehouse_row {
+    border-top: 1px solid rgba(0, 0, 0, .055);
+}
+
+.o_planning_stock_warehouse_name {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    font-size: .82rem;
+}
+
+.o_planning_stock_warehouse_name i {
+    flex: 0 0 auto;
+    color: #008a95;
+    opacity: .85;
+}
+
+.o_planning_stock_warehouse_name span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.o_planning_stock_warehouse_qty {
+    flex: 0 0 auto;
+    font-size: .85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.o_planning_stock_empty {
+    padding: .7rem .9rem;
+    color: var(--o-main-text-color, #666);
+    opacity: .65;
+    font-size: .8rem;
+}
+
+.o_planning_stock_popover_footer {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .55rem .9rem;
+    border-top: 1px solid rgba(0, 0, 0, .08);
+    background: rgba(0, 138, 149, .05);
+    color: #007781;
+    font-size: .74rem;
+    border-radius: 0 0 10px 10px;
+}
+
+.o_planning_stock_popover_arrow {
+    position: absolute;
+    bottom: -7px;
+    left: 50%;
+    width: 14px;
+    height: 14px;
+    transform: translateX(-50%) rotate(45deg);
+    background: var(--o-view-background-color, #fff);
+    border-right: 1px solid rgba(0, 0, 0, .13);
+    border-bottom: 1px solid rgba(0, 0, 0, .13);
+}

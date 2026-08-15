@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="mrp_advanced_planner.PlanningStockTooltipField">
+        <span class="o_planning_stock_widget"
+              t-on-mouseenter="showPopover"
+              t-on-mouseleave="hidePopover">
+            <span class="o_planning_stock_value">
+                <t t-esc="value"/>
+            </span>
+            <i class="fa fa-area-chart o_planning_stock_icon"
+               title="Ver disponibilidad por almacén"/>
+
+            <t t-if="state.visible">
+                <div class="o_planning_stock_popover"
+                     t-att-style="popoverStyle"
+                     role="tooltip">
+                    <div class="o_planning_stock_popover_arrow"/>
+                    <div class="o_planning_stock_popover_header">
+                        <div>
+                            <div class="o_planning_stock_popover_title">Disponibilidad</div>
+                            <div class="o_planning_stock_popover_subtitle">Stock por almacén</div>
+                        </div>
+                        <div class="o_planning_stock_total">
+                            <span>Total</span>
+                            <strong><t t-esc="value"/></strong>
+                        </div>
+                    </div>
+
+                    <div class="o_planning_stock_popover_body">
+                        <t t-if="warehouseRows.length">
+                            <t t-foreach="warehouseRows" t-as="row" t-key="row.warehouse">
+                                <div class="o_planning_stock_warehouse_row">
+                                    <div class="o_planning_stock_warehouse_name">
+                                        <i class="fa fa-building-o"/>
+                                        <span t-esc="row.warehouse"/>
+                                    </div>
+                                    <strong class="o_planning_stock_warehouse_qty"
+                                            t-esc="row.qty"/>
+                                </div>
+                            </t>
+                        </t>
+                        <t t-else="">
+                            <div class="o_planning_stock_empty">
+                                Sin detalle de almacenes
+                            </div>
+                        </t>
+                    </div>
+
+                    <div class="o_planning_stock_popover_footer">
+                        <i class="fa fa-info-circle"/>
+                        <span>Disponible para esta planificación</span>
+                    </div>
+                </div>
+            </t>
+        </span>
+    </t>
+</templates>
