@@ -121,24 +121,79 @@ class StockMove(models.Model):
         readonly=True,
     )
 
+    def _planning_draft_purchase_supply(self, warehouse, to_date):
+        """RFQ / to-approve supply is not yet represented by stock moves."""
+        self.ensure_one()
+        if not warehouse:
+            return 0.0
+        lines = self.env['purchase.order.line'].search([
+            ('company_id', '=', self.company_id.id),
+            ('product_id', '=', self.product_id.id),
+            ('order_id.state', 'in', ('draft', 'sent', 'to approve')),
+            ('order_id.picking_type_id.warehouse_id', '=', warehouse.id),
+            '|',
+            ('date_planned', '=', False),
+            ('date_planned', '<=', to_date),
+        ])
+        total = 0.0
+        for line in lines:
+            pending = max((line.product_qty or 0.0) - (line.qty_received or 0.0), 0.0)
+            total += line.product_uom_id._compute_quantity(
+                pending, self.product_id.uom_id
+            )
+        return total
+
+    def _planning_forecast_shortage(self):
+        """Shortage after Odoo forecast + RFQs not yet represented as stock moves."""
+        self.ensure_one()
+        production = self.raw_material_production_id
+        if not production or production.state in ('done', 'cancel'):
+            return 0.0
+
+        warehouse = production.picking_type_id.warehouse_id or self.location_id.warehouse_id
+        if not warehouse:
+            return 0.0
+
+        to_date = self.date or production.date_start or production.date_deadline or fields.Datetime.now()
+        values = self.product_id.with_context(
+            warehouse_id=warehouse.id,
+            to_date=to_date,
+            allowed_company_ids=[production.company_id.id],
+            company_owned=True,
+            prefetch_fields=False,
+        ).read(['virtual_available'])[0]
+        forecast = values.get('virtual_available') or 0.0
+
+        # Draft component moves are not part of product.virtual_available yet.
+        # Simulate this move once so the same algorithm also works before MO confirm.
+        if self.state == 'draft':
+            required = self.product_uom._compute_quantity(
+                self.product_uom_qty, self.product_id.uom_id
+            )
+            forecast -= required
+
+        forecast += self._planning_draft_purchase_supply(warehouse, to_date)
+        shortage_product_uom = max(-forecast, 0.0)
+        return self.product_id.uom_id._compute_quantity(
+            shortage_product_uom, self.product_uom
+        )
+
     @api.depends(
         'raw_material_production_id',
         'raw_material_production_id.state',
         'product_uom_qty',
-        'forecast_availability',
+        'product_uom',
+        'product_id',
+        'date',
+        'state',
         'planning_purchase_order_line_id',
     )
     def _compute_planning_can_purchase_component(self):
         for move in self:
-            production = move.raw_material_production_id
-            required = max(float(move.product_uom_qty or 0.0), 0.0)
-            available = max(float(move.forecast_availability or 0.0), 0.0)
-            move.planning_can_purchase_component = bool(
-                production
-                and production.state not in ('done', 'cancel')
-                and required > 0
-                and available + 1e-6 < required
-            )
+            if move.planning_purchase_order_line_id:
+                move.planning_can_purchase_component = False
+                continue
+            move.planning_can_purchase_component = move._planning_forecast_shortage() > 1e-6
 
     def action_create_component_purchase(self):
         self.ensure_one()
@@ -166,11 +221,13 @@ class StockMove(models.Model):
                 'El componente %s tiene disponibilidad suficiente o ya no requiere una compra desde la OF.'
             ) % self.product_id.display_name)
 
-        # En la vista de componentes de Odoo, product_uom_qty es "Por consumir".
-        # La compra solicitada por esta acción usa exactamente esa cantidad.
-        qty = self.product_uom_qty
+        # Recalcular en el momento de crear la RFQ para no comprar una cantidad
+        # que otra compra/OF/transferencia ya vaya a cubrir.
+        qty = self._planning_forecast_shortage()
         if qty <= 0:
-            raise UserError(_('La cantidad por consumir del componente %s es cero.') % self.product_id.display_name)
+            raise UserError(_(
+                'El pronóstico ya cubre el componente %s; no es necesario comprar.'
+            ) % self.product_id.display_name)
 
         warehouse = production.picking_type_id.warehouse_id
         picking_type = warehouse.in_type_id if warehouse else False

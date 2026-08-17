@@ -203,3 +203,183 @@
     border-right: 1px solid rgba(0, 0, 0, .13);
     border-bottom: 1px solid rgba(0, 0, 0, .13);
 }
+
+
+/* -------------------------------------------------------------------------
+   Pedidos de venta por producto: popover visual por hover.
+   ------------------------------------------------------------------------- */
+.o_planning_orders_widget {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    cursor: default;
+    position: relative;
+}
+
+.o_planning_orders_value {
+    font-variant-numeric: tabular-nums;
+}
+
+.o_planning_orders_icon {
+    color: #714B67;
+    font-size: .82rem;
+    cursor: help;
+}
+
+.o_planning_orders_widget:hover .o_planning_orders_value {
+    color: #714B67;
+    font-weight: 600;
+}
+
+.o_planning_orders_popover {
+    position: fixed;
+    z-index: 2050;
+    width: 390px;
+    max-height: 430px;
+    transform: translateY(-100%);
+    background: var(--o-view-background-color, #fff);
+    color: var(--o-main-text-color, #212529);
+    border: 1px solid rgba(0, 0, 0, .13);
+    border-radius: 10px;
+    box-shadow: 0 .5rem 1.35rem rgba(0, 0, 0, .20);
+    overflow: visible;
+    pointer-events: none;
+}
+
+.o_planning_orders_header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .85rem .95rem .7rem;
+    border-bottom: 1px solid rgba(0, 0, 0, .08);
+}
+
+.o_planning_orders_title {
+    font-weight: 700;
+    font-size: .96rem;
+}
+
+.o_planning_orders_subtitle {
+    margin-top: .1rem;
+    opacity: .62;
+    font-size: .74rem;
+}
+
+.o_planning_orders_summary {
+    flex: 0 0 auto;
+    text-align: right;
+}
+
+.o_planning_orders_summary span {
+    display: block;
+    opacity: .62;
+    font-size: .7rem;
+}
+
+.o_planning_orders_summary strong {
+    display: block;
+    margin-top: .1rem;
+    color: #714B67;
+    font-size: .9rem;
+}
+
+.o_planning_orders_body {
+    max-height: 310px;
+    overflow-y: auto;
+    padding: .15rem 0;
+}
+
+.o_planning_order_row {
+    display: flex;
+    justify-content: space-between;
+    gap: .8rem;
+    padding: .65rem .95rem;
+}
+
+.o_planning_order_row + .o_planning_order_row {
+    border-top: 1px solid rgba(0, 0, 0, .055);
+}
+
+.o_planning_order_main {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.o_planning_order_name {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .82rem;
+    color: #714B67;
+}
+
+.o_planning_order_customer {
+    margin-top: .12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .79rem;
+}
+
+.o_planning_order_meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .3rem .8rem;
+    margin-top: .22rem;
+    opacity: .62;
+    font-size: .69rem;
+}
+
+.o_planning_order_meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+}
+
+.o_planning_order_qty {
+    flex: 0 0 auto;
+    min-width: 72px;
+    text-align: right;
+}
+
+.o_planning_order_qty span {
+    display: block;
+    opacity: .58;
+    font-size: .68rem;
+}
+
+.o_planning_order_qty strong {
+    display: block;
+    margin-top: .12rem;
+    font-size: .86rem;
+}
+
+.o_planning_orders_footer {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .55rem .95rem;
+    border-top: 1px solid rgba(0, 0, 0, .08);
+    background: rgba(113, 75, 103, .055);
+    color: #714B67;
+    font-size: .72rem;
+    border-radius: 0 0 10px 10px;
+}
+
+.o_planning_orders_empty {
+    padding: .9rem;
+    opacity: .6;
+    font-size: .8rem;
+}
+
+.o_planning_orders_popover_arrow {
+    position: absolute;
+    bottom: -7px;
+    left: 50%;
+    width: 14px;
+    height: 14px;
+    transform: translateX(-50%) rotate(45deg);
+    background: var(--o-view-background-color, #fff);
+    border-right: 1px solid rgba(0, 0, 0, .13);
+    border-bottom: 1px solid rgba(0, 0, 0, .13);
+}

@@ -17,8 +17,8 @@
                     <div class="o_planning_stock_popover_arrow"/>
                     <div class="o_planning_stock_popover_header">
                         <div>
-                            <div class="o_planning_stock_popover_title">Disponibilidad</div>
-                            <div class="o_planning_stock_popover_subtitle">Stock por almacén</div>
+                            <div class="o_planning_stock_popover_title">Pronóstico disponible</div>
+                            <div class="o_planning_stock_popover_subtitle">Pronóstico por almacén</div>
                         </div>
                         <div class="o_planning_stock_total">
                             <span>Total</span>
@@ -48,7 +48,7 @@
 
                     <div class="o_planning_stock_popover_footer">
                         <i class="fa fa-info-circle"/>
-                        <span>Disponible para esta planificación</span>
+                        <span>Pronóstico al horizonte de esta planificación</span>
                     </div>
                 </div>
             </t>

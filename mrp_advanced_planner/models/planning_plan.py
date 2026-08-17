@@ -64,7 +64,7 @@ class PlanningPlan(models.Model):
     can_finalize_plan = fields.Boolean(compute='_compute_execution_status')
 
     total_sales_qty = fields.Float(compute='_compute_totals', string='Pedidos pendientes')
-    total_stock_qty = fields.Float(compute='_compute_totals', string='Stock disponible')
+    total_stock_qty = fields.Float(compute='_compute_totals', string='Pronóstico disponible')
     total_open_mo_qty = fields.Float(compute='_compute_totals', string='OF abiertas')
     total_suggested_qty = fields.Float(compute='_compute_totals', string='Necesidad neta')
     total_to_manufacture_qty = fields.Float(compute='_compute_totals', string='A fabricar')
@@ -434,31 +434,51 @@ class PlanningPlan(models.Model):
                 break
         return allocations, remaining
 
-    def action_create_replenishments(self):
+    def _create_replenishments_for_lines(self, lines):
+        """Create internal transfers only for the supplied planner lines."""
         self.ensure_one()
-        lines = self._validate_selected_lines('action_move')
+
         Picking = self.env['stock.picking']
         Move = self.env['stock.move']
         pickings_by_route = {}
         created = Picking
 
         for line in lines:
+            if line.plan_id != self:
+                raise UserError(_('La línea seleccionada no pertenece a esta planificación.'))
+            if not line.action_move:
+                raise UserError(_(
+                    'El producto %s no está seleccionado para mover.'
+                ) % line.product_id.display_name)
+            if line.planner_production_qty <= 0:
+                raise UserError(_(
+                    'La cantidad a mover del producto %s debe ser mayor que cero.'
+                ) % line.product_id.display_name)
             if line.created_picking_ids:
                 created |= line.created_picking_ids
                 continue
+
             allocations, unallocated = self._move_allocations_for_line(line)
             if not allocations or unallocated > 1e-6:
                 raise UserError(_(
-                    'No existe stock suficiente entre los almacenes seleccionados para mover %.2f de %s. '
-                    'Sugerido movible: %.2f.'
-                ) % (line.planner_production_qty, line.product_id.display_name, line.move_suggested_qty))
+                    'No existe stock pronosticado suficiente entre los almacenes seleccionados '
+                    'para mover %.2f de %s. Sugerido movible: %.2f.'
+                ) % (
+                    line.planner_production_qty,
+                    line.product_id.display_name,
+                    line.move_suggested_qty,
+                ))
+
             line_pickings = Picking
             for source_wh, target_wh, qty in allocations:
                 key = (source_wh.id, target_wh.id)
                 picking = pickings_by_route.get(key)
                 if not picking:
                     if not source_wh.int_type_id:
-                        raise UserError(_('El almacén %s no tiene tipo de operación interna configurado.') % source_wh.display_name)
+                        raise UserError(_(
+                            'El almacén %s no tiene tipo de operación interna configurado.'
+                        ) % source_wh.display_name)
+
                     picking = Picking.create({
                         'picking_type_id': source_wh.int_type_id.id,
                         'location_id': source_wh.lot_stock_id.id,
@@ -468,6 +488,7 @@ class PlanningPlan(models.Model):
                         'advanced_plan_id': self.id,
                     })
                     pickings_by_route[key] = picking
+
                 Move.create({
                     'name': '%s - %s' % (self.name, line.product_id.display_name),
                     'product_id': line.product_id.id,
@@ -480,11 +501,21 @@ class PlanningPlan(models.Model):
                     'planning_plan_line_id': line.id,
                 })
                 line_pickings |= picking
+
             line_pickings.action_confirm()
             line_pickings.action_assign()
-            line.write({'created_picking_ids': [(6, 0, line_pickings.ids)], 'state': 'applied'})
+            line.write({
+                'created_picking_ids': [(6, 0, line_pickings.ids)],
+                'state': 'applied',
+            })
             created |= line_pickings
 
+        return created
+
+    def action_create_replenishments(self):
+        self.ensure_one()
+        lines = self._validate_selected_lines('action_move')
+        self._create_replenishments_for_lines(lines)
         return self.action_open_created_transfers()
 
     # Compatibility with the old approval wizard: approval now means generate manufacturing selections.

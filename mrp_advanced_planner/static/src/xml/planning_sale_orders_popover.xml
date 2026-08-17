@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="mrp_advanced_planner.PlanningSaleOrdersPopoverField">
+        <span class="o_planning_orders_widget"
+              t-on-mouseenter="showPopover"
+              t-on-mouseleave="hidePopover">
+            <span class="o_planning_orders_value">
+                <t t-esc="value"/>
+            </span>
+            <i class="fa fa-list-alt o_planning_orders_icon"
+               title="Ver pedidos de venta"/>
+
+            <t t-if="state.visible">
+                <div class="o_planning_orders_popover"
+                     t-att-style="popoverStyle"
+                     role="tooltip">
+                    <div class="o_planning_orders_popover_arrow"/>
+
+                    <div class="o_planning_orders_header">
+                        <div>
+                            <div class="o_planning_orders_title">Pedidos de venta</div>
+                            <div class="o_planning_orders_subtitle">
+                                Demanda que origina este producto
+                            </div>
+                        </div>
+                        <div class="o_planning_orders_summary">
+                            <span><t t-esc="data.count"/> pedido(s)</span>
+                            <strong>
+                                <t t-esc="formatQty(data.total_pending_qty)"/>
+                                <t t-if="data.uom"> <t t-esc="data.uom"/></t>
+                            </strong>
+                        </div>
+                    </div>
+
+                    <div class="o_planning_orders_body">
+                        <t t-if="orders.length">
+                            <t t-foreach="orders" t-as="order" t-key="order.id">
+                                <div class="o_planning_order_row">
+                                    <div class="o_planning_order_main">
+                                        <div class="o_planning_order_name">
+                                            <i class="fa fa-shopping-cart"/>
+                                            <strong t-esc="order.name"/>
+                                        </div>
+                                        <div class="o_planning_order_customer"
+                                             t-esc="order.customer"/>
+                                        <div class="o_planning_order_meta">
+                                            <span>
+                                                <i class="fa fa-calendar"/>
+                                                <t t-esc="formatDate(order.delivery_date)"/>
+                                            </span>
+                                            <span t-if="order.warehouse">
+                                                <i class="fa fa-building-o"/>
+                                                <t t-esc="order.warehouse"/>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="o_planning_order_qty">
+                                        <span>Pendiente</span>
+                                        <strong t-esc="formatQty(order.pending_qty)"/>
+                                    </div>
+                                </div>
+                            </t>
+                        </t>
+                        <t t-else="">
+                            <div class="o_planning_orders_empty">
+                                No hay pedidos de venta asociados.
+                            </div>
+                        </t>
+                    </div>
+
+                    <div class="o_planning_orders_footer">
+                        <i class="fa fa-info-circle"/>
+                        <span>Solo se muestran cantidades pendientes de entregar</span>
+                    </div>
+                </div>
+            </t>
+        </span>
+    </t>
+</templates>

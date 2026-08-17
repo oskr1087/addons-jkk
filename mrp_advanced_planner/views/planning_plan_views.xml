@@ -23,8 +23,14 @@
             <list create="0" delete="0" edit="0" decoration-danger="local_shortage_qty &gt; 0" decoration-success="transferable_excess_qty &gt; 0">
                 <field name="warehouse_id"/>
                 <field name="demand_qty" sum="Demanda"/>
-                <field name="stock_qty" sum="Stock"/>
-                <field name="open_mo_qty" sum="OF abiertas"/>
+                <field name="on_hand_qty" sum="A mano" optional="hide"/>
+                <field name="free_qty" sum="Libre" optional="hide"/>
+                <field name="incoming_qty" sum="Entradas" optional="hide"/>
+                <field name="outgoing_qty" sum="Salidas" optional="hide"/>
+                <field name="draft_purchase_qty" sum="RFQ pendientes" optional="show"/>
+                <field name="other_plan_supply_qty" sum="Otros planes" optional="show"/>
+                <field name="stock_qty" sum="Pronóstico"/>
+                <field name="open_mo_qty" sum="OF abiertas" optional="hide"/>
                 <field name="local_shortage_qty" sum="Faltante"/>
                 <field name="transferable_excess_qty" sum="Excedente"/>
             </list>
@@ -80,7 +86,7 @@
 
                     <div class="row g-3 my-3" invisible="state == 'draft'">
                         <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-warning"><div class="card-body"><div class="text-muted text-uppercase small">Demanda</div><h2 class="mb-0"><field name="total_sales_qty" nolabel="1" readonly="1"/></h2></div></div></div>
-                        <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-success"><div class="card-body"><div class="text-muted text-uppercase small">Stock</div><h2 class="mb-0"><field name="total_stock_qty" nolabel="1" readonly="1"/></h2></div></div></div>
+                        <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-success"><div class="card-body"><div class="text-muted text-uppercase small">Pronóstico</div><h2 class="mb-0"><field name="total_stock_qty" nolabel="1" readonly="1"/></h2></div></div></div>
                         <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-info"><div class="card-body"><div class="text-muted text-uppercase small">OF abiertas</div><h2 class="mb-0"><field name="total_open_mo_qty" nolabel="1" readonly="1"/></h2></div></div></div>
                         <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-primary"><div class="card-body"><div class="text-primary text-uppercase small fw-bold">Fabricar</div><h2 class="mb-0"><field name="total_to_manufacture_qty" nolabel="1" readonly="1"/></h2></div></div></div>
                         <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-warning"><div class="card-body"><div class="text-warning text-uppercase small fw-bold">Comprar</div><h2 class="mb-0"><field name="total_to_purchase_qty" nolabel="1" readonly="1"/></h2></div></div></div>
@@ -103,11 +109,12 @@
                                 <field name="state" column_invisible="1"/>
                                 <field name="date_required" string="Entrega próxima" readonly="1" optional="hide"/>
                                 <field name="product_id" readonly="1"/>
-                                <field name="sale_order_count" string="Pedidos" readonly="1" optional="hide"/>
+                                <field name="sale_order_popover_data" column_invisible="1"/>
+                                <field name="sale_order_count" string="Pedidos" readonly="1" optional="show" widget="planning_sale_orders_popover"/>
                                 <field name="sale_line_count" string="Líneas" readonly="1" optional="hide"/>
                                 <field name="sales_qty" string="Demanda" readonly="1"/>
                                 <field name="stock_warehouse_tooltip" column_invisible="1"/>
-                                <field name="stock_qty" string="Stock" readonly="1" widget="planning_stock_tooltip"/>
+                                <field name="stock_qty" string="Pronóstico" readonly="1" widget="planning_stock_tooltip"/>
                                 <field name="production_qty" string="OF abiertas" readonly="1" optional="hide"/>
                                 <field name="net_requirement_qty" string="Necesidad" readonly="1"/>
                                 <field name="move_suggested_qty" string="Movible" readonly="1" optional="hide"/>
@@ -115,6 +122,13 @@
                                 <field name="action_purchase" string="Comprar" widget="boolean_toggle" readonly="state == 'applied'"/>
                                 <field name="purchase_vendor_id" string="Proveedor" invisible="not action_purchase" readonly="state == 'applied'" options="{'no_create': True, 'no_open': True}"/>
                                 <field name="action_move" string="Mover" widget="boolean_toggle" readonly="state == 'applied'"/>
+                                <button name="action_create_inventory_move"
+                                        type="object"
+                                        string="Crear movimiento"
+                                        icon="fa-exchange"
+                                        class="btn-link"
+                                        invisible="not action_move or state == 'applied' or planner_production_qty &lt;= 0"
+                                        confirm="Se creará el movimiento interno para este producto. ¿Continuar?"/>
                                 <field name="planner_production_qty" string="Cantidad" readonly="state == 'applied'"/>
                                 <field name="target_warehouse_id" string="Destino" readonly="state == 'applied'" domain="[('id', 'in', parent.warehouse_ids)]" options="{'no_create': True}" optional="hide"/>
                                 <field name="product_uom_id" string="UdM" readonly="1" optional="hide"/>
@@ -165,12 +179,17 @@
                 <field name="product_id"/>
                 <field name="partner_id" optional="hide"/>
                 <field name="sale_order_id" optional="hide"/>
-                <field name="sale_order_count" optional="hide"/>
+                <field name="sale_order_popover_data" column_invisible="1"/>
+                <field name="sale_order_count" optional="hide" widget="planning_sale_orders_popover"/>
                 <field name="sale_line_count" optional="hide"/>
                 <field name="target_warehouse_id" optional="show"/>
                 <field name="product_uom_id" optional="hide"/>
                 <field name="sales_qty" sum="Demanda total"/>
-                <field name="stock_qty" sum="Stock total"/>
+                <field name="stock_qty" sum="Pronóstico total"/>
+                <field name="incoming_qty" sum="Entradas pronosticadas" optional="hide"/>
+                <field name="outgoing_qty" sum="Salidas pronosticadas" optional="hide"/>
+                <field name="draft_purchase_qty" sum="RFQ pendientes" optional="hide"/>
+                <field name="other_plan_supply_qty" sum="Otros planes" optional="hide"/>
                 <field name="production_qty" sum="OF abiertas"/>
                 <field name="net_requirement_qty" sum="Necesidad total"/>
                 <field name="move_suggested_qty" sum="Mover sugerido" optional="hide"/>
@@ -182,6 +201,11 @@
                 <field name="state" optional="show"/>
                 <field name="created_production_id" optional="hide"/>
                 <field name="created_purchase_line_id" optional="hide"/>
+                <button name="action_create_inventory_move"
+                        type="object"
+                        string="Crear movimiento"
+                        icon="fa-exchange"
+                        invisible="not action_move or state == 'applied' or planner_production_qty &lt;= 0"/>
             </list>
         </field>
     </record>
@@ -226,7 +250,7 @@
 
                 <separator/>
                 <filter name="filter_need" string="Con necesidad" domain="[('net_requirement_qty', '&gt;', 0)]"/>
-                <filter name="filter_stock" string="Con stock" domain="[('stock_qty', '&gt;', 0)]"/>
+                <filter name="filter_stock" string="Pronóstico positivo" domain="[('stock_qty', '&gt;', 0)]"/>
                 <filter name="filter_open_mo" string="Con OF abiertas" domain="[('production_qty', '&gt;', 0)]"/>
                 <filter name="filter_move_possible" string="Con stock movible" domain="[('move_suggested_qty', '&gt;', 0)]"/>
                 <filter name="filter_with_bom" string="Con LdM" domain="[('bom_id', '!=', False)]"/>
@@ -304,6 +328,16 @@
                         <field name="action_move" readonly="state == 'applied'"/>
                         <field name="planner_production_qty" readonly="state == 'applied'"/>
                         <field name="target_warehouse_id" readonly="state == 'applied'"/>
+                        <button name="action_create_inventory_move"
+                                type="object"
+                                string="Crear movimiento interno"
+                                icon="fa-exchange"
+                                class="oe_highlight"
+                                invisible="not action_move or state == 'applied' or planner_production_qty &lt;= 0"/>
+                        <field name="created_picking_ids"
+                               widget="many2many_tags"
+                               readonly="1"
+                               invisible="not created_picking_ids"/>
                     </group>
                     <field name="warehouse_detail_ids" readonly="1">
                         <list create="0" delete="0">

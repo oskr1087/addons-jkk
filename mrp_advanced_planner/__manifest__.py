@@ -1,6 +1,6 @@
 {
     'name': 'Planificador de Producción y Abastecimiento',
-    'version': '19.0.9.2.0',
+    'version': '19.0.10.2.0',
     'category': 'Fabricación/Fabricación',
     'summary': 'Planificación agrupada por producto: fabricar, comprar o reabastecer entre almacenes',
     'author': 'Planificador APS',
@@ -21,8 +21,10 @@
         'web.assets_backend': [
             'mrp_advanced_planner/static/src/js/planning_dashboard.js',
             'mrp_advanced_planner/static/src/js/planning_stock_tooltip.js',
+            'mrp_advanced_planner/static/src/js/planning_sale_orders_popover.js',
             'mrp_advanced_planner/static/src/xml/planning_dashboard.xml',
             'mrp_advanced_planner/static/src/xml/planning_stock_tooltip.xml',
+            'mrp_advanced_planner/static/src/xml/planning_sale_orders_popover.xml',
             'mrp_advanced_planner/static/src/css/planning_dashboard.css',
         ],
     },

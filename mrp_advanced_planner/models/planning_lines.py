@@ -1,3 +1,5 @@
+import json
+
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 
@@ -20,6 +22,10 @@ class PlanningPlanLine(models.Model):
     partner_id = fields.Many2one(related='sale_line_id.order_id.partner_id', string='Cliente principal', store=True, index=True)
     sale_order_count = fields.Integer(compute='_compute_source_counts', string='Pedidos')
     sale_line_count = fields.Integer(compute='_compute_source_counts', string='Líneas de venta')
+    sale_order_popover_data = fields.Text(
+        string='Detalle de pedidos',
+        compute='_compute_sale_order_popover_data',
+    )
 
     product_id = fields.Many2one('product.product', required=True, index=True)
     product_uom_id = fields.Many2one(related='product_id.uom_id', store=True)
@@ -33,15 +39,20 @@ class PlanningPlanLine(models.Model):
 
     demand_qty = fields.Float(string='Demanda')
     sales_qty = fields.Float(string='Ventas pendientes')
-    stock_qty = fields.Float(string='Stock disponible')
+    stock_qty = fields.Float(
+        string='Pronóstico disponible',
+        help='Cantidad pronosticada al horizonte del plan. Incluye entradas/salidas de Odoo, RFQ pendientes y abastecimientos comprometidos en otras planificaciones.',
+    )
     stock_warehouse_tooltip = fields.Char(
-        string='Stock por almacén',
+        string='Pronóstico por almacén',
         compute='_compute_stock_warehouse_tooltip',
-        help='Detalle del stock disponible en cada almacén seleccionado en la planificación.',
+        help='Detalle de la cantidad pronosticada por almacén al horizonte de la planificación.',
     )
     reserved_qty = fields.Float()
-    incoming_qty = fields.Float()
-    outgoing_qty = fields.Float()
+    incoming_qty = fields.Float(string='Entradas pronosticadas')
+    outgoing_qty = fields.Float(string='Salidas pronosticadas')
+    draft_purchase_qty = fields.Float(string='RFQ pendientes')
+    other_plan_supply_qty = fields.Float(string='Otros planes')
     production_qty = fields.Float(string='OF abiertas')
     net_requirement_qty = fields.Float(string='Necesidad neta')
     move_suggested_qty = fields.Float(string='Mover sugerido')
@@ -114,6 +125,68 @@ class PlanningPlanLine(models.Model):
                 qty_text = ('%.2f' % qty).rstrip('0').rstrip('.') if qty else '0'
                 values.append('%s: %s' % (warehouse.display_name, qty_text))
             line.stock_warehouse_tooltip = '\n'.join(values) or _('Sin detalle de almacenes')
+
+    @api.depends(
+        'sale_line_ids',
+        'sale_line_ids.order_id',
+        'sale_line_ids.order_id.partner_id',
+        'sale_line_ids.order_id.warehouse_id',
+        'sale_line_ids.product_uom_qty',
+        'sale_line_ids.qty_delivered',
+        'sale_line_ids.planning_delivery_date',
+    )
+    def _compute_sale_order_popover_data(self):
+        for line in self:
+            source_lines = line.sale_line_ids or line.sale_line_id
+            grouped = {}
+            for sale_line in source_lines:
+                order = sale_line.order_id
+                if not order:
+                    continue
+                row = grouped.setdefault(order.id, {
+                    'id': order.id,
+                    'name': order.name or '',
+                    'customer': order.partner_id.display_name or '',
+                    'warehouse': order.warehouse_id.display_name or '',
+                    'delivery_date': False,
+                    'pending_qty': 0.0,
+                })
+                pending_sale_uom = max(
+                    (sale_line.product_uom_qty or 0.0) - (sale_line.qty_delivered or 0.0),
+                    0.0,
+                )
+                pending_product_uom = sale_line.product_uom_id._compute_quantity(
+                    pending_sale_uom,
+                    line.product_uom_id,
+                ) if line.product_uom_id else pending_sale_uom
+                row['pending_qty'] += pending_product_uom
+                delivery = sale_line.planning_delivery_date
+                if delivery and (not row['delivery_date'] or delivery < row['delivery_date']):
+                    row['delivery_date'] = delivery
+
+            rows = []
+            for row in sorted(
+                grouped.values(),
+                key=lambda value: (
+                    value['delivery_date'] or fields.Datetime.now(),
+                    value['name'],
+                ),
+            ):
+                rows.append({
+                    'id': row['id'],
+                    'name': row['name'],
+                    'customer': row['customer'],
+                    'warehouse': row['warehouse'],
+                    'delivery_date': fields.Datetime.to_string(row['delivery_date']) if row['delivery_date'] else '',
+                    'pending_qty': round(row['pending_qty'], 2),
+                })
+
+            line.sale_order_popover_data = json.dumps({
+                'count': len(rows),
+                'total_pending_qty': round(sum(row['pending_qty'] for row in rows), 2),
+                'uom': line.product_uom_id.name or '',
+                'orders': rows,
+            }, ensure_ascii=False)
 
     @api.depends('sale_line_ids')
     def _compute_source_counts(self):
@@ -212,6 +285,41 @@ class PlanningPlanLine(models.Model):
             'context': {'create': False, 'delete': False},
         }
 
+    def action_create_inventory_move(self):
+        self.ensure_one()
+        if self.plan_state != 'calculated':
+            raise UserError(_(
+                'Solo puede generar movimientos mientras la planificación está en estado Calculado.'
+            ))
+        if not self.action_move:
+            raise UserError(_(
+                'La línea debe estar seleccionada como Mover para generar una transferencia interna.'
+            ))
+        if self.created_picking_ids:
+            return {
+                'type': 'ir.actions.act_window',
+                'name': _('Reabastecimientos del producto'),
+                'res_model': 'stock.picking',
+                'view_mode': 'list,form',
+                'views': [(False, 'list'), (False, 'form')],
+                'domain': [('id', 'in', self.created_picking_ids.ids)],
+                'target': 'current',
+            }
+
+        # Revalidate current sales demand before committing stock between warehouses.
+        self.plan_id._validate_sale_lines_still_pending()
+        pickings = self.plan_id._create_replenishments_for_lines(self)
+
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Reabastecimientos - %s') % self.product_id.display_name,
+            'res_model': 'stock.picking',
+            'view_mode': 'list,form',
+            'views': [(False, 'list'), (False, 'form')],
+            'domain': [('id', 'in', pickings.ids)],
+            'target': 'current',
+        }
+
     def action_open_product(self):
         self.ensure_one()
         return {
@@ -268,12 +376,13 @@ class PlanningPlanLineWarehouse(models.Model):
     product_id = fields.Many2one(related='planning_line_id.product_id', store=True, index=True)
     warehouse_id = fields.Many2one('stock.warehouse', required=True, index=True, ondelete='cascade')
     demand_qty = fields.Float(string='Demanda')
-    stock_qty = fields.Float(string='Stock disponible')
-    stock_warehouse_tooltip = fields.Char(
-        string='Stock por almacén',
-        compute='_compute_stock_warehouse_tooltip',
-        help='Detalle del stock disponible en cada almacén seleccionado en la planificación.',
-    )
+    on_hand_qty = fields.Float(string='A mano')
+    free_qty = fields.Float(string='Libre')
+    incoming_qty = fields.Float(string='Entradas')
+    outgoing_qty = fields.Float(string='Salidas')
+    draft_purchase_qty = fields.Float(string='RFQ pendientes')
+    other_plan_supply_qty = fields.Float(string='Otros planes')
+    stock_qty = fields.Float(string='Pronóstico disponible')
     open_mo_qty = fields.Float(string='OF abiertas')
     local_shortage_qty = fields.Float(string='Faltante local')
     transferable_excess_qty = fields.Float(string='Excedente movible')
