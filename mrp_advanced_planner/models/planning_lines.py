@@ -67,6 +67,12 @@ class PlanningPlanLine(models.Model):
         index=True,
     )
     action_label = fields.Char(compute='_compute_action_label', string='Acción')
+    purchase_vendor_id = fields.Many2one(
+        'res.partner',
+        string='Proveedor',
+        domain="[('supplier_rank', '>', 0)]",
+        help='Proveedor que se utilizará para crear la RFQ. Puede ser cualquier proveedor activo de Odoo.',
+    )
 
     date_required = fields.Datetime(string='Entrega más próxima', index=True)
     date_planned_start = fields.Datetime()
@@ -157,6 +163,13 @@ class PlanningPlanLine(models.Model):
             self.action_manufacture = False
             self.action_move = False
             self.planner_production_qty = self.net_requirement_qty
+            if not self.purchase_vendor_id and self.product_id:
+                seller = self.product_id.with_company(self.plan_id.company_id)._select_seller(
+                    quantity=self.planner_production_qty or 1.0,
+                    date=fields.Date.context_today(self),
+                    uom_id=self.product_uom_id,
+                )
+                self.purchase_vendor_id = seller.partner_id if seller else False
 
     @api.onchange('action_move')
     def _onchange_action_move(self):

@@ -352,41 +352,55 @@ class PlanningPlan(models.Model):
         Purchase = self.env['purchase.order']
         PurchaseLine = self.env['purchase.order.line']
         grouped_pos = {}
-        created_lines = PurchaseLine
+
+        missing_vendor = lines.filtered(lambda line: not line.purchase_vendor_id)
+        if missing_vendor:
+            raise UserError(_(
+                'Debe seleccionar un proveedor para cada producto a comprar:\n- %s'
+            ) % '\n- '.join(missing_vendor.mapped('product_id.display_name')))
 
         for line in lines:
             if line.created_purchase_line_id:
-                created_lines |= line.created_purchase_line_id
                 continue
+
             warehouse = line.target_warehouse_id or self.warehouse_ids[:1]
-            seller = line.product_id.with_company(self.company_id)._select_seller(
-                quantity=line.planner_production_qty,
-                date=fields.Date.context_today(self),
-                uom_id=line.product_uom_id,
-            )
-            if not seller:
-                raise UserError(_('El producto %s no tiene proveedor configurado.') % line.product_id.display_name)
-            key = (seller.partner_id.id, warehouse.id if warehouse else False)
+            vendor = line.purchase_vendor_id
+            key = (vendor.commercial_partner_id.id, warehouse.id if warehouse else False)
             po = grouped_pos.get(key)
             if not po:
-                po_vals = {
-                    'partner_id': seller.partner_id.id,
-                    'company_id': self.company_id.id,
-                    'origin': self.name,
-                    'advanced_plan_id': self.id,
-                }
-                if warehouse and warehouse.in_type_id:
-                    po_vals['picking_type_id'] = warehouse.in_type_id.id
-                po = Purchase.create(po_vals)
+                po = Purchase.search([
+                    ('state', '=', 'draft'),
+                    ('advanced_plan_id', '=', self.id),
+                    ('partner_id', '=', vendor.commercial_partner_id.id),
+                    ('picking_type_id', '=', warehouse.in_type_id.id if warehouse and warehouse.in_type_id else False),
+                ], limit=1)
+                if not po:
+                    po_vals = {
+                        'partner_id': vendor.commercial_partner_id.id,
+                        'company_id': self.company_id.id,
+                        'origin': self.name,
+                        'advanced_plan_id': self.id,
+                    }
+                    if warehouse and warehouse.in_type_id:
+                        po_vals['picking_type_id'] = warehouse.in_type_id.id
+                    po = Purchase.create(po_vals)
                 grouped_pos[key] = po
+
             vals = PurchaseLine._prepare_purchase_order_line(
-                line.product_id, line.planner_production_qty, line.product_uom_id,
-                self.company_id, seller.partner_id, po,
+                line.product_id,
+                line.planner_production_qty,
+                line.product_uom_id,
+                self.company_id,
+                po.partner_id,
+                po,
             )
             vals['planning_plan_line_id'] = line.id
             pol = PurchaseLine.create(vals)
-            line.write({'created_purchase_line_id': pol.id, 'state': 'applied', 'planned_purchase_qty': line.planner_production_qty})
-            created_lines |= pol
+            line.write({
+                'created_purchase_line_id': pol.id,
+                'state': 'applied',
+                'planned_purchase_qty': line.planner_production_qty,
+            })
 
         return self.action_open_created_purchases()
 

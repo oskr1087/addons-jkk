@@ -132,6 +132,15 @@ class SimplePlanningEngine:
                 move = True
                 planner_qty = move_suggested
 
+            purchase_vendor = False
+            if purchase:
+                seller = product.with_company(self.plan.company_id)._select_seller(
+                    quantity=planner_qty or 1.0,
+                    date=fields.Date.context_today(self.plan),
+                    uom_id=product.uom_id,
+                )
+                purchase_vendor = seller.partner_id if seller else False
+
             sale_lines = source['sale_lines']
             line = Line.create({
                 'plan_id': self.plan.id,
@@ -151,6 +160,7 @@ class SimplePlanningEngine:
                 'action_manufacture': manufacture,
                 'action_purchase': purchase,
                 'action_move': move,
+                'purchase_vendor_id': purchase_vendor.id if purchase_vendor else False,
                 'date_required': source['date_required'],
                 'source_type': 'sale',
                 'source_reference': '%s pedidos / %s líneas de venta' % (len(sale_lines.mapped('order_id')), len(sale_lines)),

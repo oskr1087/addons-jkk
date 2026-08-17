@@ -113,6 +113,7 @@
                                 <field name="move_suggested_qty" string="Movible" readonly="1" optional="hide"/>
                                 <field name="action_manufacture" string="Fabricar" widget="boolean_toggle" readonly="state == 'applied'"/>
                                 <field name="action_purchase" string="Comprar" widget="boolean_toggle" readonly="state == 'applied'"/>
+                                <field name="purchase_vendor_id" string="Proveedor" invisible="not action_purchase" readonly="state == 'applied'" options="{'no_create': True, 'no_open': True}"/>
                                 <field name="action_move" string="Mover" widget="boolean_toggle" readonly="state == 'applied'"/>
                                 <field name="planner_production_qty" string="Cantidad" readonly="state == 'applied'"/>
                                 <field name="target_warehouse_id" string="Destino" readonly="state == 'applied'" domain="[('id', 'in', parent.warehouse_ids)]" options="{'no_create': True}" optional="hide"/>
@@ -175,6 +176,7 @@
                 <field name="move_suggested_qty" sum="Mover sugerido" optional="hide"/>
                 <field name="planner_production_qty" sum="Cantidad planificada"/>
                 <field name="action_type" optional="show"/>
+                <field name="purchase_vendor_id" optional="show"/>
                 <field name="bom_id" optional="hide"/>
                 <field name="priority" widget="priority" optional="hide"/>
                 <field name="state" optional="show"/>
@@ -213,6 +215,7 @@
                 <field name="partner_id"/>
                 <field name="sale_order_id"/>
                 <field name="target_warehouse_id"/>
+                <field name="purchase_vendor_id"/>
                 <field name="bom_id"/>
 
                 <separator/>
@@ -245,6 +248,7 @@
                     <filter name="group_state" string="Estado" context="{'group_by': 'state'}"/>
                     <filter name="group_warehouse" string="Almacén destino" context="{'group_by': 'target_warehouse_id'}"/>
                     <filter name="group_customer" string="Cliente principal" context="{'group_by': 'partner_id'}"/>
+                    <filter name="group_vendor" string="Proveedor" context="{'group_by': 'purchase_vendor_id'}"/>
                     <filter name="group_bom" string="Lista de materiales" context="{'group_by': 'bom_id'}"/>
                     <filter name="group_priority" string="Prioridad" context="{'group_by': 'priority'}"/>
                     <filter name="group_required_day" string="Entrega: día" context="{'group_by': 'date_required:day'}"/>
@@ -296,6 +300,7 @@
                     <group string="Decisión">
                         <field name="action_manufacture" readonly="state == 'applied'"/>
                         <field name="action_purchase" readonly="state == 'applied'"/>
+                        <field name="purchase_vendor_id" invisible="not action_purchase" readonly="state == 'applied'" options="{'no_create': True, 'no_open': True}"/>
                         <field name="action_move" readonly="state == 'applied'"/>
                         <field name="planner_production_qty" readonly="state == 'applied'"/>
                         <field name="target_warehouse_id" readonly="state == 'applied'"/>
