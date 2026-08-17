@@ -39,31 +39,152 @@ class MrpProduction(models.Model):
         readonly=True,
     )
 
-    def _set_qty_producing(self, pick_manual_consumption_moves=True):
-        """Conserva las cantidades de componentes durante el onchange."""
-        cantidades_originales = {}
-        for production in self:
-            if production.product_qty > production.qty_producing:
-                cantidades_originales[production.id] = {
-                    move.id: {
-                        "product_uom_qty": move.product_uom_qty,
-                        "quantity": move.quantity,
-                    }
-                    for move in production.move_raw_ids
-                }
+    def _get_raw_consumption_targets(self):
+        """Return the automatic raw consumption target for the current qty_producing.
 
-        resultado = super()._set_qty_producing(
+        The target is rebuilt from the BoM through ``_get_moves_raw_values()`` so
+        it does not depend on a previously altered ``product_uom_qty`` or
+        ``unit_factor``.  Production below the planned quantity is scaled
+        normally.  Production above the planned quantity is capped at 100% of
+        the planned raw material demand.
+
+        Only raw material moves of this manufacturing order are considered.
+        Manual-consumption moves are intentionally excluded so Odoo can keep its
+        standard warning/strict-consumption behaviour for genuinely manual
+        consumption differences.
+        """
+        self.ensure_one()
+        if not self.bom_id or not self.product_qty or self.qty_producing <= 0:
+            return {}
+
+        rounding = self.product_uom_id.rounding or 0.01
+        effective_qty = self.qty_producing
+        if float_compare(
+            effective_qty,
+            self.product_qty,
+            precision_rounding=rounding,
+        ) > 0:
+            effective_qty = self.product_qty
+
+        ratio = effective_qty / self.product_qty if self.product_qty else 0.0
+        raw_values = self._get_moves_raw_values()
+
+        # Prefer matching by BoM line.  Fallback to product when the value does
+        # not expose bom_line_id (custom BoM/move implementations).
+        by_bom_line = defaultdict(list)
+        by_product = defaultdict(list)
+        for vals in raw_values:
+            bom_line_id = vals.get("bom_line_id")
+            if bom_line_id:
+                by_bom_line[bom_line_id].append(vals)
+            by_product[vals.get("product_id")].append(vals)
+
+        targets = {}
+        used_value_ids = set()
+        for move in self.move_raw_ids.filtered(
+            lambda m: m.raw_material_production_id == self
+            and m.state not in ("done", "cancel")
+            and not m.manual_consumption
+        ):
+            candidates = []
+            if move.bom_line_id:
+                candidates = by_bom_line.get(move.bom_line_id.id, [])
+            if not candidates:
+                candidates = by_product.get(move.product_id.id, [])
+
+            vals = next((v for v in candidates if id(v) not in used_value_ids), None)
+            if not vals:
+                continue
+            used_value_ids.add(id(vals))
+
+            vals_uom = self.env["uom.uom"].browse(vals["product_uom"])
+            full_qty = vals_uom._compute_quantity(vals["product_uom_qty"], move.product_uom)
+            targets[move.id] = move.product_uom.round(full_qty * ratio)
+
+        return targets
+
+    def _set_qty_producing(self, pick_manual_consumption_moves=True):
+        """Keep Odoo's flow, then normalize automatic raw consumption once.
+
+        * below/equal planned qty: proportional consumption, exactly once;
+        * above planned qty: raw consumption capped at the planned quantity.
+
+        We deliberately never rewrite ``product_uom_qty``.  This avoids
+        corrupting the demand base used by backorders and later computations.
+        The customization is restricted to ``move_raw_ids`` linked through
+        ``raw_material_production_id``.
+        """
+        result = super()._set_qty_producing(
             pick_manual_consumption_moves=pick_manual_consumption_moves
         )
 
         for production in self:
-            originales = cantidades_originales.get(production.id, {})
-            for move in production.move_raw_ids:
-                valores = originales.get(move.id)
-                if valores:
-                    move.product_uom_qty = valores["product_uom_qty"]
-                    move.quantity = valores["quantity"]
-        return resultado
+            targets = production._get_raw_consumption_targets()
+            if not targets:
+                continue
+            for move in production.move_raw_ids.filtered(
+                lambda m: m.id in targets
+                and m.raw_material_production_id == production
+                and m.state not in ("done", "cancel")
+            ):
+                target = targets[move.id]
+                if move.product_uom.compare(move.quantity, target) != 0:
+                    move._set_quantity_done(target)
+                if (not move.manual_consumption or pick_manual_consumption_moves) and target:
+                    move.picked = True
+
+        return result
+
+    def _get_consumption_issues(self):
+        """Evitar falsos avisos únicamente por sobreproducción.
+
+        Odoo estándar calcula el esperado del wizard como BoM *
+        qty_producing/product_qty. Para esta personalización, si se produce más
+        que lo planificado, el esperado de materias primas se limita al 100% de
+        la OF. Para cantidades menores o iguales se delega íntegramente a Odoo.
+        """
+        normal = self.filtered(
+            lambda mo: mo.product_uom_id.compare(mo.qty_producing, mo.product_qty) <= 0
+        )
+        over = self - normal
+        issues = super(MrpProduction, normal)._get_consumption_issues() if normal else []
+
+        if self.env.context.get("skip_consumption", False):
+            return issues
+
+        for order in over:
+            if order.consumption == "flexible" or not order.bom_id or not order.bom_id.bom_line_ids:
+                continue
+
+            expected_move_values = order._get_moves_raw_values()
+            expected_qty_by_product = defaultdict(float)
+            for move_values in expected_move_values:
+                product = self.env["product.product"].browse(move_values["product_id"])
+                uom = self.env["uom.uom"].browse(move_values["product_uom"])
+                qty = uom._compute_quantity(move_values["product_uom_qty"], product.uom_id)
+                # Sobreproducción: máximo 100% de la cantidad planificada.
+                expected_qty_by_product[product] += qty
+
+            done_qty_by_product = defaultdict(float)
+            for move in order.move_raw_ids:
+                quantity = move.product_uom._compute_quantity(
+                    move._get_picked_quantity(), move.product_id.uom_id
+                )
+                if (
+                    move.product_id not in expected_qty_by_product
+                    and move.picked
+                    and not move.product_id.uom_id.is_zero(quantity)
+                ):
+                    issues.append((order, move.product_id, quantity, 0.0))
+                    continue
+                done_qty_by_product[move.product_id] += quantity if move.picked else 0.0
+
+            for product, expected_qty in expected_qty_by_product.items():
+                consumed_qty = done_qty_by_product.get(product, 0.0)
+                if product.uom_id.compare(expected_qty, consumed_qty) != 0:
+                    issues.append((order, product, consumed_qty, expected_qty))
+
+        return issues
 
     def _compute_lot_distribution_id(self):
         Distribution = self.env["mrp.production.lot.distribution"]
@@ -245,11 +366,12 @@ class MrpProduction(models.Model):
         return True
 
     def button_mark_done(self):
-        """Valida la distribución de lotes antes de finalizar la fabricación."""
+        """Validar distribución de lotes y dejar el consumo a la lógica central."""
         for order in self:
             if order.product_tracking != "lot":
                 continue
 
+            rounding = order.product_uom_id.rounding or 0.01
             distribution = order.lot_distribution_id
             if not distribution or not distribution.line_ids:
                 raise UserError(
@@ -260,15 +382,11 @@ class MrpProduction(models.Model):
                     % {"order": order.display_name}
                 )
 
-            rounding = order.product_uom_id.rounding or 0.01
-            if (
-                float_compare(
-                    distribution.total_quantity,
-                    order.qty_producing,
-                    precision_rounding=rounding,
-                )
-                != 0
-            ):
+            if float_compare(
+                distribution.total_quantity,
+                order.qty_producing,
+                precision_rounding=rounding,
+            ) != 0:
                 raise UserError(
                     _(
                         "La distribución de lotes de %(order)s no coincide con la "
