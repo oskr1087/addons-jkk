@@ -1,9 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_mrp_advanced_planner_plans"
+    <menuitem id="menu_mrp_advanced_planner_planning"
               name="Planificaciones"
               parent="menu_mrp_advanced_planner_root"
+              sequence="10"
+              groups="mrp_advanced_planner.group_planner_user"/>
+
+    <menuitem id="menu_mrp_advanced_planner_plans"
+              name="Planes"
+              parent="menu_mrp_advanced_planner_planning"
               action="action_mrp_planning_plan"
               sequence="10"
+              groups="mrp_advanced_planner.group_planner_user"/>
+
+    <menuitem id="menu_mrp_advanced_planner_plan_lines"
+              name="Líneas de planificación"
+              parent="menu_mrp_advanced_planner_planning"
+              action="action_mrp_planning_plan_lines_analysis"
+              sequence="20"
               groups="mrp_advanced_planner.group_planner_user"/>
 </odoo>

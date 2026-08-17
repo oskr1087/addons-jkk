@@ -54,6 +54,18 @@ class PlanningPlanLine(models.Model):
     action_manufacture = fields.Boolean(string='Fabricar')
     action_purchase = fields.Boolean(string='Comprar')
     action_move = fields.Boolean(string='Mover')
+    action_type = fields.Selection(
+        [
+            ('manufacture', 'Fabricar'),
+            ('purchase', 'Comprar'),
+            ('move', 'Mover'),
+            ('none', 'Sin definir'),
+        ],
+        string='Acción',
+        compute='_compute_action_type',
+        store=True,
+        index=True,
+    )
     action_label = fields.Char(compute='_compute_action_label', string='Acción')
 
     date_required = fields.Datetime(string='Entrega más próxima', index=True)
@@ -103,6 +115,18 @@ class PlanningPlanLine(models.Model):
             source_lines = line.sale_line_ids or line.sale_line_id
             line.sale_line_count = len(source_lines)
             line.sale_order_count = len(source_lines.mapped('order_id'))
+
+    @api.depends('action_manufacture', 'action_purchase', 'action_move')
+    def _compute_action_type(self):
+        for line in self:
+            if line.action_manufacture:
+                line.action_type = 'manufacture'
+            elif line.action_purchase:
+                line.action_type = 'purchase'
+            elif line.action_move:
+                line.action_type = 'move'
+            else:
+                line.action_type = 'none'
 
     @api.depends('action_manufacture', 'action_purchase', 'action_move')
     def _compute_action_label(self):

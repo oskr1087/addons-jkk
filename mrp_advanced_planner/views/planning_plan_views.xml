@@ -152,22 +152,122 @@
     </record>
 
     <record id="view_mrp_planning_plan_line_list" model="ir.ui.view">
-        <field name="name">mrp.planning.plan.line.list.procurement</field>
+        <field name="name">mrp.planning.plan.line.list.analysis</field>
         <field name="model">mrp.planning.plan.line</field>
         <field name="arch" type="xml">
-            <list create="0" delete="0">
+            <list string="Líneas de planificación" create="0" delete="0"
+                  decoration-danger="state == 'blocked'"
+                  decoration-success="state == 'applied'"
+                  decoration-warning="net_requirement_qty &gt; 0 and state != 'applied'">
+                <field name="plan_id"/>
+                <field name="date_required" optional="show"/>
+                <field name="product_id"/>
+                <field name="partner_id" optional="hide"/>
+                <field name="sale_order_id" optional="hide"/>
+                <field name="sale_order_count" optional="hide"/>
+                <field name="sale_line_count" optional="hide"/>
+                <field name="target_warehouse_id" optional="show"/>
+                <field name="product_uom_id" optional="hide"/>
+                <field name="sales_qty" sum="Demanda total"/>
+                <field name="stock_qty" sum="Stock total"/>
+                <field name="production_qty" sum="OF abiertas"/>
+                <field name="net_requirement_qty" sum="Necesidad total"/>
+                <field name="move_suggested_qty" sum="Mover sugerido" optional="hide"/>
+                <field name="planner_production_qty" sum="Cantidad planificada"/>
+                <field name="action_type" optional="show"/>
+                <field name="bom_id" optional="hide"/>
+                <field name="priority" widget="priority" optional="hide"/>
+                <field name="state" optional="show"/>
+                <field name="created_production_id" optional="hide"/>
+                <field name="created_purchase_line_id" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_mrp_planning_plan_line_pivot" model="ir.ui.view">
+        <field name="name">mrp.planning.plan.line.pivot.analysis</field>
+        <field name="model">mrp.planning.plan.line</field>
+        <field name="arch" type="xml">
+            <pivot string="Análisis de líneas de planificación" sample="1">
+                <field name="plan_id" type="row"/>
+                <field name="action_type" type="row"/>
+                <field name="product_id" type="row"/>
+                <field name="date_required" type="col" interval="month"/>
+                <field name="sales_qty" type="measure"/>
+                <field name="stock_qty" type="measure"/>
+                <field name="production_qty" type="measure"/>
+                <field name="net_requirement_qty" type="measure"/>
+                <field name="move_suggested_qty" type="measure"/>
+                <field name="planner_production_qty" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_mrp_planning_plan_line_search" model="ir.ui.view">
+        <field name="name">mrp.planning.plan.line.search.analysis</field>
+        <field name="model">mrp.planning.plan.line</field>
+        <field name="arch" type="xml">
+            <search string="Buscar líneas de planificación">
                 <field name="plan_id"/>
                 <field name="product_id"/>
-                <field name="sales_qty"/>
-                <field name="stock_qty"/>
-                <field name="production_qty"/>
-                <field name="net_requirement_qty"/>
-                <field name="action_label"/>
-                <field name="planner_production_qty"/>
+                <field name="partner_id"/>
+                <field name="sale_order_id"/>
                 <field name="target_warehouse_id"/>
-                <field name="created_production_id" optional="show"/>
-                <field name="created_purchase_line_id" optional="show"/>
-            </list>
+                <field name="bom_id"/>
+
+                <separator/>
+                <filter name="filter_manufacture" string="Fabricar" domain="[('action_type', '=', 'manufacture')]"/>
+                <filter name="filter_purchase" string="Comprar" domain="[('action_type', '=', 'purchase')]"/>
+                <filter name="filter_move" string="Mover" domain="[('action_type', '=', 'move')]"/>
+                <filter name="filter_no_action" string="Sin decisión" domain="[('action_type', '=', 'none'), ('planner_production_qty', '&gt;', 0)]"/>
+
+                <separator/>
+                <filter name="filter_need" string="Con necesidad" domain="[('net_requirement_qty', '&gt;', 0)]"/>
+                <filter name="filter_stock" string="Con stock" domain="[('stock_qty', '&gt;', 0)]"/>
+                <filter name="filter_open_mo" string="Con OF abiertas" domain="[('production_qty', '&gt;', 0)]"/>
+                <filter name="filter_move_possible" string="Con stock movible" domain="[('move_suggested_qty', '&gt;', 0)]"/>
+                <filter name="filter_with_bom" string="Con LdM" domain="[('bom_id', '!=', False)]"/>
+                <filter name="filter_without_bom" string="Sin LdM" domain="[('bom_id', '=', False)]"/>
+
+                <separator/>
+                <filter name="filter_pending" string="Pendientes de generar" domain="[('state', '!=', 'applied'), ('planner_production_qty', '&gt;', 0)]"/>
+                <filter name="filter_generated" string="Generadas" domain="[('state', '=', 'applied')]"/>
+                <filter name="filter_review" string="Revisar" domain="[('state', '=', 'blocked')]"/>
+                <filter name="filter_high_priority" string="Alta/Urgente" domain="[('priority', 'in', ['1', '2'])]"/>
+
+                <separator/>
+                <filter name="filter_date_required" string="Fecha de entrega" date="date_required"/>
+
+                <group>
+                    <filter name="group_plan" string="Planificación" context="{'group_by': 'plan_id'}"/>
+                    <filter name="group_product" string="Producto" context="{'group_by': 'product_id'}"/>
+                    <filter name="group_action" string="Acción" context="{'group_by': 'action_type'}"/>
+                    <filter name="group_state" string="Estado" context="{'group_by': 'state'}"/>
+                    <filter name="group_warehouse" string="Almacén destino" context="{'group_by': 'target_warehouse_id'}"/>
+                    <filter name="group_customer" string="Cliente principal" context="{'group_by': 'partner_id'}"/>
+                    <filter name="group_bom" string="Lista de materiales" context="{'group_by': 'bom_id'}"/>
+                    <filter name="group_priority" string="Prioridad" context="{'group_by': 'priority'}"/>
+                    <filter name="group_required_day" string="Entrega: día" context="{'group_by': 'date_required:day'}"/>
+                    <filter name="group_required_week" string="Entrega: semana" context="{'group_by': 'date_required:week'}"/>
+                    <filter name="group_required_month" string="Entrega: mes" context="{'group_by': 'date_required:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_mrp_planning_plan_lines_analysis" model="ir.actions.act_window">
+        <field name="name">Líneas de planificación</field>
+        <field name="res_model">mrp.planning.plan.line</field>
+        <field name="view_mode">list,pivot</field>
+        <field name="views" eval="[
+            (ref('view_mrp_planning_plan_line_list'), 'list'),
+            (ref('view_mrp_planning_plan_line_pivot'), 'pivot')
+        ]"/>
+        <field name="search_view_id" ref="view_mrp_planning_plan_line_search"/>
+        <field name="context">{'search_default_filter_pending': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No existen líneas de planificación para analizar.</p>
+            <p>Calcule una planificación para disponer de demanda, stock, necesidades y decisiones de abastecimiento.</p>
         </field>
     </record>
 
