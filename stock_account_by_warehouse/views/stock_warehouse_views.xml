@@ -6,54 +6,34 @@
         <field name="inherit_id" ref="stock.view_warehouse"/>
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
-                <page string="Contabilidad de Inventario"
-                      name="warehouse_inventory_accounting">
+                <page string="Contabilidad de Inventario" name="warehouse_inventory_accounting">
                     <group>
-                        <group string="Aplicación">
+                        <group string="Configuración">
                             <field name="use_warehouse_stock_accounts"/>
-                            <div class="text-muted"
-                                 invisible="use_warehouse_stock_accounts">
-                                Desactivado: Odoo utilizará la configuración
-                                contable estándar de categoría, compañía y
-                                ubicaciones.
-                            </div>
-                            <div class="text-muted"
-                                 invisible="not use_warehouse_stock_accounts">
-                                Activado: la valoración contable de los
-                                movimientos de este almacén utilizará las
-                                cuentas y el diario configurados aquí.
-                            </div>
                         </group>
                     </group>
+
+                    <div class="alert alert-info mb-3" role="alert">
+                        <strong>Configuración contable del almacén.</strong>
+                        Al activar esta opción, los movimientos de inventario asociados
+                        al almacén utilizarán las cuentas y el diario definidos en esta
+                        pestaña. Si permanece desactivada, se utilizará la configuración
+                        contable general del inventario.
+                    </div>
 
                     <group invisible="not use_warehouse_stock_accounts">
                         <group string="Valoración">
                             <field name="warehouse_stock_valuation_account_id"
                                    options="{'no_create': True}"/>
-                            <field name="warehouse_stock_variation_account_id"
-                                   options="{'no_create': True}"/>
                             <field name="warehouse_stock_journal_id"
                                    options="{'no_create': True}"/>
                         </group>
-
-                        <group string="Contrapartidas">
+                        <group string="Entradas y salidas">
                             <field name="warehouse_stock_input_account_id"
                                    options="{'no_create': True}"/>
                             <field name="warehouse_stock_output_account_id"
                                    options="{'no_create': True}"/>
                         </group>
-                    </group>
-
-                    <group invisible="not use_warehouse_stock_accounts">
-                        <separator string="Comportamiento en Odoo 19"/>
-                        <div class="text-muted">
-                            La cuenta de valoración y el diario reemplazan la
-                            determinación estándar de categoría/compañía para
-                            este almacén. Las contrapartidas de entrada y salida
-                            son específicas de este módulo; Odoo 19 estándar
-                            utiliza cuentas de valoración configuradas en
-                            ubicaciones para determinados movimientos.
-                        </div>
                     </group>
                 </page>
             </xpath>

@@ -280,16 +280,7 @@ class TestStockAccountByWarehouse(TestStockValuationCommon):
             "Internal movement inside the warehouse must not create an accounting move.",
         )
 
-    def test_09_variation_account_is_related_to_valuation_account(self):
-        """UI reference field must mirror the standard relation on account.account."""
-        self._enable_warehouse_accounting()
-
-        self.assertEqual(
-            self.warehouse.warehouse_stock_variation_account_id,
-            self.account_wh_variation,
-        )
-
-    def test_10_account_move_creation_does_not_require_removed_partner_helper(self):
+    def test_09_account_move_creation_does_not_require_removed_partner_helper(self):
         """
         Regression for Odoo 19: stock.move does not provide
         _get_partner_id_for_valuation_lines. Valuation must work without it.

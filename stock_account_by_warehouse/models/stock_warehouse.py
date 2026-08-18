@@ -31,43 +31,29 @@ class StockWarehouse(models.Model):
         domain=[
             ("account_type", "not in", _INVALID_STOCK_ACCOUNT_TYPES),
         ],
-        help=(
-            "Equivale funcionalmente a la Cuenta de valoración de inventario "
-            "configurada en la categoría del producto, pero tiene prioridad para "
-            "los movimientos asociados a este almacén."
-        ),
+        help="Cuenta utilizada para registrar el valor del inventario asociado a este almacén.",
     )
 
     warehouse_stock_input_account_id = fields.Many2one(
         "account.account",
-        string="Cuenta contrapartida de entrada",
+        string="Cuenta de entrada de inventario",
         check_company=True,
         ondelete="restrict",
         domain=[
             ("account_type", "not in", _INVALID_STOCK_ACCOUNT_TYPES),
         ],
-        help=(
-            "Contrapartida usada cuando un movimiento valorado entra al almacén. "
-            "En Odoo 19 las contrapartidas del stock se relacionan con las cuentas "
-            "de valoración de las ubicaciones; este campo permite definir la "
-            "contrapartida directamente por almacén cuando la opción está activa."
-        ),
+        help="Cuenta utilizada como contrapartida contable en las entradas de inventario de este almacén.",
     )
 
     warehouse_stock_output_account_id = fields.Many2one(
         "account.account",
-        string="Cuenta contrapartida de salida",
+        string="Cuenta de salida de inventario",
         check_company=True,
         ondelete="restrict",
         domain=[
             ("account_type", "not in", _INVALID_STOCK_ACCOUNT_TYPES),
         ],
-        help=(
-            "Contrapartida usada cuando un movimiento valorado sale del almacén. "
-            "En Odoo 19 las contrapartidas del stock se relacionan con las cuentas "
-            "de valoración de las ubicaciones; este campo permite definir la "
-            "contrapartida directamente por almacén cuando la opción está activa."
-        ),
+        help="Cuenta utilizada como contrapartida contable en las salidas de inventario de este almacén.",
     )
 
     warehouse_stock_journal_id = fields.Many2one(
@@ -76,22 +62,9 @@ class StockWarehouse(models.Model):
         check_company=True,
         ondelete="restrict",
         domain=[("type", "=", "general")],
-        help=(
-            "Equivale al Diario de inventario de la categoría/compañía. "
-            "Debe ser un diario de tipo Misceláneo/General de la misma compañía."
-        ),
+        help="Diario utilizado para registrar los asientos contables de inventario de este almacén.",
     )
 
-    warehouse_stock_variation_account_id = fields.Many2one(
-        "account.account",
-        string="Cuenta de variación de inventario",
-        related="warehouse_stock_valuation_account_id.account_stock_variation_id",
-        readonly=True,
-        help=(
-            "Cuenta de variación asociada a la cuenta de valoración seleccionada. "
-            "Se muestra como referencia, siguiendo la relación estándar de Odoo 19."
-        ),
-    )
 
     @api.constrains(
         "use_warehouse_stock_accounts",
@@ -109,9 +82,9 @@ class StockWarehouse(models.Model):
             if not warehouse.warehouse_stock_valuation_account_id:
                 missing.append(_("Cuenta de valoración de inventario"))
             if not warehouse.warehouse_stock_input_account_id:
-                missing.append(_("Cuenta contrapartida de entrada"))
+                missing.append(_("Cuenta de entrada de inventario"))
             if not warehouse.warehouse_stock_output_account_id:
-                missing.append(_("Cuenta contrapartida de salida"))
+                missing.append(_("Cuenta de salida de inventario"))
             if not warehouse.warehouse_stock_journal_id:
                 missing.append(_("Diario de inventario"))
 
