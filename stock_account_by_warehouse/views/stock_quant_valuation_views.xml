@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        The Inventory Valuation report in Odoo 19 is based on stock.quant.
+        stock.quant already exposes warehouse_id through location_id.warehouse_id.
+        We only expose that existing field in the valuation UI.
+    -->
+
+    <record id="view_stock_quant_valuation_warehouse_list" model="ir.ui.view">
+        <field name="name">stock.quant.valuation.warehouse.list</field>
+        <field name="model">stock.quant</field>
+        <field name="inherit_id" ref="stock.view_stock_quant_tree_editable"/>
+        <field name="arch" type="xml">
+            <field name="location_id" position="after">
+                <field name="warehouse_id"
+                       string="Almacén"
+                       optional="show"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_stock_quant_valuation_warehouse_search" model="ir.ui.view">
+        <field name="name">stock.quant.valuation.warehouse.search</field>
+        <field name="model">stock.quant</field>
+        <field name="inherit_id" ref="stock.quant_search_view"/>
+        <field name="arch" type="xml">
+            <field name="warehouse_id" position="attributes">
+                <attribute name="string">Almacén</attribute>
+            </field>
+            <filter name="locationgroup" position="after">
+                <filter string="Almacén"
+                        name="warehousegroup"
+                        context="{'group_by': 'warehouse_id'}"/>
+            </filter>
+        </field>
+    </record>
+
+    <record id="view_stock_quant_valuation_warehouse_pivot" model="ir.ui.view">
+        <field name="name">stock.quant.valuation.warehouse.pivot</field>
+        <field name="model">stock.quant</field>
+        <field name="inherit_id" ref="stock.view_stock_quant_pivot"/>
+        <field name="arch" type="xml">
+            <field name="location_id" position="before">
+                <field name="warehouse_id" type="row"/>
+            </field>
+        </field>
+    </record>
+</odoo>

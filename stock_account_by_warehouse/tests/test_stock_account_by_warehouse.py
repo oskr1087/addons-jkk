@@ -309,3 +309,42 @@ class TestStockAccountByWarehouse(TestStockValuationCommon):
             [11.0, 0.0],
         )
 
+    def test_10_quant_warehouse_matches_location_warehouse(self):
+        self._use_multi_warehouses()
+
+        quant = self.env["stock.quant"].create({
+            "product_id": self.product_standard_auto.id,
+            "location_id": self.other_warehouse.lot_stock_id.id,
+            "quantity": 2,
+        })
+
+        self.assertEqual(
+            quant.warehouse_id,
+            self.other_warehouse,
+            "Inventory valuation must expose the warehouse owning the quant location.",
+        )
+
+    def test_11_quant_warehouse_can_be_grouped(self):
+        self._use_multi_warehouses()
+
+        self.env["stock.quant"].create({
+            "product_id": self.product_standard_auto.id,
+            "location_id": self.warehouse.lot_stock_id.id,
+            "quantity": 1,
+        })
+        self.env["stock.quant"].create({
+            "product_id": self.product_standard_auto.id,
+            "location_id": self.other_warehouse.lot_stock_id.id,
+            "quantity": 1,
+        })
+
+        groups = self.env["stock.quant"]._read_group(
+            [("product_id", "=", self.product_standard_auto.id)],
+            ["warehouse_id"],
+            ["quantity:sum"],
+        )
+        warehouse_ids = {warehouse.id for warehouse, _quantity in groups if warehouse}
+
+        self.assertIn(self.warehouse.id, warehouse_ids)
+        self.assertIn(self.other_warehouse.id, warehouse_ids)
+

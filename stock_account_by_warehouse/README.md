@@ -94,3 +94,26 @@ Ajustes de compatibilidad de tests con la API real de Odoo 19:
   El test ahora compara la suma de débitos contra la suma de créditos.
 - `stock.move.name` ya no es un campo válido en Odoo 19.
   El test de transferencia interna usa `description_picking`.
+
+
+## 19.0.8.0.0 - Almacén en valoración de inventario
+
+El reporte de valoración de inventario muestra el almacén asociado a cada
+existencia, reutilizando `stock.quant.warehouse_id`.
+
+Se agrega:
+- Columna Almacén en la lista.
+- Búsqueda por Almacén.
+- Agrupar por Almacén.
+- Almacén como dimensión en la vista pivote.
+- Tests para relación y agrupación multi-almacén.
+
+No se duplica ni almacena información adicional: el almacén se obtiene de la
+ubicación del inventario.
+
+
+## 19.0.9.0.0
+
+- Corregido el XML ID de la vista lista de `stock.quant` para Odoo 19.
+- Se hereda `stock.view_stock_quant_tree_editable`; el XML ID
+  `stock_account.view_stock_quant_tree` no existe en esta versión.
