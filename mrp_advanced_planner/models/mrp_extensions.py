@@ -144,38 +144,55 @@ class StockMove(models.Model):
         return total
 
     def _planning_forecast_shortage(self):
-        """Shortage after Odoo forecast + RFQs not yet represented as stock moves."""
+        """Return component shortage using forecast, safe for onchange/new records."""
         self.ensure_one()
+
         production = self.raw_material_production_id
-        if not production or production.state in ('done', 'cancel'):
+        product = self.product_id
+
+        if not production or not product:
+            return 0.0
+        if production.state in ('done', 'cancel'):
             return 0.0
 
-        warehouse = production.picking_type_id.warehouse_id or self.location_id.warehouse_id
+        warehouse = production.picking_type_id.warehouse_id
+        if not warehouse and self.location_id:
+            warehouse = self.location_id.warehouse_id
         if not warehouse:
             return 0.0
 
-        to_date = self.date or production.date_start or production.date_deadline or fields.Datetime.now()
-        values = self.product_id.with_context(
+        to_date = (
+            self.date
+            or production.date_start
+            or production.date_deadline
+            or fields.Datetime.now()
+        )
+
+        product_ctx = product.with_company(production.company_id).with_context(
             warehouse_id=warehouse.id,
             to_date=to_date,
             allowed_company_ids=[production.company_id.id],
             company_owned=True,
-            prefetch_fields=False,
-        ).read(['virtual_available'])[0]
-        forecast = values.get('virtual_available') or 0.0
+        )
 
-        # Draft component moves are not part of product.virtual_available yet.
-        # Simulate this move once so the same algorithm also works before MO confirm.
-        if self.state == 'draft':
-            required = self.product_uom._compute_quantity(
-                self.product_uom_qty, self.product_id.uom_id
+        forecast = float(product_ctx.virtual_available or 0.0)
+
+        if self.state == 'draft' and self.product_uom and self.product_uom_qty:
+            required_product_uom = self.product_uom._compute_quantity(
+                self.product_uom_qty,
+                product.uom_id,
             )
-            forecast -= required
+            forecast -= required_product_uom
 
         forecast += self._planning_draft_purchase_supply(warehouse, to_date)
+
         shortage_product_uom = max(-forecast, 0.0)
-        return self.product_id.uom_id._compute_quantity(
-            shortage_product_uom, self.product_uom
+        if not self.product_uom:
+            return shortage_product_uom
+
+        return product.uom_id._compute_quantity(
+            shortage_product_uom,
+            self.product_uom,
         )
 
     @api.depends(
@@ -190,10 +207,16 @@ class StockMove(models.Model):
     )
     def _compute_planning_can_purchase_component(self):
         for move in self:
-            if move.planning_purchase_order_line_id:
-                move.planning_can_purchase_component = False
+            move.planning_can_purchase_component = False
+            if (
+                not move.product_id
+                or not move.raw_material_production_id
+                or move.planning_purchase_order_line_id
+            ):
                 continue
-            move.planning_can_purchase_component = move._planning_forecast_shortage() > 1e-6
+            move.planning_can_purchase_component = (
+                move._planning_forecast_shortage() > 1e-6
+            )
 
     def action_create_component_purchase(self):
         self.ensure_one()

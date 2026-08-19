@@ -1,6 +1,6 @@
 {
     'name': 'Planificador de Producción y Abastecimiento',
-    'version': '19.0.10.2.0',
+    'version': '19.0.10.2.1',
     'category': 'Fabricación/Fabricación',
     'summary': 'Planificación agrupada por producto: fabricar, comprar o reabastecer entre almacenes',
     'author': 'Planificador APS',
