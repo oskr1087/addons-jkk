@@ -1,0 +1,20 @@
+{
+    "name": "Reacondicionamiento de Fabricación",
+    "summary": "Reacondicionamiento de productos devueltos con trazabilidad de lotes y fabricación",
+    "version": "19.0.1.9.0",
+    "category": "Manufacturing/Manufacturing",
+    "author": "Oscar Morocho",
+    "license": "LGPL-3",
+    "depends": ["mrp", "stock", "sale_stock", "mrp_multi_lot_distribution"],
+    "data": [
+        "security/ir.model.access.csv",
+        "data/ir_sequence_data.xml",
+        "views/mrp_reconditioning_reason_views.xml",
+        "views/mrp_standard_actions.xml",
+        "views/mrp_production_views.xml",
+        "views/stock_picking_views.xml",
+        "views/mrp_reconditioning_menus.xml",
+    ],
+    "installable": True,
+    "application": True,
+}

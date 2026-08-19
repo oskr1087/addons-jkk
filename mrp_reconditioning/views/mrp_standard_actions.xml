@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Mantiene las órdenes de reacondicionamiento fuera de los menús estándar de fabricación. -->
+    <record id="mrp.mrp_production_action" model="ir.actions.act_window">
+        <field name="domain">[('picking_type_id.active', '=', True), ('is_reconditioning', '=', False)]</field>
+    </record>
+
+    <record id="mrp.mrp_production_action_picking_deshboard" model="ir.actions.act_window">
+        <field name="domain">[('picking_type_id', '=', active_id), ('is_reconditioning', '=', False)]</field>
+    </record>
+</odoo>

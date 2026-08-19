@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mrp_production_form_reconditioning" model="ir.ui.view">
+        <field name="name">mrp.production.form.reconditioning</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <field name="is_reconditioning" invisible="1"/>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="Reacondicionamiento" name="reconditioning" invisible="not is_reconditioning">
+                    <group>
+                        <group string="Devolución de cliente">
+                            <field name="return_picking_id"
+                                   readonly="state != 'draft'"
+                                   required="is_reconditioning"
+                                   options="{'no_create': True, 'no_create_edit': True}"/>
+                            <field name="returned_qty" readonly="1"/>
+                            <field name="returned_lot_ids" widget="many2many_tags" readonly="1"/>
+                            <field name="selected_return_lot_ids"
+                                   widget="many2many_tags"
+                                   readonly="state != 'draft'"
+                                   invisible="product_tracking == 'none'"
+                                   options="{'no_create': True, 'no_create_edit': True}"/>
+                            <field name="selected_return_qty" readonly="1"/>
+                            <field name="source_sale_order_id" readonly="1"/>
+                        </group>
+                        <group string="Origen de fabricación">
+                            <field name="original_production_id" readonly="state != 'draft'"/>
+                            <field name="original_lot_id" readonly="1" invisible="not original_lot_id"/>
+                        </group>
+                        <group string="Control del proceso">
+                            <field name="reconditioning_reason_id"/>
+                            <field name="reconditioning_result"/>
+                        </group>
+                    </group>
+                    <group string="Observaciones">
+                        <field name="reconditioning_notes" placeholder="Describa el daño, trabajo requerido, observaciones y cualquier información relevante."/>
+                    </group>
+                    <div class="d-flex gap-2 mb-3" invisible="state != 'draft'">
+                        <button name="action_add_returned_product_component"
+                                type="object"
+                                string="Agregar producto devuelto como componente"
+                                class="btn-primary"/>
+                        <button name="action_load_origin_traceability"
+                                type="object"
+                                string="Cargar trazabilidad original"
+                                class="btn-secondary"
+                                invisible="not original_production_id"/>
+                    </div>
+                    <field name="origin_trace_ids" readonly="state == 'done'">
+                        <list editable="bottom">
+                            <field name="source_production_id"/>
+                            <field name="product_id"/>
+                            <field name="lot_id"/>
+                            <field name="quantity"/>
+                            <field name="product_uom_id"/>
+                            <field name="state"/>
+                            <field name="note" optional="show"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+
+    <record id="view_mrp_reconditioning_list" model="ir.ui.view">
+        <field name="name">mrp.production.reconditioning.list</field>
+        <field name="model">mrp.production</field>
+        <field name="arch" type="xml">
+            <list string="Órdenes de reacondicionamiento" decoration-info="state == 'draft'" decoration-success="state == 'done'">
+                <field name="name" decoration-bf="1"/>
+                <field name="return_picking_id" optional="show"/>
+                <field name="product_id"/>
+                <field name="product_qty" string="Cantidad"/>
+                <field name="selected_return_lot_ids" widget="many2many_tags" optional="show"/>
+                <field name="original_production_id" optional="show"/>
+                <field name="reconditioning_reason_id" optional="show"/>
+                <field name="date_start" optional="show"/>
+                <field name="user_id" optional="hide"/>
+                <field name="state"/>
+                <field name="reconditioning_result" optional="show"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_mrp_reconditioning_search" model="ir.ui.view">
+        <field name="name">mrp.production.reconditioning.search</field>
+        <field name="model">mrp.production</field>
+        <field name="arch" type="xml">
+            <search string="Órdenes de reacondicionamiento">
+                <field name="name"/>
+                <field name="return_picking_id"/>
+                <field name="product_id"/>
+                <field name="selected_return_lot_ids"/>
+                <field name="original_production_id"/>
+                <field name="reconditioning_reason_id"/>
+                <filter string="Borrador" name="draft" domain="[('state','=','draft')]"/>
+                <filter string="En proceso" name="progress" domain="[('state','in',('confirmed','progress','to_close'))]"/>
+                <filter string="Finalizado" name="done" domain="[('state','=','done')]"/>
+                <separator/>
+                <filter string="Aprobado" name="approved" domain="[('reconditioning_result','=','approved')]"/>
+                <filter string="Rechazado" name="rejected" domain="[('reconditioning_result','=','rejected')]"/>
+                <group>
+                    <filter string="Producto" name="group_product" context="{'group_by':'product_id'}"/>
+                    <filter string="Motivo" name="group_reason" context="{'group_by':'reconditioning_reason_id'}"/>
+                    <filter string="Estado" name="group_state" context="{'group_by':'state'}"/>
+                    <filter string="Devolución" name="group_return" context="{'group_by':'return_picking_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_mrp_reconditioning" model="ir.actions.act_window">
+        <field name="name">Órdenes de reacondicionamiento</field>
+        <field name="res_model">mrp.production</field>
+        <field name="view_mode">list,kanban,form,calendar,pivot,graph,activity</field>
+        <field name="domain">[('is_reconditioning', '=', True)]</field>
+        <field name="context">{'default_is_reconditioning': True}</field>
+        <field name="search_view_id" ref="view_mrp_reconditioning_search"/>
+    </record>
+
+    <record id="action_mrp_reconditioning_list_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="1"/>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_mrp_reconditioning_list"/>
+        <field name="act_window_id" ref="action_mrp_reconditioning"/>
+    </record>
+
+    <record id="action_mrp_reconditioning_form_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="2"/>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="mrp.mrp_production_form_view"/>
+        <field name="act_window_id" ref="action_mrp_reconditioning"/>
+    </record>
+</odoo>

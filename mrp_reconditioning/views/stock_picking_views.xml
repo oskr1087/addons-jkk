@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_picking_form_reconditioning" model="ir.ui.view">
+        <field name="name">stock.picking.form.reconditioning</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <field name="is_customer_return_for_reconditioning" invisible="1"/>
+                <button name="action_create_reconditioning"
+                        type="object"
+                        string="Reacondicionar"
+                        class="btn-primary"
+                        invisible="not is_customer_return_for_reconditioning"
+                        groups="mrp.group_mrp_user"/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_reconditionings"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-refresh"
+                        invisible="reconditioning_count == 0"
+                        groups="mrp.group_mrp_user">
+                    <field name="reconditioning_count" widget="statinfo" string="Reacondicionamientos"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>
