@@ -70,3 +70,13 @@ El módulo está diseñado para Odoo 19 basándose en el código estándar de `m
 - múltiples MOs en una misma operación;
 - productos con valoración FIFO/AVCO;
 - fabricación desde ventas/MTO.
+
+
+## Validación de disponibilidad antes de lotes y producción
+
+- Solo se validan movimientos de componentes vinculados a la OF mediante `raw_material_production_id`.
+- Antes de generar lotes se intenta reservar los componentes y se bloquea la generación si alguno no está totalmente disponible.
+- La disponibilidad se vuelve a validar al confirmar la generación de lotes para evitar inconsistencias si el stock cambió mientras el asistente estaba abierto.
+- Antes de marcar una OF como hecha se exige nuevamente disponibilidad completa de los componentes.
+- Para productos terminados controlados por lote se mantiene además la obligación de tener una distribución de lotes válida antes de producir.
+- No se modifica el comportamiento de movimientos de ventas, compras, transferencias ni ajustes de inventario.

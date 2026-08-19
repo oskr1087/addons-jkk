@@ -237,6 +237,73 @@ class MrpProduction(models.Model):
             {"lot_producing_ids": [Command.set(lot_ids)]}
         )
 
+    def _get_unavailable_raw_moves(self):
+        """Return raw-material moves that are not fully reserved.
+
+        This check is intentionally restricted to component moves belonging to
+        this manufacturing order (``raw_material_production_id``).  Finished
+        moves and stock moves coming from sales, purchases, transfers or
+        inventory adjustments are never considered here.
+        """
+        self.ensure_one()
+        return self.move_raw_ids.filtered(
+            lambda move: move.raw_material_production_id == self
+            and move.state not in ("done", "cancel")
+            and not move.picked
+            and not move.product_uom.is_zero(move.product_uom_qty)
+            and move.state != "assigned"
+        )
+
+    def _check_components_available(self, operation_label=None, try_reserve=True):
+        """Require all MO components to be available/reserved.
+
+        ``action_assign`` is called first so the validation reflects the latest
+        stock situation.  We deliberately validate the raw moves themselves
+        instead of only ``reservation_state`` because an MO can be considered
+        ready by Odoo's BoM readiness policy even when not every component is
+        fully available.
+        """
+        self.ensure_one()
+        if self.state in ("draft", "done", "cancel"):
+            return True
+
+        if try_reserve:
+            self.action_assign()
+
+        unavailable_moves = self._get_unavailable_raw_moves()
+        if not unavailable_moves:
+            return True
+
+        operation_label = operation_label or _("continuar con la fabricación")
+        details = []
+        for move in unavailable_moves:
+            reserved_qty = sum(
+                move.move_line_ids.filtered(
+                    lambda line: line.state != "cancel"
+                ).mapped("quantity")
+            )
+            details.append(
+                _("• %(product)s — requerido: %(required)s %(uom)s; reservado: %(reserved)s %(uom)s")
+                % {
+                    "product": move.product_id.display_name,
+                    "required": move.product_uom_qty,
+                    "reserved": reserved_qty,
+                    "uom": move.product_uom.display_name,
+                }
+            )
+
+        raise UserError(
+            _(
+                "No puede %(operation)s porque todavía existen insumos sin disponibilidad suficiente.\n\n"
+                "Primero asegure la disponibilidad de todos los componentes y use «Comprobar disponibilidad».\n\n"
+                "Componentes pendientes:\n%(details)s"
+            )
+            % {
+                "operation": operation_label,
+                "details": "\n".join(details),
+            }
+        )
+
     def _validate_lot_distribution_before_done(self):
         self.ensure_one()
 
@@ -274,6 +341,13 @@ class MrpProduction(models.Model):
         self._sync_lot_producing_ids_from_distribution()
 
     def pre_button_mark_done(self):
+        # A production cannot be completed unless all of its raw materials are
+        # available. This is a manufacturing-only restriction.
+        for production in self:
+            production._check_components_available(
+                operation_label=_("producir la orden %(order)s")
+                % {"order": production.display_name}
+            )
         self._validate_lot_distributions_before_done()
         return super().pre_button_mark_done()
 
@@ -282,7 +356,15 @@ class MrpProduction(models.Model):
             production._validate_lot_distribution_before_done()
 
     def action_generate_serial(self, workorder=False):
+        self.ensure_one()
         if self.product_tracking == "lot":
+            # Do not even open the lot-generation wizard while components are
+            # unavailable. The wizard repeats this validation on Generate to
+            # protect against stock changes while it is open.
+            self._check_components_available(
+                operation_label=_("generar lotes para %(order)s")
+                % {"order": self.display_name}
+            )
             return {
                 "type": "ir.actions.act_window",
                 "name": _("Generar lotes"),

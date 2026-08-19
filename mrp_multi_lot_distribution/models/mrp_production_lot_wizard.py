@@ -25,6 +25,13 @@ class MrpProductionLotWizard(models.TransientModel):
                 )
             )
 
+        # Revalidate immediately before lot creation. Stock may have changed
+        # after the wizard was opened.
+        production._check_components_available(
+            operation_label=_("generar lotes para %(order)s")
+            % {"order": production.display_name}
+        )
+
         distribution = production._get_or_create_lot_distribution()
         distribution.line_ids.unlink()
 
