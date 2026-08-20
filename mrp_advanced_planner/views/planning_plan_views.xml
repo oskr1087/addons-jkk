@@ -5,15 +5,33 @@
         <field name="arch" type="xml">
             <list decoration-success="state == 'approved'">
                 <field name="name"/>
+                <field name="plan_type"/>
+                <field name="plan_type" readonly="state != 'draft'"/>
                 <field name="warehouse_ids" widget="many2many_tags"/>
                 <field name="date_end" string="Planificar hasta"/>
                 <field name="total_sales_qty" string="Demanda"/>
-                <field name="total_to_manufacture_qty" string="Fabricar"/>
-                <field name="total_to_purchase_qty" string="Comprar"/>
-                <field name="total_to_move_qty" string="Mover"/>
+                <field name="total_to_manufacture_qty" string="Fabricar" column_invisible="context.get('default_plan_type') == 'purchase'"/>
+                <field name="total_to_purchase_qty" string="Comprar" column_invisible="context.get('default_plan_type') == 'manufacturing'"/>
+                <field name="total_to_move_qty" string="Mover" column_invisible="context.get('default_plan_type') == 'manufacturing'"/>
                 <field name="state"/>
             </list>
         </field>
+    </record>
+
+    <record id="action_mrp_planning_plan_manufacturing" model="ir.actions.act_window">
+        <field name="name">Planificar fabricación</field>
+        <field name="res_model">mrp.planning.plan</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('plan_type', '=', 'manufacturing')]</field>
+        <field name="context">{'default_plan_type': 'manufacturing'}</field>
+    </record>
+
+    <record id="action_mrp_planning_plan_purchase" model="ir.actions.act_window">
+        <field name="name">Planificar compras</field>
+        <field name="res_model">mrp.planning.plan</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('plan_type', '=', 'purchase')]</field>
+        <field name="context">{'default_plan_type': 'purchase'}</field>
     </record>
 
     <record id="view_mrp_planning_line_warehouse_list" model="ir.ui.view">
@@ -45,10 +63,11 @@
                 <header>
                     <button name="action_calculate" type="object" string="Calcular" class="oe_highlight" invisible="state not in ('draft', 'calculated')"/>
                     <button name="action_calculate" type="object" string="Recalcular" invisible="state != 'calculated'"/>
-                    <button name="action_create_manufacturing" type="object" string="Fabricar" class="btn-primary" icon="fa-industry" invisible="state != 'calculated' or pending_manufacture_count == 0" confirm="Se crearán las órdenes de fabricación pendientes. ¿Continuar?"/>
-                    <button name="action_create_purchases" type="object" string="Comprar" class="btn-secondary" icon="fa-shopping-cart" invisible="state != 'calculated' or pending_purchase_count == 0" confirm="Se crearán las solicitudes de cotización pendientes. ¿Continuar?"/>
-                    <button name="action_create_replenishments" type="object" string="Reabastecer" class="btn-secondary" icon="fa-exchange" invisible="state != 'calculated' or pending_move_count == 0" confirm="Se crearán las transferencias internas pendientes. ¿Continuar?"/>
+                    <button name="action_create_manufacturing" type="object" string="Fabricar" groups="mrp_advanced_planner.group_planner_manufacturing_user" class="btn-primary" icon="fa-industry" invisible="plan_type != 'manufacturing' or state != 'calculated' or pending_manufacture_count == 0" confirm="Se crearán las órdenes de fabricación pendientes. ¿Continuar?"/>
+                    <button name="action_create_purchases" type="object" string="Comprar" groups="mrp_advanced_planner.group_planner_purchase_user" class="btn-secondary" icon="fa-shopping-cart" invisible="plan_type != 'purchase' or state != 'calculated' or pending_purchase_count == 0" confirm="Se crearán las solicitudes de cotización pendientes. ¿Continuar?"/>
+                    <button name="action_create_replenishments" type="object" string="Reabastecer" groups="mrp_advanced_planner.group_planner_purchase_user" class="btn-secondary" icon="fa-exchange" invisible="plan_type != 'purchase' or state != 'calculated' or pending_move_count == 0" confirm="Se crearán las transferencias internas pendientes. ¿Continuar?"/>
                     <button name="action_finalize_plan" type="object" string="Finalizar planificación" class="oe_highlight" icon="fa-check-circle" invisible="not can_finalize_plan" confirm="La planificación pasará a Finalizado y ya no permitirá generar más documentos. ¿Continuar?"/>
+                    <field name="plan_type" invisible="1"/>
                     <field name="pending_manufacture_count" invisible="1"/>
                     <field name="pending_purchase_count" invisible="1"/>
                     <field name="pending_move_count" invisible="1"/>
@@ -60,18 +79,22 @@
                     <field name="date_start" invisible="1"/>
                     <field name="warehouse_id" invisible="1"/>
                     <div class="oe_button_box" name="button_box">
-                        <button name="action_open_created_productions" type="object" class="oe_stat_button" icon="fa-industry" invisible="created_mo_count == 0">
+                        <button name="action_open_created_productions" type="object" groups="mrp_advanced_planner.group_planner_manufacturing_user" class="oe_stat_button" icon="fa-industry" invisible="created_mo_count == 0">
                             <field name="created_mo_count" widget="statinfo" string="OF"/>
                         </button>
-                        <button name="action_open_created_purchases" type="object" class="oe_stat_button" icon="fa-shopping-cart" invisible="created_po_count == 0">
+                        <button name="action_open_created_purchases" type="object" groups="mrp_advanced_planner.group_planner_purchase_user" class="oe_stat_button" icon="fa-shopping-cart" invisible="created_po_count == 0">
                             <field name="created_po_count" widget="statinfo" string="Compras"/>
                         </button>
-                        <button name="action_open_created_transfers" type="object" class="oe_stat_button" icon="fa-exchange" invisible="created_transfer_count == 0">
+                        <button name="action_open_created_transfers" type="object" groups="mrp_advanced_planner.group_planner_purchase_user" class="oe_stat_button" icon="fa-exchange" invisible="created_transfer_count == 0">
                             <field name="created_transfer_count" widget="statinfo" string="Traslados"/>
                         </button>
                     </div>
 
-                    <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
                     <group>
                         <group>
                             <field name="warehouse_ids" widget="many2many_tags" readonly="state != 'draft'" options="{'no_create': True}"/>
@@ -85,20 +108,101 @@
                     </group>
 
                     <div class="row g-3 my-3" invisible="state == 'draft'">
-                        <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-warning"><div class="card-body"><div class="text-muted text-uppercase small">Demanda</div><h2 class="mb-0"><field name="total_sales_qty" nolabel="1" readonly="1"/></h2></div></div></div>
-                        <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-success"><div class="card-body"><div class="text-muted text-uppercase small">Pronóstico</div><h2 class="mb-0"><field name="total_stock_qty" nolabel="1" readonly="1"/></h2></div></div></div>
-                        <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-info"><div class="card-body"><div class="text-muted text-uppercase small">OF abiertas</div><h2 class="mb-0"><field name="total_open_mo_qty" nolabel="1" readonly="1"/></h2></div></div></div>
-                        <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-primary"><div class="card-body"><div class="text-primary text-uppercase small fw-bold">Fabricar</div><h2 class="mb-0"><field name="total_to_manufacture_qty" nolabel="1" readonly="1"/></h2></div></div></div>
-                        <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-warning"><div class="card-body"><div class="text-warning text-uppercase small fw-bold">Comprar</div><h2 class="mb-0"><field name="total_to_purchase_qty" nolabel="1" readonly="1"/></h2></div></div></div>
-                        <div class="col-12 col-md-6 col-xl-2"><div class="card h-100 border-info"><div class="card-body"><div class="text-info text-uppercase small fw-bold">Mover</div><h2 class="mb-0"><field name="total_to_move_qty" nolabel="1" readonly="1"/></h2></div></div></div>
+                        <!-- KPIs exclusivos de FABRICACIÓN -->
+                        <div class="col-12 col-md-6 col-xl-3" invisible="plan_type != 'manufacturing'">
+                            <div class="card h-100 border-warning">
+                                <div class="card-body">
+                                    <div class="text-muted text-uppercase small">Demanda a fabricar</div>
+                                    <h2 class="mb-0">
+                                        <field name="total_sales_qty" nolabel="1" readonly="1"/>
+                                    </h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-xl-3" invisible="plan_type != 'manufacturing'">
+                            <div class="card h-100 border-success">
+                                <div class="card-body">
+                                    <div class="text-muted text-uppercase small">Pronóstico disponible</div>
+                                    <h2 class="mb-0">
+                                        <field name="total_stock_qty" nolabel="1" readonly="1"/>
+                                    </h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-xl-3" invisible="plan_type != 'manufacturing'">
+                            <div class="card h-100 border-info">
+                                <div class="card-body">
+                                    <div class="text-muted text-uppercase small">OF abiertas</div>
+                                    <h2 class="mb-0">
+                                        <field name="total_open_mo_qty" nolabel="1" readonly="1"/>
+                                    </h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-xl-3" invisible="plan_type != 'manufacturing'">
+                            <div class="card h-100 border-primary">
+                                <div class="card-body">
+                                    <div class="text-primary text-uppercase small fw-bold">Por fabricar</div>
+                                    <h2 class="mb-0">
+                                        <field name="total_to_manufacture_qty" nolabel="1" readonly="1"/>
+                                    </h2>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- KPIs exclusivos de COMPRAS / ABASTECIMIENTO -->
+                        <div class="col-12 col-md-6 col-xl-3" invisible="plan_type != 'purchase'">
+                            <div class="card h-100 border-warning">
+                                <div class="card-body">
+                                    <div class="text-muted text-uppercase small">Demanda a abastecer</div>
+                                    <h2 class="mb-0">
+                                        <field name="total_sales_qty" nolabel="1" readonly="1"/>
+                                    </h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-xl-3" invisible="plan_type != 'purchase'">
+                            <div class="card h-100 border-success">
+                                <div class="card-body">
+                                    <div class="text-muted text-uppercase small">Pronóstico disponible</div>
+                                    <h2 class="mb-0">
+                                        <field name="total_stock_qty" nolabel="1" readonly="1"/>
+                                    </h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-xl-3" invisible="plan_type != 'purchase'">
+                            <div class="card h-100 border-warning">
+                                <div class="card-body">
+                                    <div class="text-warning text-uppercase small fw-bold">Por comprar</div>
+                                    <h2 class="mb-0">
+                                        <field name="total_to_purchase_qty" nolabel="1" readonly="1"/>
+                                    </h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-xl-3" invisible="plan_type != 'purchase'">
+                            <div class="card h-100 border-info">
+                                <div class="card-body">
+                                    <div class="text-info text-uppercase small fw-bold">Por mover</div>
+                                    <h2 class="mb-0">
+                                        <field name="total_to_move_qty" nolabel="1" readonly="1"/>
+                                    </h2>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="alert alert-info" role="alert" invisible="state == 'draft'">
-                        Cada fila representa <strong>un producto agrupado</strong>. La demanda conserva todas las líneas de venta de origen. Seleccione una sola acción: <strong>Fabricar, Comprar o Mover</strong>. La cantidad planificada es editable antes de generar documentos.
+                    <div class="alert alert-info" role="alert" invisible="state == 'draft' or plan_type != 'manufacturing'">
+                        Se muestran únicamente productos que requieren <strong>fabricación</strong>. La necesidad considera demanda, pronóstico y órdenes de fabricación ya previstas. Los productos cubiertos no se muestran.
+                    </div>
+                    <div class="alert alert-info" role="alert" invisible="state == 'draft' or plan_type != 'purchase'">
+                        Se muestran únicamente productos que requieren <strong>compra o movimiento interno</strong>. La necesidad considera demanda y abastecimientos pronosticados. Los productos cubiertos no se muestran.
                     </div>
 
                     <div class="alert alert-warning" role="alert" invisible="state != 'calculated' or pending_decision_count == 0">
-                        Hay <field name="pending_decision_count" nolabel="1" readonly="1"/> producto(s) con cantidad planificada sin decisión. Debe seleccionar <strong>Fabricar, Comprar o Mover</strong> antes de finalizar.
+                        Hay <field name="pending_decision_count" nolabel="1" readonly="1"/>
+ producto(s) pendientes de definir antes de finalizar la planificación.
                     </div>
 
                     <group string="PLANIFICACIÓN POR PRODUCTO" invisible="state == 'draft'">
@@ -118,17 +222,11 @@
                                 <field name="production_qty" string="OF abiertas" readonly="1" optional="hide"/>
                                 <field name="net_requirement_qty" string="Necesidad" readonly="1"/>
                                 <field name="move_suggested_qty" string="Movible" readonly="1" optional="hide"/>
-                                <field name="action_manufacture" string="Fabricar" widget="boolean_toggle" readonly="state == 'applied'"/>
-                                <field name="action_purchase" string="Comprar" widget="boolean_toggle" readonly="state == 'applied'"/>
-                                <field name="purchase_vendor_id" string="Proveedor" invisible="not action_purchase" readonly="state == 'applied'" options="{'no_create': True, 'no_open': True}"/>
-                                <field name="action_move" string="Mover" widget="boolean_toggle" readonly="state == 'applied'"/>
-                                <button name="action_create_inventory_move"
-                                        type="object"
-                                        string="Crear movimiento"
-                                        icon="fa-exchange"
-                                        class="btn-link"
-                                        invisible="not action_move or state == 'applied' or planner_production_qty &lt;= 0"
-                                        confirm="Se creará el movimiento interno para este producto. ¿Continuar?"/>
+                                <field name="action_manufacture" string="Fabricar" widget="boolean_toggle" readonly="state == 'applied'" column_invisible="parent.plan_type != 'manufacturing'"/>
+                                <field name="action_purchase" string="Comprar" widget="boolean_toggle" readonly="state == 'applied'" column_invisible="parent.plan_type != 'purchase'"/>
+                                <field name="purchase_vendor_id" string="Proveedor" column_invisible="parent.plan_type != 'purchase'" invisible="not action_purchase" readonly="state == 'applied'" options="{'no_create': True, 'no_open': True}"/>
+                                <field name="action_move" string="Mover" widget="boolean_toggle" readonly="state == 'applied'" column_invisible="parent.plan_type != 'purchase'"/>
+                                <button name="action_create_inventory_move" type="object" string="Crear movimiento" icon="fa-exchange" class="btn-link" column_invisible="parent.plan_type != 'purchase'" invisible="not action_move or state == 'applied' or planner_production_qty &lt;= 0" confirm="Se creará el movimiento interno para este producto. ¿Continuar?"/>
                                 <field name="planner_production_qty" string="Cantidad" readonly="state == 'applied'"/>
                                 <field name="target_warehouse_id" string="Destino" readonly="state == 'applied'" domain="[('id', 'in', parent.warehouse_ids)]" options="{'no_create': True}" optional="hide"/>
                                 <field name="product_uom_id" string="UdM" readonly="1" optional="hide"/>
@@ -136,8 +234,8 @@
                                 <field name="action_label" string="Acción" readonly="1" optional="hide"/>
                                 <button name="action_open_sales" type="object" icon="fa-shopping-cart" title="Ver ventas origen"/>
                                 <button name="action_open_inventory" type="object" icon="fa-cubes" title="Ver inventario"/>
-                                <button name="action_open_manufacturing" type="object" icon="fa-industry" title="Ver fabricación"/>
-                                <button name="action_open_purchases" type="object" icon="fa-truck" title="Ver compras"/>
+                                <button name="action_open_manufacturing" type="object" icon="fa-industry" title="Ver fabricación" column_invisible="parent.plan_type != 'manufacturing'"/>
+                                <button name="action_open_purchases" type="object" icon="fa-truck" title="Ver compras" column_invisible="parent.plan_type != 'purchase'"/>
                                 <button name="action_open_product" type="object" icon="fa-external-link" title="Ver producto"/>
                             </list>
                         </field>
@@ -170,11 +268,9 @@
         <field name="name">mrp.planning.plan.line.list.analysis</field>
         <field name="model">mrp.planning.plan.line</field>
         <field name="arch" type="xml">
-            <list string="Líneas de planificación" create="0" delete="0"
-                  decoration-danger="state == 'blocked'"
-                  decoration-success="state == 'applied'"
-                  decoration-warning="net_requirement_qty &gt; 0 and state != 'applied'">
+            <list string="Líneas de planificación" create="0" delete="0" decoration-danger="state == 'blocked'" decoration-success="state == 'applied'" decoration-warning="net_requirement_qty &gt; 0 and state != 'applied'">
                 <field name="plan_id"/>
+                <field name="plan_type" optional="show"/>
                 <field name="date_required" optional="show"/>
                 <field name="product_id"/>
                 <field name="partner_id" optional="hide"/>
@@ -201,11 +297,7 @@
                 <field name="state" optional="show"/>
                 <field name="created_production_id" optional="hide"/>
                 <field name="created_purchase_line_id" optional="hide"/>
-                <button name="action_create_inventory_move"
-                        type="object"
-                        string="Crear movimiento"
-                        icon="fa-exchange"
-                        invisible="not action_move or state == 'applied' or planner_production_qty &lt;= 0"/>
+                <button name="action_create_inventory_move" type="object" string="Crear movimiento" icon="fa-exchange" invisible="not action_move or state == 'applied' or planner_production_qty &lt;= 0"/>
             </list>
         </field>
     </record>
@@ -267,6 +359,7 @@
 
                 <group>
                     <filter name="group_plan" string="Planificación" context="{'group_by': 'plan_id'}"/>
+                    <filter name="group_plan_type" string="Tipo de planificación" context="{'group_by': 'plan_type'}"/>
                     <filter name="group_product" string="Producto" context="{'group_by': 'product_id'}"/>
                     <filter name="group_action" string="Acción" context="{'group_by': 'action_type'}"/>
                     <filter name="group_state" string="Estado" context="{'group_by': 'state'}"/>
@@ -299,6 +392,32 @@
         </field>
     </record>
 
+    <record id="action_mrp_planning_plan_lines_manufacturing" model="ir.actions.act_window">
+        <field name="name">Líneas de fabricación</field>
+        <field name="res_model">mrp.planning.plan.line</field>
+        <field name="view_mode">list,pivot</field>
+        <field name="views" eval="[
+            (ref('view_mrp_planning_plan_line_list'), 'list'),
+            (ref('view_mrp_planning_plan_line_pivot'), 'pivot')
+        ]"/>
+        <field name="search_view_id" ref="view_mrp_planning_plan_line_search"/>
+        <field name="domain">[('plan_type', '=', 'manufacturing')]</field>
+        <field name="context">{'search_default_filter_pending': 1}</field>
+    </record>
+
+    <record id="action_mrp_planning_plan_lines_purchase" model="ir.actions.act_window">
+        <field name="name">Líneas de compras</field>
+        <field name="res_model">mrp.planning.plan.line</field>
+        <field name="view_mode">list,pivot</field>
+        <field name="views" eval="[
+            (ref('view_mrp_planning_plan_line_list'), 'list'),
+            (ref('view_mrp_planning_plan_line_pivot'), 'pivot')
+        ]"/>
+        <field name="search_view_id" ref="view_mrp_planning_plan_line_search"/>
+        <field name="domain">[('plan_type', '=', 'purchase')]</field>
+        <field name="context">{'search_default_filter_pending': 1}</field>
+    </record>
+
     <record id="view_mrp_planning_plan_line_form" model="ir.ui.view">
         <field name="name">mrp.planning.plan.line.form.procurement</field>
         <field name="model">mrp.planning.plan.line</field>
@@ -306,7 +425,11 @@
             <form create="0" delete="0">
                 <sheet>
                     <field name="state" invisible="1"/>
-                    <div class="oe_title"><h1><field name="product_id" readonly="1"/></h1></div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="product_id" readonly="1"/>
+                        </h1>
+                    </div>
                     <group>
                         <group>
                             <field name="plan_id" readonly="1"/>
@@ -328,16 +451,8 @@
                         <field name="action_move" readonly="state == 'applied'"/>
                         <field name="planner_production_qty" readonly="state == 'applied'"/>
                         <field name="target_warehouse_id" readonly="state == 'applied'"/>
-                        <button name="action_create_inventory_move"
-                                type="object"
-                                string="Crear movimiento interno"
-                                icon="fa-exchange"
-                                class="oe_highlight"
-                                invisible="not action_move or state == 'applied' or planner_production_qty &lt;= 0"/>
-                        <field name="created_picking_ids"
-                               widget="many2many_tags"
-                               readonly="1"
-                               invisible="not created_picking_ids"/>
+                        <button name="action_create_inventory_move" type="object" string="Crear movimiento interno" icon="fa-exchange" class="oe_highlight" invisible="not action_move or state == 'applied' or planner_production_qty &lt;= 0"/>
+                        <field name="created_picking_ids" widget="many2many_tags" readonly="1" invisible="not created_picking_ids"/>
                     </group>
                     <field name="warehouse_detail_ids" readonly="1">
                         <list create="0" delete="0">

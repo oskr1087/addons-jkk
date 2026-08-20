@@ -1,7 +1,65 @@
 <odoo>
-    <record id="view_planning_operation_tree" model="ir.ui.view"><field name="name">mrp.planning.operation.tree</field><field name="model">mrp.planning.operation</field><field name="arch" type="xml"><list><field name="name"/><field name="product_id"/><field name="workcenter_id"/><field name="date_start"/><field name="date_end"/><field name="load_hours"/><field name="state"/></list></field></record>
-    <record id="view_planning_operation_form" model="ir.ui.view"><field name="name">mrp.planning.operation.form</field><field name="model">mrp.planning.operation</field><field name="arch" type="xml"><form><sheet><group><field name="plan_id"/><field name="production_proposal_id"/><field name="product_id"/><field name="workcenter_id"/><field name="name"/><field name="duration"/><field name="setup_duration"/><field name="date_start"/><field name="date_end"/><field name="state"/></group></sheet></form></field></record>
-    <record id="view_planning_load_tree" model="ir.ui.view"><field name="name">mrp.planning.workcenter.load.tree</field><field name="model">mrp.planning.workcenter.load</field><field name="arch" type="xml"><list><field name="plan_id"/><field name="workcenter_id"/><field name="date_start"/><field name="date_end"/><field name="available_hours"/><field name="load_hours"/><field name="utilization"/><field name="state"/></list></field></record>
-    <record id="action_planning_operations" model="ir.actions.act_window"><field name="name">Operaciones planificadas</field><field name="res_model">mrp.planning.operation</field><field name="view_mode">list,form</field></record>
-    <record id="action_planning_loads" model="ir.actions.act_window"><field name="name">Carga de capacidad</field><field name="res_model">mrp.planning.workcenter.load</field><field name="view_mode">list</field></record>
+    <record id="view_planning_operation_tree" model="ir.ui.view">
+        <field name="name">mrp.planning.operation.tree</field>
+        <field name="model">mrp.planning.operation</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="product_id"/>
+                <field name="workcenter_id"/>
+                <field name="date_start"/>
+                <field name="date_end"/>
+                <field name="load_hours"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_planning_operation_form" model="ir.ui.view">
+        <field name="name">mrp.planning.operation.form</field>
+        <field name="model">mrp.planning.operation</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="plan_id"/>
+                        <field name="production_proposal_id"/>
+                        <field name="product_id"/>
+                        <field name="workcenter_id"/>
+                        <field name="name"/>
+                        <field name="duration"/>
+                        <field name="setup_duration"/>
+                        <field name="date_start"/>
+                        <field name="date_end"/>
+                        <field name="state"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_planning_load_tree" model="ir.ui.view">
+        <field name="name">mrp.planning.workcenter.load.tree</field>
+        <field name="model">mrp.planning.workcenter.load</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="plan_id"/>
+                <field name="workcenter_id"/>
+                <field name="date_start"/>
+                <field name="date_end"/>
+                <field name="available_hours"/>
+                <field name="load_hours"/>
+                <field name="utilization"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+    <record id="action_planning_operations" model="ir.actions.act_window">
+        <field name="name">Operaciones planificadas</field>
+        <field name="res_model">mrp.planning.operation</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_planning_loads" model="ir.actions.act_window">
+        <field name="name">Carga de capacidad</field>
+        <field name="res_model">mrp.planning.workcenter.load</field>
+        <field name="view_mode">list</field>
+    </record>
 </odoo>

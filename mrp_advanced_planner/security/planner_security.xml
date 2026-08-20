@@ -1,36 +1,113 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Odoo 19: res.groups no longer has category_id. -->
+    <!-- Grupo técnico base. No usar directamente para asignar usuarios. -->
     <record id="group_planner_user" model="res.groups">
-        <field name="name">Usuario planificador</field>
+        <field name="name">Planificación - Acceso base</field>
+        <field name="sequence">5</field>
+        <field name="implied_ids" eval="[(4, ref('stock.group_stock_user'))]"/>
+    </record>
+
+    <!-- Odoo 19: los derechos funcionales se muestran mediante res.groups.privilege. -->
+    <record id="privilege_planning" model="res.groups.privilege">
+        <field name="name">Planificación</field>
+        <field name="description">Define el nivel de acceso al planificador de compras y fabricación.</field>
+        <field name="placeholder">Sin acceso</field>
+        <field name="sequence">35</field>
+        <field name="category_id" ref="base.module_category_manufacturing"/>
+    </record>
+
+    <record id="group_planner_manufacturing_user" model="res.groups">
+        <field name="name">Planificación - Usuario de fabricación</field>
+        <field name="privilege_id" ref="privilege_planning"/>
         <field name="sequence">10</field>
-        <field name="implied_ids" eval="[(4, ref('stock.group_stock_user')), (4, ref('purchase.group_purchase_user')), (4, ref('mrp.group_mrp_user'))]"/>
+        <field name="implied_ids" eval="[
+            (4, ref('group_planner_user')),
+            (4, ref('mrp.group_mrp_user'))
+        ]"/>
+    </record>
+
+    <record id="group_planner_purchase_user" model="res.groups">
+        <field name="name">Planificación - Usuario de compras</field>
+        <field name="privilege_id" ref="privilege_planning"/>
+        <field name="sequence">20</field>
+        <field name="implied_ids" eval="[
+            (4, ref('group_planner_user')),
+            (4, ref('purchase.group_purchase_user'))
+        ]"/>
     </record>
 
     <record id="group_planner_manager" model="res.groups">
-        <field name="name">Responsable de planificación</field>
-        <field name="sequence">20</field>
-        <field name="implied_ids" eval="[(4, ref('group_planner_user'))]"/>
+        <field name="name">Planificación - Administrador</field>
+        <field name="privilege_id" ref="privilege_planning"/>
+        <field name="sequence">30</field>
+        <field name="implied_ids" eval="[
+            (4, ref('group_planner_manufacturing_user')),
+            (4, ref('group_planner_purchase_user'))
+        ]"/>
     </record>
 
+    <!-- Restricción global de compañía. -->
     <record id="rule_planning_plan_company" model="ir.rule">
-        <field name="name">Planes de planificación por compañía</field>
+        <field name="name">Planificación: compañía permitida</field>
         <field name="model_id" ref="model_mrp_planning_plan"/>
         <field name="domain_force">[('company_id', 'in', company_ids)]</field>
-        <field name="groups" eval="[(4, ref('group_planner_user'))]"/>
+        <field name="global" eval="True"/>
+    </record>
+
+    <!-- Reglas por tipo. Al administrador se le aplican ambas y Odoo las combina con OR. -->
+    <record id="rule_planning_plan_manufacturing" model="ir.rule">
+        <field name="name">Planificación: solo fabricación</field>
+        <field name="model_id" ref="model_mrp_planning_plan"/>
+        <field name="domain_force">[('plan_type', '=', 'manufacturing')]</field>
+        <field name="groups" eval="[(4, ref('group_planner_manufacturing_user'))]"/>
+    </record>
+
+    <record id="rule_planning_plan_purchase" model="ir.rule">
+        <field name="name">Planificación: solo compras</field>
+        <field name="model_id" ref="model_mrp_planning_plan"/>
+        <field name="domain_force">[('plan_type', '=', 'purchase')]</field>
+        <field name="groups" eval="[(4, ref('group_planner_purchase_user'))]"/>
+    </record>
+
+    <record id="rule_planning_line_manufacturing" model="ir.rule">
+        <field name="name">Líneas de planificación: solo fabricación</field>
+        <field name="model_id" ref="model_mrp_planning_plan_line"/>
+        <field name="domain_force">[('plan_type', '=', 'manufacturing')]</field>
+        <field name="groups" eval="[(4, ref('group_planner_manufacturing_user'))]"/>
+    </record>
+
+    <record id="rule_planning_line_purchase" model="ir.rule">
+        <field name="name">Líneas de planificación: solo compras</field>
+        <field name="model_id" ref="model_mrp_planning_plan_line"/>
+        <field name="domain_force">[('plan_type', '=', 'purchase')]</field>
+        <field name="groups" eval="[(4, ref('group_planner_purchase_user'))]"/>
+    </record>
+
+    <record id="rule_planning_line_warehouse_manufacturing" model="ir.rule">
+        <field name="name">Detalle almacén: solo fabricación</field>
+        <field name="model_id" ref="model_mrp_planning_plan_line_warehouse"/>
+        <field name="domain_force">[('plan_id.plan_type', '=', 'manufacturing')]</field>
+        <field name="groups" eval="[(4, ref('group_planner_manufacturing_user'))]"/>
+    </record>
+
+    <record id="rule_planning_line_warehouse_purchase" model="ir.rule">
+        <field name="name">Detalle almacén: solo compras</field>
+        <field name="model_id" ref="model_mrp_planning_plan_line_warehouse"/>
+        <field name="domain_force">[('plan_id.plan_type', '=', 'purchase')]</field>
+        <field name="groups" eval="[(4, ref('group_planner_purchase_user'))]"/>
     </record>
 
     <record id="rule_planning_demand_company" model="ir.rule">
         <field name="name">Demandas de planificación por compañía</field>
         <field name="model_id" ref="model_mrp_planning_demand"/>
         <field name="domain_force">[('company_id', 'in', company_ids)]</field>
-        <field name="groups" eval="[(4, ref('group_planner_user'))]"/>
+        <field name="global" eval="True"/>
     </record>
 
     <record id="rule_planning_run_company" model="ir.rule">
         <field name="name">Ejecuciones de planificación por compañía</field>
         <field name="model_id" ref="model_mrp_planning_run"/>
         <field name="domain_force">[('plan_id.company_id', 'in', company_ids)]</field>
-        <field name="groups" eval="[(4, ref('group_planner_user'))]"/>
+        <field name="global" eval="True"/>
     </record>
 </odoo>

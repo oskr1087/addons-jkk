@@ -2,9 +2,22 @@
     <record id="view_planning_requirement_tree" model="ir.ui.view">
         <field name="name">mrp.planning.requirement.tree</field>
         <field name="model">mrp.planning.requirement</field>
-        <field name="arch" type="xml"><list><field name="plan_id"/><field name="product_id"/><field name="level"/><field name="required_qty"/><field name="available_qty"/><field name="net_qty"/><field name="supply_type"/><field name="date_required"/></list></field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="plan_id"/>
+                <field name="product_id"/>
+                <field name="level"/>
+                <field name="required_qty"/>
+                <field name="available_qty"/>
+                <field name="net_qty"/>
+                <field name="supply_type"/>
+                <field name="date_required"/>
+            </list>
+        </field>
     </record>
     <record id="action_planning_requirements" model="ir.actions.act_window">
-        <field name="name">Requisitos de materiales</field><field name="res_model">mrp.planning.requirement</field><field name="view_mode">list,form</field>
+        <field name="name">Requisitos de materiales</field>
+        <field name="res_model">mrp.planning.requirement</field>
+        <field name="view_mode">list,form</field>
     </record>
 </odoo>

@@ -23,17 +23,19 @@ class StockProjectionEngine:
                     allowed_company_ids=[self.plan.company_id.id],
                     company_owned=True,
                     prefetch_fields=False,
-                ).read(['incoming_qty', 'outgoing_qty', 'virtual_available'])[0]
+                ).read(["incoming_qty", "outgoing_qty", "virtual_available"])[0]
                 forecasts.append(values)
 
-            forecast_qty = sum(row.get('virtual_available') or 0.0 for row in forecasts)
-            incoming_qty = sum(row.get('incoming_qty') or 0.0 for row in forecasts)
-            outgoing_qty = sum(row.get('outgoing_qty') or 0.0 for row in forecasts)
-            line.write({
-                'stock_qty': forecast_qty,
-                'incoming_qty': incoming_qty,
-                'outgoing_qty': outgoing_qty,
-                'net_requirement_qty': max(-forecast_qty, 0.0),
-                'state': 'blocked' if forecast_qty < 0 else 'planned',
-            })
+            forecast_qty = sum(row.get("virtual_available") or 0.0 for row in forecasts)
+            incoming_qty = sum(row.get("incoming_qty") or 0.0 for row in forecasts)
+            outgoing_qty = sum(row.get("outgoing_qty") or 0.0 for row in forecasts)
+            line.write(
+                {
+                    "stock_qty": forecast_qty,
+                    "incoming_qty": incoming_qty,
+                    "outgoing_qty": outgoing_qty,
+                    "net_requirement_qty": max(-forecast_qty, 0.0),
+                    "state": "blocked" if forecast_qty < 0 else "planned",
+                }
+            )
         return True

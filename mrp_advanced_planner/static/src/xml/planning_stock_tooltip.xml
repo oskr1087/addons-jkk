@@ -27,22 +27,57 @@
                     </div>
 
                     <div class="o_planning_stock_popover_body">
+                        <div class="o_planning_forecast_formula">
+                            <div class="o_planning_forecast_metric">
+                                <strong t-esc="totals.onHand"/>
+                                <span>A la mano</span>
+                            </div>
+                            <div class="o_planning_forecast_operator">+</div>
+                            <div class="o_planning_forecast_metric">
+                                <strong t-esc="totals.incoming"/>
+                                <span>Entrante</span>
+                            </div>
+                            <div class="o_planning_forecast_operator">−</div>
+                            <div class="o_planning_forecast_metric">
+                                <strong t-esc="totals.outgoing"/>
+                                <span>Saliente</span>
+                            </div>
+                            <div class="o_planning_forecast_operator">=</div>
+                            <div class="o_planning_forecast_metric o_planning_forecast_result">
+                                <strong><t t-esc="totals.forecast"/></strong>
+                                <span>Pronosticado</span>
+                            </div>
+                        </div>
+
+                        <t t-if="totals.hasAdjustments">
+                            <div class="o_planning_forecast_adjustments">
+                                <span t-if="Number(totals.rfq) !== 0">RFQ pendientes: <strong t-esc="totals.rfq"/></span>
+                                <span t-if="Number(totals.otherPlan) !== 0">Otros planes: <strong t-esc="totals.otherPlan"/></span>
+                            </div>
+                        </t>
+
+                        <div class="o_planning_stock_section_title">Detalle por almacén</div>
                         <t t-if="warehouseRows.length">
                             <t t-foreach="warehouseRows" t-as="row" t-key="row.warehouse">
-                                <div class="o_planning_stock_warehouse_row">
+                                <div class="o_planning_stock_warehouse_detail">
                                     <div class="o_planning_stock_warehouse_name">
                                         <i class="fa fa-building-o"/>
-                                        <span t-esc="row.warehouse"/>
+                                        <strong t-esc="row.warehouse"/>
                                     </div>
-                                    <strong class="o_planning_stock_warehouse_qty"
-                                            t-esc="row.qty"/>
+                                    <div class="o_planning_stock_warehouse_formula">
+                                        <span><small>A mano</small><b t-esc="formatQty(row.onHand)"/></span>
+                                        <i>+</i>
+                                        <span><small>Entrante</small><b t-esc="formatQty(row.incoming)"/></span>
+                                        <i>−</i>
+                                        <span><small>Saliente</small><b t-esc="formatQty(row.outgoing)"/></span>
+                                        <i>=</i>
+                                        <span class="o_planning_stock_warehouse_result"><small>Pronóstico</small><b t-esc="formatQty(row.forecast)"/></span>
+                                    </div>
                                 </div>
                             </t>
                         </t>
                         <t t-else="">
-                            <div class="o_planning_stock_empty">
-                                Sin detalle de almacenes
-                            </div>
+                            <div class="o_planning_stock_empty">Sin detalle de almacenes</div>
                         </t>
                     </div>
 

@@ -1,7 +1,96 @@
 <odoo>
-    <record id="view_physical_roll_tree" model="ir.ui.view"><field name="name">mrp.physical.roll.tree</field><field name="model">mrp.physical.roll</field><field name="arch" type="xml"><list><field name="name"/><field name="product_id"/><field name="lot_id"/><field name="location_id"/><field name="workcenter_id"/><field name="physical_qty"/><field name="available_qty"/><field name="state"/></list></field></record>
-    <record id="view_physical_roll_form" model="ir.ui.view"><field name="name">mrp.physical.roll.form</field><field name="model">mrp.physical.roll</field><field name="arch" type="xml"><form><header><button name="action_mount" type="object" string="Montar" class="btn-primary"/><button name="action_unmount" type="object" string="Desmontar"/><button name="action_release" type="object" string="Liberar" class="btn-secondary"/></header><sheet><group><field name="name"/><field name="company_id"/><field name="product_id"/><field name="lot_id"/><field name="location_id"/><field name="workcenter_id"/><field name="physical_qty"/><field name="reserved_qty"/><field name="assigned_qty"/><field name="available_qty"/><field name="state"/></group><notebook><page string="Asignaciones"><field name="assignment_ids"><list editable="bottom"><field name="plan_id"/><field name="production_id"/><field name="quantity"/><field name="consumed_qty"/><field name="waste_qty"/><field name="remaining_qty"/><field name="state"/></list></field></page><page string="Cortes"><field name="cut_ids"><list><field name="assignment_id"/><field name="quantity"/><field name="waste_qty"/><field name="production_id"/></list></field></page></notebook></sheet></form></field></record>
-    <record id="view_physical_roll_assignment_tree" model="ir.ui.view"><field name="name">mrp.physical.roll.assignment.tree</field><field name="model">mrp.physical.roll.assignment</field><field name="arch" type="xml"><list><field name="roll_id"/><field name="plan_id"/><field name="production_id"/><field name="quantity"/><field name="remaining_qty"/><field name="state"/><field name="date_assigned"/></list></field></record>
-    <record id="action_physical_rolls" model="ir.actions.act_window"><field name="name">Rollos físicos</field><field name="res_model">mrp.physical.roll</field><field name="view_mode">list,form</field></record>
-    <record id="action_physical_roll_assignments" model="ir.actions.act_window"><field name="name">Asignaciones de rollos</field><field name="res_model">mrp.physical.roll.assignment</field><field name="view_mode">list</field></record>
+    <record id="view_physical_roll_tree" model="ir.ui.view">
+        <field name="name">mrp.physical.roll.tree</field>
+        <field name="model">mrp.physical.roll</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="product_id"/>
+                <field name="lot_id"/>
+                <field name="location_id"/>
+                <field name="workcenter_id"/>
+                <field name="physical_qty"/>
+                <field name="available_qty"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_physical_roll_form" model="ir.ui.view">
+        <field name="name">mrp.physical.roll.form</field>
+        <field name="model">mrp.physical.roll</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_mount" type="object" string="Montar" class="btn-primary"/>
+                    <button name="action_unmount" type="object" string="Desmontar"/>
+                    <button name="action_release" type="object" string="Liberar" class="btn-secondary"/>
+                </header>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="company_id"/>
+                        <field name="product_id"/>
+                        <field name="lot_id"/>
+                        <field name="location_id"/>
+                        <field name="workcenter_id"/>
+                        <field name="physical_qty"/>
+                        <field name="reserved_qty"/>
+                        <field name="assigned_qty"/>
+                        <field name="available_qty"/>
+                        <field name="state"/>
+                    </group>
+                    <notebook>
+                        <page string="Asignaciones">
+                            <field name="assignment_ids">
+                                <list editable="bottom">
+                                    <field name="plan_id"/>
+                                    <field name="production_id"/>
+                                    <field name="quantity"/>
+                                    <field name="consumed_qty"/>
+                                    <field name="waste_qty"/>
+                                    <field name="remaining_qty"/>
+                                    <field name="state"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Cortes">
+                            <field name="cut_ids">
+                                <list>
+                                    <field name="assignment_id"/>
+                                    <field name="quantity"/>
+                                    <field name="waste_qty"/>
+                                    <field name="production_id"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_physical_roll_assignment_tree" model="ir.ui.view">
+        <field name="name">mrp.physical.roll.assignment.tree</field>
+        <field name="model">mrp.physical.roll.assignment</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="roll_id"/>
+                <field name="plan_id"/>
+                <field name="production_id"/>
+                <field name="quantity"/>
+                <field name="remaining_qty"/>
+                <field name="state"/>
+                <field name="date_assigned"/>
+            </list>
+        </field>
+    </record>
+    <record id="action_physical_rolls" model="ir.actions.act_window">
+        <field name="name">Rollos físicos</field>
+        <field name="res_model">mrp.physical.roll</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_physical_roll_assignments" model="ir.actions.act_window">
+        <field name="name">Asignaciones de rollos</field>
+        <field name="res_model">mrp.physical.roll.assignment</field>
+        <field name="view_mode">list</field>
+    </record>
 </odoo>

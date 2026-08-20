@@ -9,12 +9,20 @@ class CalendarSchedulingEngine:
         self.env = plan.env
 
     def run(self):
-        operations = self.plan.operation_ids.sorted(key=lambda op: (op.workcenter_id.id, op.sequence, op.date_end or fields.Datetime.now()))
+        operations = self.plan.operation_ids.sorted(
+            key=lambda op: (
+                op.workcenter_id.id,
+                op.sequence,
+                op.date_end or fields.Datetime.now(),
+            )
+        )
         for operation in operations:
             if not operation.date_end:
                 continue
             duration = operation.duration + operation.setup_duration
-            start = self._subtract_work_hours(operation.workcenter_id, operation.date_end, duration)
+            start = self._subtract_work_hours(
+                operation.workcenter_id, operation.date_end, duration
+            )
             if start:
                 operation.date_start = start
         return operations

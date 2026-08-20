@@ -1,1 +1,18 @@
-<odoo><record id="view_planner_wizard_form" model="ir.ui.view"><field name="name">mrp.planning.planner.wizard.form</field><field name="model">mrp.planning.planner.wizard</field><field name="arch" type="xml"><form><group><field name="plan_id"/><field name="action"/></group><footer><button name="action_execute" type="object" string="Ejecutar" class="oe_highlight"/><button string="Cancelar" special="cancel"/></footer></form></field></record></odoo>
+<odoo>
+    <record id="view_planner_wizard_form" model="ir.ui.view">
+        <field name="name">mrp.planning.planner.wizard.form</field>
+        <field name="model">mrp.planning.planner.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="plan_id"/>
+                    <field name="action"/>
+                </group>
+                <footer>
+                    <button name="action_execute" type="object" string="Ejecutar" class="oe_highlight"/>
+                    <button string="Cancelar" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

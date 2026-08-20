@@ -22,6 +22,14 @@ class PlanningPlan(models.Model):
         domain="[('company_id', '=', company_id)]",
     )
 
+    plan_type = fields.Selection(
+        [('manufacturing', 'Planificación de fabricación'), ('purchase', 'Planificación de compras')],
+        string='Tipo de planificación',
+        required=True,
+        default=lambda self: self.env.context.get('default_plan_type', 'manufacturing'),
+        tracking=True,
+        index=True,
+    )
     user_id = fields.Many2one('res.users', required=True, default=lambda self: self.env.user, tracking=True)
     date_start = fields.Datetime(required=True, default=fields.Datetime.now)
     date_end = fields.Datetime(string='Planificar hasta', required=True, tracking=True)
@@ -87,9 +95,36 @@ class PlanningPlan(models.Model):
             """
         )
 
+    def _allowed_plan_types_for_user(self):
+        user = self.env.user
+        if user.has_group('mrp_advanced_planner.group_planner_manager'):
+            return {'manufacturing', 'purchase'}
+        allowed = set()
+        if user.has_group('mrp_advanced_planner.group_planner_manufacturing_user'):
+            allowed.add('manufacturing')
+        if user.has_group('mrp_advanced_planner.group_planner_purchase_user'):
+            allowed.add('purchase')
+        return allowed
+
+    def _check_plan_type_permission(self, plan_type=None):
+        allowed = self._allowed_plan_types_for_user()
+        types = {plan_type} if plan_type else set(self.mapped('plan_type'))
+        forbidden = types - allowed
+        if forbidden:
+            labels = {
+                'manufacturing': _('fabricación'),
+                'purchase': _('compras'),
+            }
+            raise UserError(_(
+                'No tiene permisos para trabajar con planificación de %s.'
+            ) % ', '.join(labels.get(value, value) for value in sorted(forbidden)))
+        return True
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
+            plan_type = vals.get('plan_type') or self.env.context.get('default_plan_type', 'manufacturing')
+            self._check_plan_type_permission(plan_type)
             if not vals.get('name') or vals.get('name') == 'New':
                 vals['name'] = self.env['ir.sequence'].next_by_code('mrp.planning.plan') or 'New'
             wh_commands = vals.get('warehouse_ids')
@@ -202,6 +237,7 @@ class PlanningPlan(models.Model):
 
     def action_calculate(self):
         self.ensure_one()
+        self._check_plan_type_permission()
         if self.state not in ('draft', 'calculated'):
             raise UserError(_('Solo puede calcular o recalcular un plan en borrador o calculado.'))
         self._ensure_warehouse_ids()
@@ -254,6 +290,12 @@ class PlanningPlan(models.Model):
 
     def _validate_selected_lines(self, action_field):
         self.ensure_one()
+        allowed = {
+            'manufacturing': {'action_manufacture'},
+            'purchase': {'action_purchase', 'action_move'},
+        }
+        if action_field not in allowed.get(self.plan_type, set()):
+            raise UserError(_('La acción seleccionada no corresponde al tipo de esta planificación.'))
         if self.state != 'calculated':
             raise UserError(_('Solo puede generar documentos mientras la planificación está en estado Calculado.'))
         self._validate_sale_lines_still_pending()
@@ -315,6 +357,9 @@ class PlanningPlan(models.Model):
 
     def action_create_manufacturing(self):
         self.ensure_one()
+        self._check_plan_type_permission('manufacturing')
+        if self.plan_type != 'manufacturing':
+            raise UserError(_('Esta acción solo está disponible en una planificación de fabricación.'))
         lines = self._validate_selected_lines('action_manufacture')
         missing_bom = lines.filtered(lambda l: not l.bom_id)
         if missing_bom:
@@ -346,12 +391,56 @@ class PlanningPlan(models.Model):
             productions |= mo
         return self.action_open_created_productions()
 
+    def _ensure_product_purchase_vendor(self, line, vendor, purchase_line=False):
+        """Remember a manually selected vendor on the product for future APS runs.
+
+        If the vendor is already configured on the product, nothing is changed.
+        Otherwise create a supplierinfo for the exact product variant.
+        """
+        self.ensure_one()
+        product = line.product_id
+        if not product or not vendor:
+            return False
+
+        commercial_vendor = vendor.commercial_partner_id
+        existing = product.with_company(self.company_id).seller_ids.filtered(
+            lambda seller: seller.partner_id.commercial_partner_id == commercial_vendor
+        )[:1]
+        if existing:
+            return existing
+
+        SupplierInfo = self.env['product.supplierinfo']
+        vals = {
+            'partner_id': commercial_vendor.id,
+            'product_tmpl_id': product.product_tmpl_id.id,
+            'product_id': product.id,
+            'company_id': self.company_id.id,
+            'sequence': 10,
+        }
+
+        # If the generated RFQ line already has a price, remember it as the
+        # starting vendor price as well. Do not force fields that are not present.
+        if purchase_line and 'price' in SupplierInfo._fields:
+            vals['price'] = purchase_line.price_unit or 0.0
+        if purchase_line and 'currency_id' in SupplierInfo._fields and purchase_line.order_id.currency_id:
+            vals['currency_id'] = purchase_line.order_id.currency_id.id
+
+        supplier = SupplierInfo.create(vals)
+        self.message_post(body=_(
+            'El proveedor %s fue agregado automáticamente al producto %s '
+            'para futuras planificaciones de compras.'
+        ) % (commercial_vendor.display_name, product.display_name))
+        return supplier
+
     def action_create_purchases(self):
         self.ensure_one()
+        self._check_plan_type_permission('purchase')
+        if self.plan_type != 'purchase':
+            raise UserError(_('Esta acción solo está disponible en una planificación de compras.'))
+
         lines = self._validate_selected_lines('action_purchase')
         Purchase = self.env['purchase.order']
         PurchaseLine = self.env['purchase.order.line']
-        grouped_pos = {}
 
         missing_vendor = lines.filtered(lambda line: not line.purchase_vendor_id)
         if missing_vendor:
@@ -359,24 +448,34 @@ class PlanningPlan(models.Model):
                 'Debe seleccionar un proveedor para cada producto a comprar:\n- %s'
             ) % '\n- '.join(missing_vendor.mapped('product_id.display_name')))
 
+        # One RFQ per supplier and destination warehouse. In the common case
+        # where the plan has a single warehouse, this means exactly one RFQ
+        # per supplier for all products assigned to that supplier.
+        grouped_pos = {}
+
         for line in lines:
             if line.created_purchase_line_id:
                 continue
 
             warehouse = line.target_warehouse_id or self.warehouse_ids[:1]
-            vendor = line.purchase_vendor_id
-            key = (vendor.commercial_partner_id.id, warehouse.id if warehouse else False)
+            vendor = line.purchase_vendor_id.commercial_partner_id
+            key = (vendor.id, warehouse.id if warehouse else False)
+
             po = grouped_pos.get(key)
             if not po:
-                po = Purchase.search([
+                domain = [
                     ('state', '=', 'draft'),
                     ('advanced_plan_id', '=', self.id),
-                    ('partner_id', '=', vendor.commercial_partner_id.id),
-                    ('picking_type_id', '=', warehouse.in_type_id.id if warehouse and warehouse.in_type_id else False),
-                ], limit=1)
+                    ('partner_id', '=', vendor.id),
+                ]
+                if warehouse and warehouse.in_type_id:
+                    domain.append(('picking_type_id', '=', warehouse.in_type_id.id))
+
+                po = Purchase.search(domain, limit=1)
+
                 if not po:
                     po_vals = {
-                        'partner_id': vendor.commercial_partner_id.id,
+                        'partner_id': vendor.id,
                         'company_id': self.company_id.id,
                         'origin': self.name,
                         'advanced_plan_id': self.id,
@@ -384,6 +483,7 @@ class PlanningPlan(models.Model):
                     if warehouse and warehouse.in_type_id:
                         po_vals['picking_type_id'] = warehouse.in_type_id.id
                     po = Purchase.create(po_vals)
+
                 grouped_pos[key] = po
 
             vals = PurchaseLine._prepare_purchase_order_line(
@@ -396,6 +496,11 @@ class PlanningPlan(models.Model):
             )
             vals['planning_plan_line_id'] = line.id
             pol = PurchaseLine.create(vals)
+
+            # If the planner had no product-default vendor and the user chose
+            # one manually, remember it on the product for future purchases.
+            self._ensure_product_purchase_vendor(line, po.partner_id, pol)
+
             line.write({
                 'created_purchase_line_id': pol.id,
                 'state': 'applied',
@@ -514,6 +619,7 @@ class PlanningPlan(models.Model):
 
     def action_create_replenishments(self):
         self.ensure_one()
+        self._check_plan_type_permission('purchase')
         lines = self._validate_selected_lines('action_move')
         self._create_replenishments_for_lines(lines)
         return self.action_open_created_transfers()

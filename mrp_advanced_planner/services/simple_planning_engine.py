@@ -261,26 +261,44 @@ class SimplePlanningEngine:
             move_suggested = min(total_shortage, total_excess)
             bom = find_bom(self.env, product, company_id=self.plan.company_id.id)
 
+            # Separate workflows:
+            # - Manufacturing planner: only products with a BoM.
+            # - Purchase planner: only products without a BoM; it may suggest an
+            #   internal move before buying when another selected warehouse has excess.
+            if self.plan.plan_type == 'manufacturing' and not bom:
+                continue
+            if self.plan.plan_type == 'purchase' and bom:
+                continue
+
             manufacture = purchase = move = False
             planner_qty = 0.0
-            if net_requirement > 0:
-                if bom:
+            if self.plan.plan_type == 'manufacturing':
+                if net_requirement > 1e-6:
                     manufacture = True
-                else:
+                    planner_qty = net_requirement
+            else:
+                if net_requirement > 1e-6:
                     purchase = True
-                planner_qty = net_requirement
-            elif move_suggested > 0:
-                move = True
-                planner_qty = move_suggested
+                    planner_qty = net_requirement
+                elif move_suggested > 1e-6:
+                    move = True
+                    planner_qty = move_suggested
+
+            # A planner line must represent a real action to execute.
+            # Products fully covered by forecast are intentionally omitted.
+            if not (manufacture or purchase or move) or planner_qty <= 1e-6:
+                continue
 
             purchase_vendor = False
             if purchase:
-                seller = product.with_company(self.plan.company_id)._select_seller(
-                    quantity=planner_qty or 1.0,
-                    date=fields.Date.context_today(self.plan),
-                    uom_id=product.uom_id,
-                )
-                purchase_vendor = seller.partner_id if seller else False
+                # Default vendor for APS purchase planning:
+                # take the first supplier configured on the product.
+                # If there are no configured suppliers, leave it empty so the
+                # planner can choose any Odoo supplier manually.
+                sellers = product.with_company(self.plan.company_id).seller_ids.filtered(
+                    lambda seller: not seller.company_id or seller.company_id == self.plan.company_id
+                ).sorted(key=lambda seller: (seller.sequence, seller.id))
+                purchase_vendor = sellers[:1].partner_id if sellers else False
 
             sale_lines = source['sale_lines']
             line = Line.create({

@@ -81,7 +81,7 @@
 .o_planning_stock_popover {
     position: fixed;
     z-index: 2000;
-    width: 260px;
+    width: 620px;
     transform: translateY(-100%);
     background: var(--o-view-background-color, #fff);
     color: var(--o-main-text-color, #212529);
@@ -382,4 +382,61 @@
     background: var(--o-view-background-color, #fff);
     border-right: 1px solid rgba(0, 0, 0, .13);
     border-bottom: 1px solid rgba(0, 0, 0, .13);
+}
+
+
+/* Dashboard client action: allow the whole planning panel to scroll vertically.
+   Odoo's action container can use overflow:hidden, so the dashboard must own
+   its vertical scrolling area. */
+.o_mrp_advanced_dashboard {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior-y: contain;
+    padding-bottom: 2rem !important;
+}
+
+.o_mrp_advanced_dashboard > :last-child {
+    margin-bottom: 1rem;
+}
+
+
+/* Pronóstico APS: desglose tipo Odoo dentro del mismo popover. */
+.o_planning_forecast_formula {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr auto 1.15fr;
+    align-items: center;
+    gap: .55rem;
+    padding: .9rem;
+    border-bottom: 1px solid rgba(0,0,0,.08);
+}
+.o_planning_forecast_metric { text-align:center; min-width:0; }
+.o_planning_forecast_metric strong { display:block; font-size:1rem; font-variant-numeric:tabular-nums; }
+.o_planning_forecast_metric span { display:block; margin-top:.18rem; font-size:.72rem; opacity:.68; white-space:nowrap; }
+.o_planning_forecast_result strong { color:#008a95; }
+.o_planning_forecast_operator { font-weight:700; opacity:.75; }
+.o_planning_forecast_adjustments {
+    display:flex; gap:1rem; flex-wrap:wrap; padding:.5rem .9rem;
+    background:rgba(0,138,149,.045); font-size:.74rem; color:#006f78;
+}
+.o_planning_stock_section_title {
+    padding:.55rem .9rem .35rem; font-size:.72rem; text-transform:uppercase;
+    letter-spacing:.03em; font-weight:700; opacity:.65;
+}
+.o_planning_stock_warehouse_detail { padding:.55rem .9rem .7rem; }
+.o_planning_stock_warehouse_detail + .o_planning_stock_warehouse_detail { border-top:1px solid rgba(0,0,0,.055); }
+.o_planning_stock_warehouse_formula {
+    display:grid; grid-template-columns:1fr auto 1fr auto 1fr auto 1.15fr;
+    align-items:center; gap:.4rem; margin-top:.45rem;
+}
+.o_planning_stock_warehouse_formula > span { text-align:center; }
+.o_planning_stock_warehouse_formula small { display:block; font-size:.66rem; opacity:.58; }
+.o_planning_stock_warehouse_formula b { display:block; margin-top:.08rem; font-size:.78rem; font-variant-numeric:tabular-nums; }
+.o_planning_stock_warehouse_formula > i { font-style:normal; font-weight:700; opacity:.55; }
+.o_planning_stock_warehouse_result b { color:#008a95; }
+@media (max-width: 700px) {
+    .o_planning_stock_popover { width:calc(100vw - 24px); }
+    .o_planning_forecast_formula, .o_planning_stock_warehouse_formula { gap:.2rem; }
+    .o_planning_forecast_metric span, .o_planning_stock_warehouse_formula small { font-size:.6rem; }
 }

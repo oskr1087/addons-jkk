@@ -6,21 +6,15 @@
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//div[@name='button_box']" position="inside">
-                <button name="action_open_component_purchases"
-                        type="object"
-                        class="oe_stat_button"
-                        icon="fa-shopping-cart"
-                        invisible="component_purchase_count == 0">
+                <button name="action_open_component_purchases" type="object" class="oe_stat_button" icon="fa-shopping-cart" invisible="component_purchase_count == 0">
                     <field name="component_purchase_count" widget="statinfo" string="Compras componentes"/>
                 </button>
-                <button name="action_open_advanced_plan"
-                        type="object"
-                        class="oe_stat_button"
-                        icon="fa-calendar-check-o"
-                        invisible="not advanced_plan_id">
+                <button name="action_open_advanced_plan" type="object" class="oe_stat_button" icon="fa-calendar-check-o" invisible="not advanced_plan_id">
                     <div class="o_stat_info">
                         <span class="o_stat_text">Planificación</span>
-                        <span class="o_stat_value"><field name="advanced_plan_id"/></span>
+                        <span class="o_stat_value">
+                            <field name="advanced_plan_id"/>
+                        </span>
                     </div>
                 </button>
             </xpath>
@@ -31,21 +25,9 @@
             </xpath>
             <xpath expr="//page[@name='components']//field[@name='move_raw_ids']/list/field[@name='product_id']" position="after">
                 <field name="planning_can_purchase_component" column_invisible="1"/>
-                <field name="planning_purchase_vendor_id"
-                       string="Proveedor"
-                       optional="show"
-                       invisible="not planning_can_purchase_component or planning_purchase_order_line_id"
-                       options="{'no_create': True}"/>
-                <field name="planning_purchase_order_line_id"
-                       string="Compra"
-                       optional="hide"
-                       readonly="1"/>
-                <button name="action_create_component_purchase"
-                        type="object"
-                        string="Comprar"
-                        icon="fa-shopping-cart"
-                        class="btn-link"
-                        invisible="not planning_can_purchase_component or planning_purchase_order_line_id"/>
+                <field name="planning_purchase_vendor_id" string="Proveedor" optional="show" invisible="not planning_can_purchase_component or planning_purchase_order_line_id" options="{'no_create': True}"/>
+                <field name="planning_purchase_order_line_id" string="Compra" optional="hide" readonly="1"/>
+                <button name="action_create_component_purchase" type="object" string="Comprar" icon="fa-shopping-cart" class="btn-link" invisible="not planning_can_purchase_component or planning_purchase_order_line_id"/>
             </xpath>
         </field>
     </record>

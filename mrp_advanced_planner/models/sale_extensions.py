@@ -2,33 +2,33 @@ from odoo import api, fields, models
 
 
 class SaleOrderLine(models.Model):
-    _inherit = 'sale.order.line'
+    _inherit = "sale.order.line"
 
     planning_delivery_date_manual = fields.Boolean(
-        string='Fecha de planificación modificada manualmente',
+        string="Fecha de planificación modificada manualmente",
         default=False,
         copy=False,
     )
     planning_delivery_date = fields.Datetime(
-        string='Fecha de entrega planificación',
-        compute='_compute_planning_delivery_date',
-        inverse='_inverse_planning_delivery_date',
+        string="Fecha de entrega planificación",
+        compute="_compute_planning_delivery_date",
+        inverse="_inverse_planning_delivery_date",
         store=True,
         readonly=False,
         precompute=True,
         index=True,
         copy=True,
         help=(
-            'Fecha utilizada por el planificador de fabricación. Por defecto toma la '
-            'Fecha de entrega del pedido de venta y puede modificarse por cada línea.'
+            "Fecha utilizada por el planificador de fabricación. Por defecto toma la "
+            "Fecha de entrega del pedido de venta y puede modificarse por cada línea."
         ),
     )
 
     @api.depends(
-        'order_id.commitment_date',
-        'order_id.date_order',
-        'planning_delivery_date_manual',
-        'display_type',
+        "order_id.commitment_date",
+        "order_id.date_order",
+        "planning_delivery_date_manual",
+        "display_type",
     )
     def _compute_planning_delivery_date(self):
         for line in self:

@@ -27,19 +27,45 @@ export class PlanningStockTooltipField extends Component {
         });
     }
 
+    formatQty(value) {
+        return Number(value || 0).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+    }
+
     get warehouseRows() {
         const raw = this.props.record.data.stock_warehouse_tooltip || "";
         return raw
             .split("\n")
             .map((line) => line.trim())
-            .filter((line) => line && line.includes(":"))
+            .filter((line) => line && line.includes("|"))
             .map((line) => {
-                const index = line.lastIndexOf(":");
+                const parts = line.split("|");
                 return {
-                    warehouse: line.slice(0, index).trim(),
-                    qty: line.slice(index + 1).trim(),
+                    warehouse: parts[0] || "",
+                    onHand: Number(parts[1] || 0),
+                    incoming: Number(parts[2] || 0),
+                    outgoing: Number(parts[3] || 0),
+                    rfq: Number(parts[4] || 0),
+                    otherPlan: Number(parts[5] || 0),
+                    forecast: Number(parts[6] || 0),
                 };
             });
+    }
+
+    get totals() {
+        const rows = this.warehouseRows;
+        const sum = (name) => rows.reduce((acc, row) => acc + Number(row[name] || 0), 0);
+        return {
+            onHand: this.formatQty(sum("onHand")),
+            incoming: this.formatQty(sum("incoming")),
+            outgoing: this.formatQty(sum("outgoing")),
+            rfq: this.formatQty(sum("rfq")),
+            otherPlan: this.formatQty(sum("otherPlan")),
+            forecast: this.value,
+            hasAdjustments: Math.abs(sum("rfq")) > 1e-6 || Math.abs(sum("otherPlan")) > 1e-6,
+        };
     }
 
     get popoverStyle() {
@@ -48,7 +74,7 @@ export class PlanningStockTooltipField extends Component {
 
     showPopover(ev) {
         const rect = ev.currentTarget.getBoundingClientRect();
-        const width = 260;
+        const width = Math.min(620, window.innerWidth - 24);
         const margin = 10;
 
         let left = rect.left + rect.width / 2 - width / 2;
