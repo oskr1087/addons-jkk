@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <function model="setu.stock.inventory.count" name="_backfill_warehouse_count_locks"/>
+</odoo>

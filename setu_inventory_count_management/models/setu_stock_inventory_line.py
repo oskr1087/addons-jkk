@@ -10,41 +10,41 @@ class StockInventoryLine(models.Model):
 
     theoretical_qty = fields.Float(string="Theoretical QTY")
     product_qty = fields.Float(string="Counted QTY")
-    difference_qty = fields.Float(string="Difference", compute="_compute_difference",
-                                  help="Indicates the gap between the product's theoretical quantity and its newest quantity.",
+    difference_qty = fields.Float(string="Diferencia", compute="_compute_difference",
+                                  help="Indica la diferencia entre la cantidad teórica del producto y la cantidad física más reciente.",
                                   readonly=True, digits="Product Unit of Measure", search="_search_difference_qty",store=True)
 
-    partner_id = fields.Many2one(comodel_name="res.partner", string="Owner", check_company=True)
+    partner_id = fields.Many2one(comodel_name="res.partner", string="Propietario", check_company=True)
     package_id = fields.Many2one(comodel_name="stock.package", string="Package",
                                  index=True, check_company=True, domain="[('location_id', '=', location_id)]")
-    product_id = fields.Many2one(comodel_name="product.product", string="Product")
-    product_uom_id = fields.Many2one(comodel_name="uom.uom", string="Product Unit of Measure", required=True,
+    product_id = fields.Many2one(comodel_name="product.product", string="Producto")
+    product_uom_id = fields.Many2one(comodel_name="uom.uom", string="Unidad de medida del producto", required=True,
                                      readonly=True)
-    inventory_id = fields.Many2one(comodel_name="setu.stock.inventory", string="Inventory")
+    inventory_id = fields.Many2one(comodel_name="setu.stock.inventory", string="Inventario")
     quant_id = fields.Many2one(comodel_name="stock.quant", string="Quant")
-    location_id = fields.Many2one(comodel_name="stock.location", string="Location")
-    prod_lot_id = fields.Many2one(comodel_name="stock.lot", string="Lot/Serial Number",
+    location_id = fields.Many2one(comodel_name="stock.location", string="Ubicación")
+    prod_lot_id = fields.Many2one(comodel_name="stock.lot", string="Lote/Número de serie",
                                   check_company=True,
                                   domain="[('product_id','=',product_id), ('company_id', '=', company_id)]")
 
     serial_number_ids = fields.Many2many('stock.lot', 'setu_stock_inventory_line_stock_lot_rel',
-                                         'setu_stock_inventory_line_id', 'stock_lot_id', string="Serial Numbers")
+                                         'setu_stock_inventory_line_id', 'stock_lot_id', string="Números de serie")
     not_found_serial_number_ids = fields.Many2many('stock.lot', 'setu_not_found_line_stock_lot_rel',
-                                                   'inventory_line_id', 'lot_id', string="Missing Serial Numbers")
+                                                   'inventory_line_id', 'lot_id', string="Números de serie faltantes")
     new_serial_number_ids = fields.Many2many('stock.lot', 'setu_new_serial_stock_lot_rel', 'inventory_line_id',
-                                             'lot_id', string="New Serial Numbers")
+                                             'lot_id', string="Nuevos números de serie")
 
 
     company_id = fields.Many2one(comodel_name="res.company",
-                                 string="Company", related="inventory_id.company_id", index=True,
+                                 string="Compañía", related="inventory_id.company_id", index=True,
                                  readonly=True, store=True)
-    discrepancy_value= fields.Float(string='Discrepancy Value',compute='_compute_discrepancy_value',store=True)
+    discrepancy_value= fields.Float(string='Valor de discrepancia',compute='_compute_discrepancy_value',store=True)
 
     @api.onchange('product_qty')
     def _onchange_product_qty(self):
         for rec in self:
             if rec.product_id and rec.product_id.tracking == 'serial' and rec.product_qty > 1:
-                raise ValidationError(_("Serial number product should not have more than 1 quantity."))
+                raise ValidationError(_("Un producto con número de serie no puede tener una cantidad mayor a 1."))
 
     @api.depends('product_qty', 'theoretical_qty')
     def _compute_difference(self):

@@ -11,15 +11,15 @@ class SetuInvCountReport(models.TransientModel):
 
     count_id = fields.Many2one(
         comodel_name="setu.stock.inventory.count",
-        string="Count"
+        string="Conteo"
     )
     users_ids = fields.Many2many("res.users", "inv_count_report_user_rel", "inv_count_report_id", "users_id",
                                  string="Users", compute="_compute_users_ids")
     discrepancy_ratio = fields.Float("Discrepancy Ratio (%)", digits=(16, 2))
-    discrepancy_value = fields.Float(string="Discrepancy Value")
+    discrepancy_value = fields.Float(string="Valor de discrepancia")
     use_barcode_scanner = fields.Char(string="Scanned/Manual")
-    serial_number_ids = fields.Text(string="Serial Numbers")
-    not_found_serial_number_ids = fields.Text(string="Not Found Serials")
+    serial_number_ids = fields.Text(string="Números de serie")
+    not_found_serial_number_ids = fields.Text(string="Series no encontradas")
     @api.depends('user_ids')
     def _compute_users_ids(self):
         for record in self:
@@ -46,7 +46,7 @@ class SetuInvCountReport(models.TransientModel):
         )
 
         if self.start_date and self.end_date and self.start_date > self.end_date:
-            raise UserError("Please enter a valid start date and end date.")
+            raise UserError("Ingrese una fecha inicial y final válidas.")
 
         start_date = str(self.start_date or '1990-01-01')
         end_date = str(self.end_date or '2100-01-01')

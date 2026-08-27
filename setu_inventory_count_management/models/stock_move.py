@@ -31,3 +31,32 @@ class StockMove(models.Model):
     #                                              description=description, svl_id=svl_id, cost=cost)
     #
     #     return res
+    def _check_inventory_count_warehouse_lock(self):
+        Count = self.env['setu.stock.inventory.count']
+        for move in self:
+            locations = move.location_id | move.location_dest_id
+            locked_count = Count._get_locked_count_for_locations(
+                locations,
+                company=move.company_id,
+            )
+            if locked_count:
+                from odoo.exceptions import UserError
+                from odoo import _
+                raise UserError(_(
+                    'El almacén %(warehouse)s está bloqueado por el conteo %(count)s. '
+                    'No se permiten reservas ni movimientos hacia o desde este almacén '
+                    'hasta que el conteo sea aprobado.'
+                ) % {
+                    'warehouse': locked_count.warehouse_id.display_name,
+                    'count': locked_count.display_name,
+                })
+        return True
+
+    def _action_assign(self, *args, **kwargs):
+        self._check_inventory_count_warehouse_lock()
+        return super()._action_assign(*args, **kwargs)
+
+    def _action_done(self, *args, **kwargs):
+        self._check_inventory_count_warehouse_lock()
+        return super()._action_done(*args, **kwargs)
+

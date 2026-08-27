@@ -7,11 +7,11 @@ class SetuInventoryDiscrepancyReport(models.Model):
     _description = "Inventory Count discrepancy Report"
     _auto = False
 
-    product_id = fields.Many2one("product.product", string="Product", readonly=True)
-    discrepancy_percentage = fields.Float(string="Discrepancy %", readonly=True)
+    product_id = fields.Many2one("product.product", string="Producto", readonly=True)
+    discrepancy_percentage = fields.Float(string="% de discrepancia", readonly=True)
 
     date = fields.Date("Count Date", readonly=True)
-    location_id = fields.Many2one("stock.location", string="Location", readonly=True)
+    location_id = fields.Many2one("stock.location", string="Ubicación", readonly=True)
     approver_id = fields.Many2one("res.users", string="Approver", readonly=True)
 
     def init(self):

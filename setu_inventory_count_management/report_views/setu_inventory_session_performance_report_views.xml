@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <odoo>
     <data>
 
@@ -6,7 +6,7 @@
             <field name="name">setu.inventory.session.performance.report.tree</field>
             <field name="model">setu.inventory.session.performance.report</field>
             <field name="arch" type="xml">
-                <list string="Session Performance Report">
+                <list string="Reporte de rendimiento de sesiones">
                     <field name="session_id"/>
                     <field name="count_id"/>
                     <field name="session_start"/>
@@ -24,12 +24,12 @@
             <field name="name">setu.inventory.session.performance.report.search</field>
             <field name="model">setu.inventory.session.performance.report</field>
             <field name="arch" type="xml">
-                <search string="Session Performance Report">
-                    <field name="session_id" string="Session"/>
-                    <field name="count_id" string="Inventory Count"/>
+                <search string="Reporte de rendimiento de sesiones">
+                    <field name="session_id" string="Sesión"/>
+                    <field name="count_id" string="Conteo de inventario"/>
                     <group>
-                        <filter name="group_by_session" string="Session" context="{'group_by':'session_id'}"/>
-                        <filter name="group_by_count" string="Inventory Count" context="{'group_by':'count_id'}"/>
+                        <filter name="group_by_session" string="Sesión" context="{'group_by':'session_id'}"/>
+                        <filter name="group_by_count" string="Conteo de inventario" context="{'group_by':'count_id'}"/>
                         <filter name="group_by_user" string="Users Involved" context="{'group_by':'users_involved'}"/>
                     </group>
                 </search>
@@ -41,7 +41,7 @@
             <field name="name">setu.inventory.session.performance.report.pivot</field>
             <field name="model">setu.inventory.session.performance.report</field>
             <field name="arch" type="xml">
-                <pivot string="Session Performance Report">
+                <pivot string="Reporte de rendimiento de sesiones">
                     <field name="count_id" type="row"/>
                     <field name="session_id" type="row"/>
                     <field name="users_involved" type="measure"/>
@@ -60,10 +60,6 @@
         </record>
 
         <!-- Menu -->
-        <menuitem id="menu_inventory_session_performance_report"
-                  name="Session Performance Report"
-                  parent="setu_inventory_count_management.setu_inventory_reporting_menu"
-                  action="action_inventory_session_performance_report"
-                  sequence="20"/>
+        <menuitem id="menu_inventory_session_performance_report" name="Session Performance Report" parent="setu_inventory_count_management.setu_inventory_reporting_menu" action="action_inventory_session_performance_report" sequence="20"/>
     </data>
 </odoo>

@@ -8,11 +8,11 @@ class SetuInventoryValidateWiz(models.TransientModel):
 
     session_id = fields.Many2one(
         comodel_name="setu.inventory.count.session",
-        string="Session"
+        string="Sesión"
     )
     session_state = fields.Selection(
         related="session_id.state",
-        string="Session State"
+        string="Estado de sesión"
     )
     user_ids = fields.Many2many(
         comodel_name="res.users",

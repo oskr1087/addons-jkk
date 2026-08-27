@@ -7,7 +7,7 @@ class StockLocation(models.Model):
     check_stock_barcode_installed = fields.Boolean(string="Module is Installed",
                                                    compute="_check_stock_barcode_installed")
 
-    barcode = fields.Char(string="Barcode", copy=False)
+    barcode = fields.Char(string="Código de barras", copy=False)
 
     def _check_stock_barcode_installed(self):
         for rec in self:

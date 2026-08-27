@@ -8,15 +8,15 @@ class SetuInventorySessionUserReport(models.Model):
     _auto = False
 
     user_id = fields.Many2one("res.users", string="User")
-    company_id = fields.Many2one("res.company", string="Company")
+    company_id = fields.Many2one("res.company", string="Compañía")
 
-    total_sessions = fields.Integer(string="Total Sessions")
-    scanned_products = fields.Integer(string="Total Scanned Products")
+    total_sessions = fields.Integer(string="Total de sesiones")
+    scanned_products = fields.Integer(string="Total de productos escaneados")
     accurate_products = fields.Integer(string="Accurate Products")
     discrepancy_products = fields.Integer(string="Mistake Products")
     accuracy_ratio = fields.Float(string="Accuracy Ratio (%)")
     discrepancy_ratio = fields.Float(string="Mistake Ratio (%)")
-    avg_time_per_session = fields.Float(string="Avg. Time per Session (min)")
+    avg_time_per_session = fields.Float(string="Tiempo promedio por sesión (min)")
 
     def init(self):
         self.env.cr.execute("""DROP VIEW IF EXISTS setu_inventory_session_user_report;""")

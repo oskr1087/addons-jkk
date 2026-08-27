@@ -13,3 +13,12 @@ from . import stock_location
 from . import stock_move
 from . import stock_move_line
 from . import setu_inventory_dashboard
+from . import inventory_count_enhancements
+
+from . import pda_counting
+
+from . import count_backend_dashboard
+
+from . import inventory_count_snapshot
+
+from . import warehouse_count_lock

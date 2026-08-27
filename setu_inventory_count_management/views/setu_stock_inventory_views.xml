@@ -1,19 +1,15 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <odoo>
     <data>
         <record id="setu_stock_inventory_form_view" model="ir.ui.view">
             <field name="name">setu.stock.inventory.form</field>
             <field name="model">setu.stock.inventory</field>
             <field name="arch" type="xml">
-                <form string="Stock Inventory" create="0">
+                <form string="Inventario físico" create="0">
                     <header>
                         <field name="state" readonly="1" widget="statusbar" statusbar_visible="confirm, done"/>
-                        <button name="action_cancel" type="object" string="Cancel"
-                                invisible="state not in ['draft', 'confirm']"
-                                confirm="Are you sure to cancel this inventory adjustment?"/>
-                        <button name="action_validate" type="object" string="Validate" class="oe_highlight"
-                                confirm="Are you sure to validate this inventory adjustment?"
-                                invisible="state != 'confirm'"/>
+                        <button name="action_cancel" type="object" string="Cancelar" invisible="state not in ['draft', 'confirm']" confirm="¿Está seguro de cancelar este ajuste de inventario?"/>
+                        <button name="action_validate" type="object" string="Validar" class="oe_highlight" confirm="¿Está seguro de validar este ajuste de inventario?" invisible="state != 'confirm'"/>
                     </header>
                     <sheet>
                         <div class="oe_title">
@@ -30,32 +26,26 @@
                             <group>
                                 <field readonly="1" name="location_id" options="{'no_create': True, 'no_open':True}"/>
                                 <field readonly="1" name="date"/>
-                                <field readonly="state != 'draft'" name="company_id"
-                                       options="{'no_create': True, 'no_open':True}"/>
+                                <field readonly="state != 'draft'" name="company_id" options="{'no_create': True, 'no_open':True}"/>
                             </group>
                         </group>
                         <notebook>
                             <page string="Lines">
                                 <field name="line_ids" readonly="state not in ['draft','confirm']">
                                     <list editable="bottom" create="0">
-                                        <field name="product_id" readonly="1"
-                                               options="{'no_create': True, 'no_open':True}"/>
-                                        <field name="location_id" readonly="1"
-                                               options="{'no_create': True, 'no_open':True}"/>
-                                        <field name="prod_lot_id" readonly="1"
-                                               options="{'no_create': True, 'no_open':True}"/>
-                                        <field name="serial_number_ids" widget="many2many_tags" readonly="1"
-                                               options="{'no_create': True, 'no_open':True}"/>
+                                        <field name="product_id" readonly="1" options="{'no_create': True, 'no_open':True}"/>
+                                        <field name="location_id" readonly="1" options="{'no_create': True, 'no_open':True}"/>
+                                        <field name="prod_lot_id" readonly="1" options="{'no_create': True, 'no_open':True}"/>
+                                        <field name="serial_number_ids" widget="many2many_tags" readonly="1" options="{'no_create': True, 'no_open':True}"/>
                                         <field name="theoretical_qty" readonly="1"/>
-                                        <field name="product_qty"
-                                               readonly="parent.state not in ['draft','confirm']"/>
+                                        <field name="product_qty" readonly="parent.state not in ['draft','confirm']"/>
                                         <field name="difference_qty" readonly="1"/>
                                         <field name="discrepancy_value" readonly="1"/>
                                     </list>
 
                                 </field>
                             </page>
-                            <page string="Stock Moves">
+                            <page string="Movimientos de stock">
                                 <field name="move_ids" readonly="1" options="{'no_open':True}">
                                     <list>
                                         <field name="product_id" options="{'no_create': True, 'no_open':True}"/>
@@ -76,7 +66,7 @@
             <field name="name">setu.stock.inventory.tree</field>
             <field name="model">setu.stock.inventory</field>
             <field name="arch" type="xml">
-                <list string="Stock Inventory" create="0">
+                <list string="Inventario físico" create="0">
                     <field name="name"/>
                     <field name="partner_id"/>
                     <field name="location_id"/>
@@ -90,8 +80,8 @@
             <field name="name">setu.stock.inventory.search</field>
             <field name="model">setu.stock.inventory</field>
             <field name="arch" type="xml">
-                <search string="Stock Inventory">
-                    <field name="name" string="Inventory Reference"/>
+                <search string="Inventario físico">
+                    <field name="name" string="Referencia de inventario"/>
                     <field name="location_id"/>
                     <field name="partner_id"/>
                     <field name="date"/>
@@ -99,12 +89,11 @@
                     <filter string="Validated" name="done" domain="[('state','=','done')]"/>
                     <filter string="Cancelled" name="cancel" domain="[('state','=','cancel')]"/>
                     <separator/>
-                    <filter string="State" name="group_state" context="{'group_by':'state'}"/>
-                    <filter string="Location" name="group_location" context="{'group_by':'location_id'}"/>
+                    <filter string="Estado" name="group_state" context="{'group_by':'state'}"/>
+                    <filter string="Ubicación" name="group_location" context="{'group_by':'location_id'}"/>
                     <filter string="Owner" name="group_owner" context="{'group_by':'partner_id'}"/>
-                    <filter string="Inventory Count" name="group_inventory_count"
-                            context="{'group_by':'inventory_count_id'}"/>
-                    <filter string="Date" name="group_date" context="{'group_by':'date'}"/>
+                    <filter string="Conteo de inventario" name="group_inventory_count" context="{'group_by':'inventory_count_id'}"/>
+                    <filter string="Fecha" name="group_date" context="{'group_by':'date'}"/>
                 </search>
             </field>
         </record>

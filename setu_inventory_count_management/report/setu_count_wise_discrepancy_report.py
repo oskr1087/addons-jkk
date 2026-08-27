@@ -8,10 +8,10 @@ class SetuCountWiseDiscrepancyReport(models.Model):
     _auto = False
 
     count_id = fields.Many2one("setu.stock.inventory.count", string="Inventory Count", readonly=True)
-    total_count_lines = fields.Integer(string="Total Count Products", readonly=True)
-    discrepancy_lines = fields.Integer(string="Discrepancy Products", readonly=True)
-    discrepancy_percent = fields.Float(string="Discrepancy %", readonly=True)
-    company_id = fields.Many2one("res.company", string="Company", readonly=True)
+    total_count_lines = fields.Integer(string="Total de productos contados", readonly=True)
+    discrepancy_lines = fields.Integer(string="Productos con discrepancia", readonly=True)
+    discrepancy_percent = fields.Float(string="% de discrepancia", readonly=True)
+    company_id = fields.Many2one("res.company", string="Compañía", readonly=True)
 
     def init(self):
         tools.drop_view_if_exists(self._cr, self._table)

@@ -1,18 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Inventory Dashboard Action -->
-    <record id="action_inventory_dashboard" model="ir.actions.client">
-        <field name="name">Inventory Count Dashboard</field>
-        <field name="tag">setu_inventory_dashboard</field>
+    <!--
+        El panel independiente quedó reemplazado por el centro de control
+        integrado al propio conteo. Conservamos el XML ID únicamente para
+        desactivar el menú en bases que vienen de versiones anteriores.
+    -->
+    <record id="menu_inventory_dashboard" model="ir.ui.menu">
+        <field name="name">Panel</field>
+        <field name="active" eval="False"/>
     </record>
-
-    <!-- Inventory Dashboard Menu -->
-    <menuitem
-        name="Dashboard"
-        id="menu_inventory_dashboard"
-        action="setu_inventory_count_management.action_inventory_dashboard"
-        parent="setu_inventory_count_management.setu_inventory_count_root"
-        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
-        sequence="1"
-    />
 </odoo>

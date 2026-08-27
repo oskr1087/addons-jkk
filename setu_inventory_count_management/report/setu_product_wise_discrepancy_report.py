@@ -7,11 +7,11 @@ class SetuProductWiseDiscrepancyReport(models.Model):
     _description = "Product-wise Discrepancy Report"
     _auto = False
 
-    product_id = fields.Many2one("product.product", string="Product", readonly=True)
+    product_id = fields.Many2one("product.product", string="Producto", readonly=True)
     total_times_counted = fields.Integer(string="Total Times Counted", readonly=True)
-    discrepancy_products = fields.Integer(string="Discrepancy Products", readonly=True)
-    discrepancy_percent = fields.Float(string="Discrepancy %", readonly=True)
-    company_id = fields.Many2one("res.company", string="Company", readonly=True)
+    discrepancy_products = fields.Integer(string="Productos con discrepancia", readonly=True)
+    discrepancy_percent = fields.Float(string="% de discrepancia", readonly=True)
+    company_id = fields.Many2one("res.company", string="Compañía", readonly=True)
 
     def init(self):
         tools.drop_view_if_exists(self._cr, self._table)

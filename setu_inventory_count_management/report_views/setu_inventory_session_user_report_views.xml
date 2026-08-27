@@ -1,10 +1,11 @@
+<?xml version='1.0' encoding='UTF-8'?>
 <odoo>
     <!-- Tree View -->
     <record id="setu_inventory_session_user_report_tree_view" model="ir.ui.view">
         <field name="name">setu.inventory.session.user.report.tree</field>
         <field name="model">setu.inventory.session.user.report</field>
         <field name="arch" type="xml">
-            <list string="User-wise Inventory Count Report">
+            <list string="Reporte de conteo por usuario">
                 <field name="user_id"/>
                 <field name="company_id"/>
                 <field name="total_sessions"/>
@@ -22,7 +23,7 @@
         <field name="name">setu.inventory.session.user.report.pivot.view</field>
         <field name="model">setu.inventory.session.user.report</field>
         <field name="arch" type="xml">
-            <pivot string="User-wise Inventory Count Report">
+            <pivot string="Reporte de conteo por usuario">
                 <field name="user_id" type="row"/>
                 <field name="company_id" type="col"/>
                 <field name="total_sessions" type="measure"/>
@@ -34,11 +35,11 @@
         <field name="name">setu.inventory.session.user.report.search</field>
         <field name="model">setu.inventory.session.user.report</field>
         <field name="arch" type="xml">
-            <search string="User-wise Inventory Count Report">
+            <search string="Reporte de conteo por usuario">
                 <field name="user_id"/>
                 <field name="company_id"/>
                 <group>
-                    <filter string="User" name="group_user" context="{'group_by':'user_id'}"/>
+                    <filter string="Usuario" name="group_user" context="{'group_by':'user_id'}"/>
                     <filter string="Company" name="group_company" context="{'group_by':'company_id'}"/>
                 </group>
             </search>
@@ -51,9 +52,5 @@
         <field name="view_mode">list,pivot</field>
     </record>
 
-    <menuitem id="menu_setu_inventory_count_user_report"
-              name="User Statistics Report"
-              parent="setu_inventory_count_management.setu_inventory_reporting_menu"
-              action="setu_inventory_session_user_report_action"
-              sequence="6"/>
+    <menuitem id="menu_setu_inventory_count_user_report" name="User Statistics Report" parent="setu_inventory_count_management.setu_inventory_reporting_menu" action="setu_inventory_session_user_report_action" sequence="6"/>
 </odoo>

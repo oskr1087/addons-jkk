@@ -1,48 +1,291 @@
-Date : 8th june 2026
-Version : '6.0' (in __manifest__.py)
-Odoo Version : 19
-Developer : Devangi Pabari
-Senior : Devangi Pabari
-Tested By : Devangi Pabari
-Changes : Refactored the approval flow of sessions as previously done based on discussion with payal madam
+7.0.2
+- Corrección de compatibilidad con Odoo 19 al desactivar el menú Panel.
+- Eliminado el campo obsoleto groups_id del modelo ir.ui.menu.
+- El XML ID menu_inventory_dashboard se conserva y el menú queda simplemente active=False.
+- Se mantiene intacto el nuevo centro de control integrado al formulario del conteo.
 
-Date : 25th March 2026
-Version : '5.0' (in __manifest__.py)
-Odoo Version : 19
-Developer : Devangi Pabari
-Senior : Devangi Pabari
-Tested By : Devangi Pabari
-Changes : Updated manifest dependancy and qty_done to quantity change 
+7.0.1
+- Rediseño visual completo del formulario del conteo basado en la propuesta aprobada.
+- KPIs con colores, iconos y porcentajes: Esperados, Contados, Pendientes, Coincidencias, Divergencias, No previstos y Duplicados.
+- Barra de avance destacada y aviso visual rojo cuando el almacén está bloqueado.
+- Resumen operativo reorganizado en una tarjeta limpia con Ubicación, Almacén, Sesiones, Aprobador, Tipo, Fecha, Compañía y modo PDA.
+- Pestañas administrativas directas: Todos, Pendientes, Contados, Divergencias, No previstos, Duplicados y Sesiones.
+- La pestaña antigua de líneas queda oculta para evitar información duplicada.
+- Estados de líneas se muestran como badges y las filas usan decoración por estado.
+- Diferencia permanece en “—” mientras una línea no ha sido contada.
+- Configuración operativa se conserva como pestaña Configuración al final.
+- Panel global anterior desactivado y sus assets retirados; el conteo es el centro de control.
+- Diseño responsive para escritorio, tablet y resoluciones pequeñas.
 
-Date : 18th March 2026
-Version : '4.0' (in __manifest__.py)
-Odoo Version : 19
-Developer : Devangi Pabari
-Senior : Devangi Pabari
-Tested By : Devangi Pabari
-Changes : Updated manifest dependancy 
+7.0.0
+- El formulario del conteo pasa a ser el centro de control administrativo.
+- Eliminado el smart button y los assets OWL del Panel del conteo independiente.
+- KPIs integrados: avance, esperados, contados, pendientes, coincidencias, divergencias, no previstos y duplicados.
+- Barra de progreso integrada en el propio conteo.
+- Pestañas: Todos, Pendientes, Contados, Divergencias, No previstos, Duplicados y Sesiones.
+- Las listas usan el snapshot persistente; no consultan stock.quant al navegar.
+- Las líneas pendientes muestran Diferencia como “—” para no aparentar una divergencia antes de ser contadas.
+- Información técnica de preparación/actualización compactada.
+- Diseño responsive para administración desde escritorio/tablet.
 
-Date : 2nd january 2026
-Version : '3.0' (in __manifest__.py)
-Odoo Version : 19
-Developer : Hemangi Desai
-Senior : Devangi Pabari
-Tested By : Hemangi Desai
-Changes : Fixed the issue related to dashboard open session data,theoratical qty issue for serial tracking products in inventort loss report, theoratical quantities not correct in sessions for serial products, approval changes in session,count
+6.9.0
+- Exclusividad de conteo activo por almacén.
+- Al iniciar un conteo se crea un bloqueo persistente del almacén.
+- No se permite iniciar un segundo conteo para el mismo almacén mientras exista un bloqueo activo.
+- El bloqueo se mantiene incluso si el conteo vuelve temporalmente a Borrador; solo se libera al Aprobar, Rechazar, Cancelar o finalizar el ajuste.
+- Se bloquean reservas y movimientos de stock hacia o desde todo el almacén, no solo la ubicación específica del conteo.
+- El bloqueo aplica a compras, ventas, transferencias internas, manufactura, scrap, POS e inventarios porque se valida en stock.move y stock.move.line.
+- La aprobación libera el almacén antes de generar el ajuste de inventario del propio conteo.
+- El formulario del conteo muestra si el almacén está bloqueado y desde cuándo.
+- La antigua política configurable de movimientos queda oculta; el bloqueo durante un conteo activo es obligatorio.
+- Backfill de locks para conteos ya activos durante la actualización.
+- Pruebas de regresión para doble conteo, persistencia del lock y bloqueo/liberación de movimientos.
 
-Date : 24th October 2025
-Version : '2.0' (in __manifest__.py)
-Odoo Version : 19
-Developer : Devangi Pabari
-Senior : Devangi Pabari
-Tested By : Devangi Pabari
-Changes : Removed unscanned functionality
+6.8.3
+- Corrección de la vista search del detalle persistente para Odoo 19.
+- Eliminado el contenedor group dentro de search.
+- Los filtros de agrupación ahora se declaran directamente con context group_by.
+- Normalizados los dominios de filtros de Pendientes, Coincidencias, Divergencias, No previstos y Duplicados.
+- La vista conserva filtros y agrupaciones sin utilizar estructuras no válidas.
 
+6.8.2
+- Corrección de compatibilidad de vistas con Odoo 19.
+- Eliminado editable="0" de la vista list del detalle persistente.
+- En Odoo 19 el atributo editable solo admite top o bottom; la vista permanece en solo lectura mediante create="0" y delete="0".
+- Revisión automática de todas las vistas list del módulo para detectar valores editable incompatibles.
 
-Date : 15th October 2025
-Version : '1.0' (in __manifest__.py)
-Odoo Version : 19
-Developer : Chintan Makwana
-Senior : Devangi Pabari
-Tested By : Nikhil Sudra
-Changes : Migrated v18 to v19
+6.8.1
+- Hotfix de despliegue de la arquitectura persistente.
+- Los nuevos KPIs y flags ya no crean columnas en setu_stock_inventory_count.
+- Nueva cabecera 1:1 setu.inventory.count.snapshot anclada a cada conteo.
+- Todos los indicadores se almacenan en esa cabecera y se exponen al conteo mediante campos compute no almacenados.
+- Las líneas persistentes ahora pertenecen a la cabecera mediante snapshot_id.
+- Evita que mail.thread y otras lecturas generales del conteo fallen si el código se despliega antes de ejecutar la actualización del módulo.
+- Se mantiene la fotografía inicial de Producto + Lote + Ubicación y las sesiones alimentan únicamente esa información.
+- Pruebas adaptadas para verificar que cambios posteriores de stock.quant no alteren la fotografía congelada.
+
+6.8.0
+- Nueva arquitectura persistente por conteo.
+- Al crear un conteo con almacén/ubicación se captura una fotografía de stock.quant una sola vez.
+- Nuevo modelo setu.inventory.count.snapshot.line por Producto + Lote + Ubicación.
+- Las sesiones ya no definen el universo del inventario: sus lecturas actualizan el detalle persistente del conteo.
+- KPIs almacenados en el propio conteo: esperados, contados, pendientes, coincidencias, divergencias, cantidad cero, no previstos, duplicados, avance y porcentaje de divergencia.
+- El panel deja de consultar stock.quant y de reconstruir todas las sesiones al abrirse.
+- Pendientes y divergencias se leen directamente del snapshot con paginación SQL.
+- Las lecturas no previstas crean una línea identificada como No previsto sin alterar la fotografía inicial.
+- Cambio de almacén/ubicación reconstruye la fotografía únicamente antes de existir lecturas.
+- Después de iniciar lecturas se bloquea cambiar el alcance del conteo para preservar auditoría.
+- Nueva pestaña Detalle del conteo con fotografía, cantidades, estados, sesión y usuario.
+- Las divergencias del panel se abren sobre el detalle persistente, no sobre cálculos dinámicos.
+
+6.7.3
+- Paginación real del Panel del conteo para pendientes y divergencias.
+- Se muestran 25 registros por página con Anterior/Siguiente, página actual y total de registros.
+- Eliminado el límite visual de 100 registros; todos los pendientes pueden recorrerse mediante páginas.
+- El Panel del conteo tiene scroll vertical propio para visualizar todo el contenido.
+- Ver existencia, Lecturas y Divergencias se abren en modal sobre el panel.
+- Gestionar sesiones y Nueva sesión intentan abrirse en modal cuando la acción lo permite.
+- Al cerrar consultas auxiliares el panel permanece montado, evitando reconstruirlo y recalcularlo al volver.
+- Navegar entre páginas conserva KPIs y estado visual del panel.
+
+6.7.2
+- Corrección de la acción Ver existencia del Panel del conteo.
+- La acción stock.quant ahora entrega explícitamente la lista de vistas requerida por el cliente web de Odoo 19.
+- Se evita el error JavaScript `_preprocessAction: Cannot read properties of undefined (reading 'map')`.
+- La consulta de existencias se abre en modo solo lectura para evitar modificaciones accidentales desde el dashboard.
+
+6.7.1
+- Hotfix OWL de la pantalla Conteo PDA.
+- Restaurados los handlers startSession, resumeSession, pauseSession y submitSession.
+- Los botones Iniciar, Reanudar, Pausar y Finalizar vuelven a enlazar con pda_fast_control.
+- Validación automática de todos los handlers declarados en pda_fast_count.xml contra métodos reales del componente JS.
+
+6.7.0
+- Nuevo Panel del conteo para administradores/responsables.
+- El panel se abre por cada conteo y analiza bajo demanda el almacén/ubicación seleccionados.
+- Comparación en tiempo real de stock esperado contra lecturas realizadas por Producto + Lote + Ubicación.
+- KPIs gerenciales: alcance esperado, contados, pendientes, avance, divergencias, sesiones activas y usuarios activos.
+- Identificación de lecturas no previstas en el stock esperado.
+- Tabla de productos/lotes pendientes con acceso directo a existencias.
+- Tabla de divergencias con esperado, contado y diferencia.
+- Acciones para gestionar sesiones, abrir lecturas y revisar divergencias.
+- Sin precarga de productos ni creación automática de líneas; el análisis solo se ejecuta al abrir/refrescar el panel.
+
+6.6.5
+- Corrección de compilación OWL en la vista PDA.
+- Se reemplazó el operador Python `not` por el operador JavaScript `!` dentro de t-if.
+- Evita el código inválido `ctx['not']ctx[...]` y el error `Unexpected identifier 'ctx'`.
+
+6.6.4
+- Rediseño completo de Conteo PDA con enfoque mobile-first para celular y PDA.
+- Pantalla principal de una sola columna, optimizada para uso con una mano.
+- Ubicación actual y cantidad de registros siempre visibles.
+- Zona central grande "Listo para escanear" para QR o código de barras.
+- Producto y lote mostrados en tarjetas grandes después de la lectura.
+- Cantidad física con inputmode decimal para abrir teclado numérico en celular.
+- Botones -1, 0 y +1 grandes y botón Confirmar de ancho completo.
+- Alerta dominante "YA ESCANEADO" cuando Producto + Lote ya fue registrado.
+- Últimos registros reducidos a 3 y ocultos en sección desplegable.
+- Simulación desde celular movida a una sección secundaria desplegable.
+- Barra inferior fija para Pausar y Finalizar, accesible con el pulgar.
+
+6.6.3
+- Lectura directa de QR enriquecido con formato Artículo/Lote/Cantidad.
+- El artículo del QR se busca por referencia interna o código de barras.
+- Una sola lectura carga producto, lote y cantidad propuesta en la pantalla PDA.
+- La cantidad del QR queda precargada pero el operador debe verificarla y confirmar la cantidad física.
+- Validación de que el lote pertenezca al producto indicado.
+- Bloqueo de duplicados Producto + Lote dentro de la misma sesión y ubicación.
+- Si el mismo QR se vuelve a leer antes de confirmar, se informa que está pendiente de confirmación.
+- Si el Producto + Lote ya fue confirmado, no se crea ni modifica otra línea y se muestra la cantidad ya registrada.
+- El flujo tradicional Producto -> Lote también aplica la misma validación de duplicados.
+- Soporte de cantidades QR con punto o coma decimal.
+
+6.6.2
+- Eliminado el campo duplicado Conteo ciego de la información general.
+- Eliminado el campo duplicado Movimientos durante el conteo de la información general.
+- Conteo ciego y política de movimientos quedan únicamente en Controles del conteo.
+- Conteo con PDA / código de barras ahora es editable mientras el conteo está en Borrador.
+- Las opciones operativas quedan bloqueadas después de iniciar el conteo.
+- Limpieza de textos obsoletos de autocarga.
+
+6.6.1
+- Hotfix para vistas Kanban y lecturas agrupadas.
+- Corregidos computes de Conteo que asumían singleton: create_session_bool y create_count_bool.
+- Corregidos computes de Sesión que asumían singleton: sesiones hijas, historial y reapertura.
+- Corregida restricción de fecha para operaciones multi-registro.
+- Corregido cálculo de porcentaje de errores del usuario que se reiniciaba a cero.
+- Agregadas pruebas de regresión para cálculos sobre múltiples registros.
+
+6.6.0
+- Rediseño visual unificado para Conteos, Sesiones, Planificadores e Informes.
+- Conteos de inventario ahora abren en Kanban por estado.
+- Sesiones conservan Kanban como vista principal con tarjetas simplificadas para operación.
+- Planificadores abren en Kanban por estado.
+- Resultados de conteo, ajustes, rendimiento por usuario, discrepancias y rendimiento de sesiones tienen Kanban como vista principal.
+- Formularios de conteo, sesión y planificador incorporan resumen visual superior.
+- Instrucciones antiguas de sesión reemplazadas por una guía compacta enfocada en PDA.
+- Listas y Pivot se mantienen como vistas secundarias para análisis y detalle.
+
+6.5.9
+- Corregido error de compilación de estilos por funciones SCSS min()/max() con unidades incompatibles px y %.
+- El ancho máximo del modo PDA ahora usa width/max-width estándar.
+- El footer PDA se centra sin cálculos Sass incompatibles.
+- Se mantiene la pantalla OWL rápida sin recarga por cada lectura.
+
+6.5.8
+- Nueva pantalla de conteo PDA como Client Action OWL.
+- Eliminado el refresco completo del formulario después de cada lectura.
+- Cada escaneo realiza un RPC corto y actualiza solo el estado visible.
+- Cola de códigos para procesar lecturas consecutivas sin perder escaneos.
+- +1, -1, 0 y escritura de cantidad funcionan localmente sin RPC.
+- Confirmar cantidad actualiza únicamente producto, cantidad, mensaje y lista reciente.
+- Escaneo optimizado: producto primero; lote/serie solo si el código no es producto.
+- La ubicación fija del conteo ya no se consulta en cada lectura.
+- Vibración corta en éxito y patrón de vibración en advertencias cuando el dispositivo lo permite.
+
+6.5.7
+- Corregida la lista intermitente de usuarios controladores.
+- Los controladores se calculan en tiempo real por compañía y no quedan almacenados/desactualizados.
+- La búsqueda usa sudo únicamente para evitar que reglas de res.users oculten candidatos válidos.
+- El usuario actual se propone automáticamente cuando tiene rol Controlador.
+- Al cambiar almacén se recalcula y recupera automáticamente un controlador válido.
+- El mismo comportamiento se aplica al Planificador de conteos.
+- Mensajes y etiquetas de controlador en español.
+
+6.5.6
+- Hotfix para vistas antiguas almacenadas en ir.ui.view.
+- Se agregan acciones/contadores de compatibilidad sin consultas de stock ni autocarga.
+- Nueva limpieza pre-migración de referencias antiguas de la interfaz PDA.
+- La sesión sigue creándose vacía y sin precargar productos.
+
+6.5.5
+- Eliminada completamente la autocarga de productos y existencias al crear sesiones.
+- Eliminadas consultas automáticas a stock.quant para preparar líneas.
+- La sesión se crea vacía y las líneas nacen únicamente al escanear/confirmar.
+- Eliminadas métricas de Esperados/Pendientes/No esperados asociadas a precarga.
+- Interfaz PDA simplificada a Artículos procesados y Cantidad cero.
+- Limpieza de pruebas y documentación relacionadas con precarga.
+
+6.5.4
+- Hotfix para actualizar bases que vienen de 6.5.0-6.5.2.
+- Se mantiene un campo técnico invisible de compatibilidad para que Odoo pueda validar vistas antiguas almacenadas durante el upgrade.
+- La acción antigua de cargar inventario queda neutralizada: no carga productos ni modifica product_ids.
+- La interfaz actual sigue sin mostrar carga de productos ni pestaña Productos.
+- Crear sesión continúa independiente de product_ids.
+
+6.5.3
+- Eliminada la carga de productos en el documento de conteo.
+- Eliminada la pestaña Productos del conteo.
+- Crear sesión ya no depende de product_ids ni copia productos al asistente.
+- Eliminado el bloqueo por productos sin código de barras al crear sesiones.
+- El snapshot esperado se prepara internamente desde la ubicación seleccionada.
+- El asistente de sesión requiere únicamente usuarios; las líneas se generan desde el stock de la ubicación.
+
+6.5.2
+- Rediseño de la interfaz de conteo para teléfono y PDA.
+- Cabecera operativa compacta con ubicación, progreso y estado.
+- Barra inferior táctil para Iniciar/Reanudar/Pausar/Finalizar.
+- Tarjeta de producto actual con barcode, seguimiento, lote y unidad de medida.
+- Accesos rápidos de cantidad -1, 0 y +1.
+- Feedback visible del último código procesado.
+- Modo de prueba desde celular: escribir/pegar barcode y procesarlo con la misma lógica del lector PDA.
+- La simulación no usa cámara y no altera el flujo productivo del PDA.
+- Nuevas pruebas de regresión para simulación y controles de cantidad.
+
+6.5.1
+- Hotfix de carga del registry en Odoo 19.
+- La extensión de setu.inventory.session.creator se movió de models/ a wizard/.
+- Se respeta el orden de carga: primero se registra el wizard original y después su extensión PDA.
+- Sin cambios en el flujo funcional PDA de la versión 6.5.0.
+
+6.5.0
+- Flujo principal exclusivo para PDA y códigos de barras.
+- Eliminada la dependencia funcional de cámara/web_mobile.
+- Precarga automática de productos con existencia en la ubicación y sububicaciones.
+- Snapshot esperado por producto, ubicación, lote y serie.
+- Estados operativos: Pendiente, Contado, Cero físico/No encontrado y No esperado/Sobrante.
+- Los productos normales y por lote no incrementan cantidad al escanear; la cantidad física se confirma explícitamente.
+- Los números de serie suman una unidad por lectura.
+- Al finalizar, líneas esperadas no escaneadas pasan a Cero físico.
+- Indicadores grandes para PDA y smart buttons de revisión.
+- Validación de productos sin código de barras antes de iniciar la sesión.
+
+6.4.8
+- Integración con el bridge nativo web_mobile de la app Odoo.
+- En la app móvil se usa mobile.methods.scanBarcode() antes que la cámara web.
+- En navegador/PWA se mantiene el lector estándar BarcodeScanner de Odoo.
+- Se mantiene compatibilidad con lectores integrados de PDA, Bluetooth y USB.
+- Vibración nativa de confirmación cuando está disponible.
+- Mensajes de error diferenciados entre app móvil y navegador.
+
+6.4.6
+- La sesión hereda automáticamente la ubicación definida en el conteo.
+- El bodeguero ya no necesita escanear nuevamente la ubicación inicial.
+- El cambio de ubicación queda disponible solo como acción opcional durante el conteo.
+- El acceso a Sesiones abre siempre primero la vista Kanban, incluso con una sola sesión.
+- Se agregaron pruebas de regresión para ubicación automática y apertura Kanban.
+
+6.4.0 - 2026-08-19
+------------------
+- Nueva documentación funcional y técnica en español.
+- Ayuda del módulo alineada al flujo actual de Inventory Count.
+- Nuevas capturas del flujo móvil/PDA.
+- Eliminación de capturas, material comercial y documentación obsoleta.
+- Manifest actualizado con Oscar Morocho como autor y mantenedor.
+- Banner y descripción renovados.
+
+6.3.0
+-----
+- Interfaz dedicada Conteo móvil / PDA.
+- Captura por ubicación -> producto -> lote/serie -> cantidad.
+- Cantidad física directa para productos normales y por lote.
+- Ubicación activa persistente durante el recorrido.
+- Progreso, últimos conteos y acciones rápidas.
+
+6.2.0
+-----
+- Conteo ciego, tolerancias y clasificación de discrepancias.
+- Auditoría de capturas y cambios manuales.
+- Política de movimientos durante conteo y conciliación por ubicación.
+- Protección contra ajustes duplicados y mejoras de seguridad.

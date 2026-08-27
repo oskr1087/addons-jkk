@@ -7,12 +7,12 @@ class SetuInvUserStatesReport(models.TransientModel):
     _inherit = 'setu.inventory.reporting.template'
     _description = 'Inventory User Statistics Report'
 
-    sessions = fields.Integer(string="Total Sessions")
+    sessions = fields.Integer(string="Total de sesiones")
     mistake_sessions = fields.Integer(string="Mistake Sessions")
 
     discrepancy_ratio = fields.Float(string="Discrepancy")
     user_mistake_ratio = fields.Float(string="Calculation Mistake")
-    company_id = fields.Many2one(comodel_name="res.company", string="Company")
+    company_id = fields.Many2one(comodel_name="res.company", string="Compañía")
 
 
     def get_user_inventory_stats(self):

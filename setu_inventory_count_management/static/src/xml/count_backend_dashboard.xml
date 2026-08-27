@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="setu_inventory_count_management.CountBackendDashboard">
+        <div class="setu_count_dashboard">
+            <t t-if="state.loading">
+                <div class="setu_count_dashboard_loading">
+                    <i class="fa fa-spinner fa-spin" title="Cargando"/>
+                    <strong>Analizando el conteo…</strong>
+                    <span>Comparando existencias con las lecturas realizadas.</span>
+                </div>
+            </t>
+            <t t-else="">
+                <header class="setu_count_dashboard_header">
+                    <div class="setu_count_dashboard_header_left">
+                        <button class="btn btn-light" t-on-click="goBack">
+                            <i class="fa fa-arrow-left" title="Volver"/> Volver
+                        </button>
+                        <div>
+                            <small>PANEL DEL CONTEO</small>
+                            <h1 t-esc="state.data.count.name"/>
+                            <span>
+                                <i class="fa fa-building" title="Almacén"/>
+                                <t t-esc="state.data.count.warehouse"/>
+                                <span class="setu_count_dashboard_sep">•</span>
+                                <i class="fa fa-map-marker" title="Ubicación"/>
+                                <t t-esc="state.data.count.location"/>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="setu_count_dashboard_header_actions">
+                        <button t-if="state.data.count.state === 'Draft' or state.data.count.state === 'In Progress'"
+                                class="btn btn-secondary"
+                                t-on-click="createSession">
+                            <i class="fa fa-plus" title="Nueva sesión"/> Nueva sesión
+                        </button>
+                        <button t-if="state.data.count.state === 'In Progress' and state.data.kpis.pending === 0"
+                                class="btn btn-success"
+                                t-on-click="completeCounting">
+                            <i class="fa fa-check" title="Completar conteo"/> Completar conteo
+                        </button>
+                        <button class="btn btn-primary"
+                                t-on-click="refresh"
+                                t-att-disabled="state.refreshing ? true : undefined">
+                            <i t-if="state.refreshing" class="fa fa-spinner fa-spin" title="Actualizando"/>
+                            <i t-else="" class="fa fa-refresh" title="Actualizar"/>
+                            Actualizar
+                        </button>
+                    </div>
+                </header>
+
+                <main class="setu_count_dashboard_body">
+                    <section class="setu_count_dashboard_kpis">
+                        <button class="setu_count_kpi is-primary" t-on-click="setPendingTab">
+                            <span>Lotes / líneas esperadas</span>
+                            <strong t-esc="state.data.kpis.expected || 0"/>
+                            <small>En el alcance del conteo</small>
+                        </button>
+                        <button class="setu_count_kpi is-info" t-on-click="openScanned">
+                            <span>Contados</span>
+                            <strong t-esc="state.data.kpis.counted || 0"/>
+                            <small t-esc="(state.data.kpis.progress || 0) + '% del alcance'"/>
+                        </button>
+                        <button class="setu_count_kpi is-warning" t-on-click="setPendingTab">
+                            <span>Pendientes</span>
+                            <strong t-esc="state.data.kpis.pending || 0"/>
+                            <small>Faltan por registrar</small>
+                        </button>
+                        <button class="setu_count_kpi is-danger" t-on-click="setDifferenceTab">
+                            <span>Divergencias</span>
+                            <strong t-esc="state.data.kpis.differences || 0"/>
+                            <small t-esc="(state.data.kpis.difference_percent || 0) + '% de lo contado'"/>
+                        </button>
+                        <button class="setu_count_kpi is-neutral" t-on-click="openSessions">
+                            <span>Sesiones</span>
+                            <strong t-esc="state.data.kpis.sessions || 0"/>
+                            <small t-esc="(state.data.kpis.active_sessions || 0) + ' activas'"/>
+                        </button>
+                    </section>
+
+                    <section class="setu_count_dashboard_progress">
+                        <div class="setu_count_dashboard_progress_head">
+                            <div>
+                                <span>AVANCE GENERAL</span>
+                                <strong t-esc="(state.data.kpis.progress || 0) + '%'"/>
+                            </div>
+                            <div class="setu_count_dashboard_progress_meta">
+                                <span>
+                                    <b t-esc="state.data.kpis.counted || 0"/> contados
+                                </span>
+                                <span>
+                                    <b t-esc="state.data.kpis.pending || 0"/> pendientes
+                                </span>
+                                <span t-if="state.data.kpis.unexpected">
+                                    <b t-esc="state.data.kpis.unexpected"/> no previstos
+                                </span>
+                            </div>
+                        </div>
+                        <div class="setu_count_dashboard_progress_bar">
+                            <div t-att-style="'width:' + (state.data.kpis.progress || 0) + '%'"/>
+                        </div>
+                    </section>
+
+                    <section class="setu_count_dashboard_management">
+                        <div class="setu_count_dashboard_management_card">
+                            <span>SESIONES ACTIVAS</span>
+                            <strong t-esc="state.data.kpis.active_sessions || 0"/>
+                            <small>
+                                <t t-esc="state.data.kpis.active_users || 0"/> usuario(s) contando
+                            </small>
+                            <button class="btn btn-link" t-on-click="openSessions">Gestionar sesiones</button>
+                        </div>
+                        <div class="setu_count_dashboard_management_card">
+                            <span>SESIONES TERMINADAS</span>
+                            <strong t-esc="state.data.kpis.completed_sessions || 0"/>
+                            <small>Sesiones enviadas o finalizadas</small>
+                            <button class="btn btn-link" t-on-click="openSessions">Ver sesiones</button>
+                        </div>
+                        <div class="setu_count_dashboard_management_card">
+                            <span>NO PREVISTOS</span>
+                            <strong t-esc="state.data.kpis.unexpected || 0"/>
+                            <small>Lecturas que no estaban en existencia esperada</small>
+                            <button class="btn btn-link" t-on-click="setDifferenceTab">Revisar</button>
+                        </div>
+                        <div class="setu_count_dashboard_management_card">
+                            <span>POSIBLES DUPLICADOS</span>
+                            <strong t-esc="state.data.kpis.duplicates || 0"/>
+                            <small>Producto + lote + ubicación registrados más de una vez</small>
+                            <button class="btn btn-link" t-on-click="setDifferenceTab">Revisar</button>
+                        </div>
+                    </section>
+
+                    <section class="setu_count_dashboard_workspace">
+                        <div class="setu_count_dashboard_tabs">
+                            <button t-att-class="state.tab === 'pending' ? 'active' : ''"
+                                    t-on-click="setPendingTab">
+                                Pendientes
+                                <span t-esc="state.data.kpis.pending || 0"/>
+                            </button>
+                            <button t-att-class="state.tab === 'differences' ? 'active' : ''"
+                                    t-on-click="setDifferenceTab">
+                                Divergencias
+                                <span t-esc="state.data.kpis.differences || 0"/>
+                            </button>
+                        </div>
+
+                        <div t-if="state.tab === 'pending'" class="setu_count_dashboard_table_wrap">
+                            <div class="setu_count_dashboard_table_title">
+                                <div>
+                                    <h3>Productos / lotes pendientes de contar</h3>
+                                    <span>
+                                        Existencias del almacén/ubicación que aún no tienen lectura en este conteo.
+                                    </span>
+                                </div>
+                            </div>
+                            <table class="table table-hover setu_count_dashboard_table">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Lote</th>
+                                        <th>Ubicación</th>
+                                        <th class="text-end">Existencia</th>
+                                        <th>UdM</th>
+                                        <th/>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="state.data.pending" t-as="row" t-key="row.key">
+                                        <td>
+                                            <strong t-esc="row.product"/>
+                                            <small t-if="row.default_code" t-esc="row.default_code"/>
+                                        </td>
+                                        <td t-esc="row.lot || 'Sin lote'"/>
+                                        <td t-esc="row.location"/>
+                                        <td class="text-end"><b t-esc="row.theoretical"/></td>
+                                        <td t-esc="row.uom"/>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-light"
+                                                    t-att-data-product-id="row.product_id"
+                                                    t-att-data-lot-id="row.lot_id || 0"
+                                                    t-att-data-location-id="row.location_id"
+                                                    t-on-click="openQuantFromEvent">
+                                                Ver existencia
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr t-if="!state.data.pending.length">
+                                        <td colspan="6" class="setu_count_dashboard_empty">
+                                            <i class="fa fa-check-circle" title="Completo"/>
+                                            <strong>No hay pendientes</strong>
+                                            <span>Todo el alcance esperado ya fue contado.</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <div class="setu_count_dashboard_pager">
+                                <span>
+                                    Mostrando
+                                    <b t-esc="state.data.pagination.pending.from"/>
+                                    -
+                                    <b t-esc="state.data.pagination.pending.to"/>
+                                    de
+                                    <b t-esc="state.data.pagination.pending.total"/>
+                                </span>
+                                <div>
+                                    <button class="btn btn-sm btn-light"
+                                            t-on-click="previousPendingPage"
+                                            t-att-disabled="state.data.pagination.pending.page &lt;= 1 ? true : undefined">
+                                        <i class="fa fa-chevron-left" title="Anterior"/> Anterior
+                                    </button>
+                                    <span class="setu_count_dashboard_page">
+                                        Página
+                                        <b t-esc="state.data.pagination.pending.page"/>
+                                        de
+                                        <b t-esc="state.data.pagination.pending.pages"/>
+                                    </span>
+                                    <button class="btn btn-sm btn-light"
+                                            t-on-click="nextPendingPage"
+                                            t-att-disabled="state.data.pagination.pending.page &gt;= state.data.pagination.pending.pages ? true : undefined">
+                                        Siguiente <i class="fa fa-chevron-right" title="Siguiente"/>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div t-if="state.tab === 'differences'" class="setu_count_dashboard_table_wrap">
+                            <div class="setu_count_dashboard_table_title">
+                                <div>
+                                    <h3>Divergencias detectadas</h3>
+                                    <span>
+                                        Diferencias entre existencia esperada y cantidad física registrada.
+                                    </span>
+                                </div>
+                                <button class="btn btn-secondary" t-on-click="openDifferences">
+                                    Abrir líneas
+                                </button>
+                            </div>
+                            <table class="table table-hover setu_count_dashboard_table">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Lote</th>
+                                        <th>Ubicación</th>
+                                        <th class="text-end">Esperado</th>
+                                        <th class="text-end">Contado</th>
+                                        <th class="text-end">Diferencia</th>
+                                        <th>Observación</th>
+                                        <th/>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="state.data.differences" t-as="row" t-key="row.key">
+                                        <td>
+                                            <strong t-esc="row.product"/>
+                                            <small t-if="row.default_code" t-esc="row.default_code"/>
+                                        </td>
+                                        <td t-esc="row.lot || 'Sin lote'"/>
+                                        <td t-esc="row.location"/>
+                                        <td class="text-end" t-esc="row.theoretical"/>
+                                        <td class="text-end" t-esc="row.counted"/>
+                                        <td class="text-end">
+                                            <b class="setu_count_dashboard_diff"
+                                               t-att-class="row.difference &gt; 0 ? 'positive' : 'negative'"
+                                               t-esc="row.difference"/>
+                                        </td>
+                                        <td>
+                                            <span t-if="row.duplicate" class="badge text-bg-warning">Posible duplicado</span>
+                                            <span t-elif="row.theoretical === 0" class="badge text-bg-info">No previsto</span>
+                                            <span t-else="" class="badge text-bg-danger">Diferencia</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-light"
+                                                    t-att-data-product-id="row.product_id"
+                                                    t-att-data-lot-id="row.lot_id || 0"
+                                                    t-att-data-location-id="row.location_id"
+                                                    t-on-click="openQuantFromEvent">
+                                                Existencia
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr t-if="!state.data.differences.length">
+                                        <td colspan="8" class="setu_count_dashboard_empty">
+                                            <i class="fa fa-check-circle" title="Sin diferencias"/>
+                                            <strong>Sin divergencias</strong>
+                                            <span>Lo contado coincide con las existencias esperadas.</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <div class="setu_count_dashboard_pager">
+                                <span>
+                                    Mostrando
+                                    <b t-esc="state.data.pagination.differences.from"/>
+                                    -
+                                    <b t-esc="state.data.pagination.differences.to"/>
+                                    de
+                                    <b t-esc="state.data.pagination.differences.total"/>
+                                </span>
+                                <div>
+                                    <button class="btn btn-sm btn-light"
+                                            t-on-click="previousDifferencePage"
+                                            t-att-disabled="state.data.pagination.differences.page &lt;= 1 ? true : undefined">
+                                        <i class="fa fa-chevron-left" title="Anterior"/> Anterior
+                                    </button>
+                                    <span class="setu_count_dashboard_page">
+                                        Página
+                                        <b t-esc="state.data.pagination.differences.page"/>
+                                        de
+                                        <b t-esc="state.data.pagination.differences.pages"/>
+                                    </span>
+                                    <button class="btn btn-sm btn-light"
+                                            t-on-click="nextDifferencePage"
+                                            t-att-disabled="state.data.pagination.differences.page &gt;= state.data.pagination.differences.pages ? true : undefined">
+                                        Siguiente <i class="fa fa-chevron-right" title="Siguiente"/>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <footer class="setu_count_dashboard_update">
+                        Última actualización:
+                        <strong t-esc="state.data.last_update"/>
+                    </footer>
+                </main>
+            </t>
+        </div>
+    </t>
+</templates>

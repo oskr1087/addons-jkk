@@ -4,7 +4,7 @@ from odoo import fields, models, api
 class StockMoveLine(models.Model):
     _inherit = 'stock.move.line'
 
-    count_id = fields.Many2one(comodel_name="setu.stock.inventory.count", string="Count")
+    count_id = fields.Many2one(comodel_name="setu.stock.inventory.count", string="Conteo")
     inventory_adj_id = fields.Many2one(comodel_name="setu.stock.inventory", string="Inventory Adjustment")
 
     @api.model_create_multi

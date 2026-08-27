@@ -7,11 +7,11 @@ class SetuLocationWiseDiscrepancyReport(models.Model):
     _description = "Location-wise Discrepancy Report"
     _auto = False
 
-    location_id = fields.Many2one("stock.location", string="Location", readonly=True)
-    total_products_counted = fields.Integer(string="Total Products Counted", readonly=True)
-    total_discrepancy_lines = fields.Integer(string="Discrepancy Products", readonly=True)
-    discrepancy_percent = fields.Float(string="Discrepancy %", readonly=True)
-    company_id = fields.Many2one("res.company", string="Company", readonly=True)
+    location_id = fields.Many2one("stock.location", string="Ubicación", readonly=True)
+    total_products_counted = fields.Integer(string="Total de productos contados", readonly=True)
+    total_discrepancy_lines = fields.Integer(string="Productos con discrepancia", readonly=True)
+    discrepancy_percent = fields.Float(string="% de discrepancia", readonly=True)
+    company_id = fields.Many2one("res.company", string="Compañía", readonly=True)
 
     def init(self):
         tools.drop_view_if_exists(self._cr, self._table)

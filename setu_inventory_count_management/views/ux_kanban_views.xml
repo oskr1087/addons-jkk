@@ -1,0 +1,702 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- ================================================================
+         CONTEOS: Kanban operativo como vista principal
+         ================================================================ -->
+    <record id="setu_stock_inventory_count_kanban_view" model="ir.ui.view">
+        <field name="name">setu.stock.inventory.count.kanban.modern</field>
+        <field name="model">setu.stock.inventory.count</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" class="o_kanban_small_column setu_kanban_modern">
+                <field name="name"/>
+                <field name="state"/>
+                <field name="inventory_count_date"/>
+                <field name="warehouse_id"/>
+                <field name="location_id"/>
+                <field name="approver_id"/>
+                <field name="user_id"/>
+                <field name="type"/>
+                <field name="count_session_ids"/>
+                <field name="rejected_lines_count"/>
+                <field name="discrepancy_ratio"/>
+                <field name="create_session_bool"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="setu_kcard">
+                            <div class="setu_kcard_head">
+                                <div>
+                                    <span class="setu_kcard_eyebrow">CONTEO DE INVENTARIO</span>
+                                    <h3><field name="name"/></h3>
+                                </div>
+                                <span class="setu_state_badge"
+                                      t-att-class="'state-' + (record.state.raw_value || '').toLowerCase()">
+                                    <field name="state"/>
+                                </span>
+                            </div>
+
+                            <div class="setu_kcard_location">
+                                <i class="fa fa-map-marker" title="Ubicación"/>
+                                <div>
+                                    <strong><field name="location_id"/></strong>
+                                    <small><field name="warehouse_id"/></small>
+                                </div>
+                            </div>
+
+                            <div class="setu_kcard_metrics">
+                                <div>
+                                    <strong><field name="count_session_ids"/></strong>
+                                    <span>Sesiones</span>
+                                </div>
+                                <div>
+                                    <strong><field name="rejected_lines_count"/></strong>
+                                    <span>Rechazadas</span>
+                                </div>
+                                <div>
+                                    <strong><field name="discrepancy_ratio"/>%</strong>
+                                    <span>Discrepancia</span>
+                                </div>
+                            </div>
+
+                            <div class="setu_kcard_info">
+                                <span><i class="fa fa-calendar" title="Fecha"/> <field name="inventory_count_date"/></span>
+                                <span><i class="fa fa-user" title="Controlador"/> <field name="approver_id"/></span>
+                                <span><i class="fa fa-object-group" title="Tipo"/> <field name="type"/></span>
+                            </div>
+
+                            <div class="setu_kcard_footer">
+                                <span class="text-muted">Creado por <field name="user_id"/></span>
+                                <button name="create_session"
+                                        type="object"
+                                        string="Crear sesión"
+                                        icon="fa-plus"
+                                        class="btn btn-primary btn-sm"
+                                        invisible="not create_session_bool"/>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         SESIONES: reemplazo del Kanban anterior por uno limpio y operativo
+         ================================================================ -->
+    <record id="setu_inventory_count_session_kanban_view" model="ir.ui.view">
+        <field name="name">setu.inventory.count.session.kanban.modern</field>
+        <field name="model">setu.inventory.count.session</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" create="false" edit="false" delete="false"
+                    class="o_kanban_small_column setu_kanban_modern">
+                <field name="name"/>
+                <field name="state"/>
+                <field name="current_state"/>
+                <field name="inventory_count_id"/>
+                <field name="warehouse_id"/>
+                <field name="location_id"/>
+                <field name="approver_id"/>
+                <field name="user_ids"/>
+                <field name="user_ids_count"/>
+                <field name="total_products"/>
+                <field name="total_scanned_products"/>
+                <field name="to_be_scanned"/>
+                <field name="session_start_date"/>
+                <field name="session_submit_date"/>
+                <field name="time_taken"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="setu_kcard setu_session_card">
+                            <div class="setu_kcard_head">
+                                <div>
+                                    <span class="setu_kcard_eyebrow">SESIÓN DE CONTEO</span>
+                                    <h3><field name="name"/></h3>
+                                </div>
+                                <span class="setu_state_badge"
+                                      t-att-class="'state-' + (record.state.raw_value || '').toLowerCase()">
+                                    <field name="state"/>
+                                </span>
+                            </div>
+
+                            <div class="setu_kcard_location">
+                                <i class="fa fa-map-marker" title="Ubicación"/>
+                                <div>
+                                    <strong><field name="location_id"/></strong>
+                                    <small><field name="warehouse_id"/></small>
+                                </div>
+                            </div>
+
+                            <div class="setu_kcard_metrics">
+                                <div>
+                                    <strong><field name="total_products"/></strong>
+                                    <span>Productos</span>
+                                </div>
+                                <div>
+                                    <strong><field name="total_scanned_products"/></strong>
+                                    <span>Escaneados</span>
+                                </div>
+                                <div>
+                                    <strong><field name="to_be_scanned"/></strong>
+                                    <span>Pendientes</span>
+                                </div>
+                            </div>
+
+                            <div class="setu_kcard_info">
+                                <span><i class="fa fa-list-alt" title="Conteo"/> <field name="inventory_count_id"/></span>
+                                <span><i class="fa fa-users" title="Usuarios"/> <field name="user_ids_count"/> usuario(s)</span>
+                                <span t-if="record.session_start_date.raw_value">
+                                    <i class="fa fa-clock-o" title="Inicio"/> <field name="session_start_date"/>
+                                </span>
+                            </div>
+
+                            <div class="setu_kcard_footer">
+                                <span class="text-muted">
+                                    <i class="fa fa-user-circle" title="Controlador"/> <field name="approver_id"/>
+                                </span>
+                                <button name="action_open_mobile_count"
+                                        type="object"
+                                        string="Conteo PDA"
+                                        icon="fa-mobile"
+                                        class="btn btn-primary btn-sm"
+                                        invisible="state in ['Submitted', 'Done', 'Cancel']"/>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         PLANIFICADORES: Kanban por estado
+         ================================================================ -->
+    <record id="setu_stock_inventory_count_planner_kanban_view" model="ir.ui.view">
+        <field name="name">setu.stock.inventory.count.planner.kanban.modern</field>
+        <field name="model">setu.stock.inventory.count.planner</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" class="o_kanban_small_column setu_kanban_modern">
+                <field name="name"/>
+                <field name="state"/>
+                <field name="active"/>
+                <field name="warehouse_id"/>
+                <field name="location_id"/>
+                <field name="approver_id"/>
+                <field name="type"/>
+                <field name="planing_frequency"/>
+                <field name="next_execution_date"/>
+                <field name="previous_execution_date"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="setu_kcard">
+                            <div class="setu_kcard_head">
+                                <div>
+                                    <span class="setu_kcard_eyebrow">PLANIFICADOR</span>
+                                    <h3><field name="name"/></h3>
+                                </div>
+                                <span class="setu_state_badge">
+                                    <field name="state"/>
+                                </span>
+                            </div>
+
+                            <div class="setu_kcard_location">
+                                <i class="fa fa-building" title="Almacén"/>
+                                <div>
+                                    <strong><field name="warehouse_id"/></strong>
+                                    <small><field name="location_id"/></small>
+                                </div>
+                            </div>
+
+                            <div class="setu_kcard_metrics">
+                                <div>
+                                    <strong><field name="planing_frequency"/></strong>
+                                    <span>Días</span>
+                                </div>
+                                <div>
+                                    <strong><field name="type"/></strong>
+                                    <span>Tipo</span>
+                                </div>
+                            </div>
+
+                            <div class="setu_kcard_info">
+                                <span><i class="fa fa-calendar-check-o" title="Próxima ejecución"/> <field name="next_execution_date"/></span>
+                                <span><i class="fa fa-history" title="Última ejecución"/> <field name="previous_execution_date"/></span>
+                                <span><i class="fa fa-user" title="Controlador"/> <field name="approver_id"/></span>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         REPORTE GENERAL DE CONTEO
+         ================================================================ -->
+    <record id="setu_inventory_count_report_kanban_view" model="ir.ui.view">
+        <field name="name">setu.inventory.count.report.kanban</field>
+        <field name="model">setu.inventory.count.report</field>
+        <field name="arch" type="xml">
+            <kanban create="false" edit="false" delete="false" class="setu_kanban_modern">
+                <field name="count_id"/>
+                <field name="user_id"/>
+                <field name="product_id"/>
+                <field name="location_id"/>
+                <field name="warehouse_id"/>
+                <field name="inventory_count_date"/>
+                <field name="theoretical_qty"/>
+                <field name="counted_qty"/>
+                <field name="discrepancy_qty"/>
+                <field name="discrepancy_ratio"/>
+                <field name="use_barcode_scanner"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="setu_kcard setu_report_card">
+                            <div class="setu_kcard_head">
+                                <div>
+                                    <span class="setu_kcard_eyebrow">RESULTADO DE CONTEO</span>
+                                    <h3><field name="product_id"/></h3>
+                                </div>
+                                <span class="setu_report_ratio"><field name="discrepancy_ratio"/>%</span>
+                            </div>
+                            <div class="setu_kcard_info">
+                                <span><i class="fa fa-list-alt" title="Conteo"/> <field name="count_id"/></span>
+                                <span><i class="fa fa-map-marker" title="Ubicación"/> <field name="location_id"/></span>
+                                <span><i class="fa fa-user" title="Responsable"/> <field name="user_id"/></span>
+                            </div>
+                            <div class="setu_kcard_metrics">
+                                <div><strong><field name="theoretical_qty"/></strong><span>Teórico</span></div>
+                                <div><strong><field name="counted_qty"/></strong><span>Contado</span></div>
+                                <div><strong><field name="discrepancy_qty"/></strong><span>Diferencia</span></div>
+                            </div>
+                            <div class="setu_kcard_footer">
+                                <span><i class="fa fa-calendar" title="Fecha"/> <field name="inventory_count_date"/></span>
+                                <span class="setu_chip"><field name="use_barcode_scanner"/></span>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         REPORTE DE AJUSTES
+         ================================================================ -->
+    <record id="setu_inventory_adjustment_report_kanban_view" model="ir.ui.view">
+        <field name="name">setu.inventory.adjustment.report.kanban</field>
+        <field name="model">setu.inventory.adjustment.report</field>
+        <field name="arch" type="xml">
+            <kanban create="false" edit="false" delete="false" class="setu_kanban_modern">
+                <field name="count_id"/>
+                <field name="user_id"/>
+                <field name="product_id"/>
+                <field name="location_id"/>
+                <field name="warehouse_id"/>
+                <field name="inventory_count_date"/>
+                <field name="theoretical_qty"/>
+                <field name="counted_qty"/>
+                <field name="discrepancy_qty"/>
+                <field name="discrepancy_value"/>
+                <field name="adjustment_type"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="setu_kcard setu_report_card">
+                            <div class="setu_kcard_head">
+                                <div>
+                                    <span class="setu_kcard_eyebrow">AJUSTE DE INVENTARIO</span>
+                                    <h3><field name="product_id"/></h3>
+                                </div>
+                                <span class="setu_adjustment_badge"
+                                      t-att-class="record.adjustment_type.raw_value === 'IN' ? 'is-in' : 'is-out'">
+                                    <field name="adjustment_type"/>
+                                </span>
+                            </div>
+                            <div class="setu_kcard_info">
+                                <span><i class="fa fa-list-alt" title="Conteo"/> <field name="count_id"/></span>
+                                <span><i class="fa fa-map-marker" title="Ubicación"/> <field name="location_id"/></span>
+                                <span><i class="fa fa-user" title="Responsable"/> <field name="user_id"/></span>
+                            </div>
+                            <div class="setu_kcard_metrics">
+                                <div><strong><field name="theoretical_qty"/></strong><span>Teórico</span></div>
+                                <div><strong><field name="counted_qty"/></strong><span>Contado</span></div>
+                                <div><strong><field name="discrepancy_qty"/></strong><span>Ajuste</span></div>
+                            </div>
+                            <div class="setu_kcard_footer">
+                                <span><i class="fa fa-calendar" title="Fecha"/> <field name="inventory_count_date"/></span>
+                                <strong>Valor: <field name="discrepancy_value"/></strong>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         REPORTE POR USUARIO
+         ================================================================ -->
+    <record id="setu_inventory_session_user_report_kanban_view" model="ir.ui.view">
+        <field name="name">setu.inventory.session.user.report.kanban</field>
+        <field name="model">setu.inventory.session.user.report</field>
+        <field name="arch" type="xml">
+            <kanban create="false" edit="false" delete="false" class="setu_kanban_modern">
+                <field name="user_id"/>
+                <field name="company_id"/>
+                <field name="total_sessions"/>
+                <field name="scanned_products"/>
+                <field name="accurate_products"/>
+                <field name="discrepancy_products"/>
+                <field name="accuracy_ratio"/>
+                <field name="discrepancy_ratio"/>
+                <field name="avg_time_per_session"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="setu_kcard setu_report_card">
+                            <div class="setu_kcard_head">
+                                <div>
+                                    <span class="setu_kcard_eyebrow">RENDIMIENTO DE USUARIO</span>
+                                    <h3><field name="user_id"/></h3>
+                                    <small><field name="company_id"/></small>
+                                </div>
+                                <div class="setu_accuracy_circle">
+                                    <strong><field name="accuracy_ratio"/>%</strong>
+                                    <span>Precisión</span>
+                                </div>
+                            </div>
+                            <div class="setu_kcard_metrics">
+                                <div><strong><field name="total_sessions"/></strong><span>Sesiones</span></div>
+                                <div><strong><field name="scanned_products"/></strong><span>Escaneados</span></div>
+                                <div><strong><field name="discrepancy_products"/></strong><span>Errores</span></div>
+                            </div>
+                            <div class="setu_kcard_footer">
+                                <span>Discrepancia: <strong><field name="discrepancy_ratio"/>%</strong></span>
+                                <span>Promedio: <strong><field name="avg_time_per_session" widget="float_time"/></strong></span>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         DISCREPANCIAS POR CONTEO
+         ================================================================ -->
+    <record id="setu_count_wise_discrepancy_report_kanban_view" model="ir.ui.view">
+        <field name="name">setu.count.wise.discrepancy.report.kanban</field>
+        <field name="model">setu.count.wise.discrepancy.report</field>
+        <field name="arch" type="xml">
+            <kanban create="false" edit="false" delete="false" class="setu_kanban_modern">
+                <field name="count_id"/>
+                <field name="total_count_lines"/>
+                <field name="discrepancy_lines"/>
+                <field name="discrepancy_percent"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="setu_kcard setu_report_card">
+                            <span class="setu_kcard_eyebrow">DISCREPANCIA POR CONTEO</span>
+                            <h3><field name="count_id"/></h3>
+                            <div class="setu_kcard_metrics">
+                                <div><strong><field name="total_count_lines"/></strong><span>Líneas</span></div>
+                                <div><strong><field name="discrepancy_lines"/></strong><span>Con diferencia</span></div>
+                                <div><strong><field name="discrepancy_percent"/>%</strong><span>Discrepancia</span></div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         DISCREPANCIAS POR PRODUCTO
+         ================================================================ -->
+    <record id="setu_product_wise_discrepancy_report_kanban_view" model="ir.ui.view">
+        <field name="name">setu.product.wise.discrepancy.report.kanban</field>
+        <field name="model">setu.product.wise.discrepancy.report</field>
+        <field name="arch" type="xml">
+            <kanban create="false" edit="false" delete="false" class="setu_kanban_modern">
+                <field name="product_id"/>
+                <field name="total_times_counted"/>
+                <field name="discrepancy_products"/>
+                <field name="discrepancy_percent"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="setu_kcard setu_report_card">
+                            <span class="setu_kcard_eyebrow">DISCREPANCIA POR PRODUCTO</span>
+                            <h3><field name="product_id"/></h3>
+                            <div class="setu_kcard_metrics">
+                                <div><strong><field name="total_times_counted"/></strong><span>Conteos</span></div>
+                                <div><strong><field name="discrepancy_products"/></strong><span>Con diferencia</span></div>
+                                <div><strong><field name="discrepancy_percent"/>%</strong><span>Discrepancia</span></div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         DISCREPANCIAS POR UBICACIÓN
+         ================================================================ -->
+    <record id="setu_location_wise_discrepancy_report_kanban_view" model="ir.ui.view">
+        <field name="name">setu.location.wise.discrepancy.report.kanban</field>
+        <field name="model">setu.location.wise.discrepancy.report</field>
+        <field name="arch" type="xml">
+            <kanban create="false" edit="false" delete="false" class="setu_kanban_modern">
+                <field name="location_id"/>
+                <field name="total_products_counted"/>
+                <field name="total_discrepancy_lines"/>
+                <field name="discrepancy_percent"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="setu_kcard setu_report_card">
+                            <span class="setu_kcard_eyebrow">DISCREPANCIA POR UBICACIÓN</span>
+                            <h3><i class="fa fa-map-marker" title="Ubicación"/> <field name="location_id"/></h3>
+                            <div class="setu_kcard_metrics">
+                                <div><strong><field name="total_products_counted"/></strong><span>Contados</span></div>
+                                <div><strong><field name="total_discrepancy_lines"/></strong><span>Con diferencia</span></div>
+                                <div><strong><field name="discrepancy_percent"/>%</strong><span>Discrepancia</span></div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         RENDIMIENTO DE SESIONES
+         ================================================================ -->
+    <record id="setu_inventory_session_performance_report_kanban_view" model="ir.ui.view">
+        <field name="name">setu.inventory.session.performance.report.kanban</field>
+        <field name="model">setu.inventory.session.performance.report</field>
+        <field name="arch" type="xml">
+            <kanban create="false" edit="false" delete="false" class="setu_kanban_modern">
+                <field name="session_id"/>
+                <field name="count_id"/>
+                <field name="session_start"/>
+                <field name="session_end"/>
+                <field name="duration"/>
+                <field name="total_products_assigned"/>
+                <field name="total_products_counted"/>
+                <field name="users_involved"/>
+                <field name="avg_time_per_product"/>
+                <field name="accuracy_ratio"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="setu_kcard setu_report_card">
+                            <div class="setu_kcard_head">
+                                <div>
+                                    <span class="setu_kcard_eyebrow">RENDIMIENTO DE SESIÓN</span>
+                                    <h3><field name="session_id"/></h3>
+                                    <small><field name="count_id"/></small>
+                                </div>
+                                <div class="setu_accuracy_circle">
+                                    <strong><field name="accuracy_ratio"/>%</strong>
+                                    <span>Precisión</span>
+                                </div>
+                            </div>
+                            <div class="setu_kcard_metrics">
+                                <div><strong><field name="total_products_counted"/></strong><span>Contados</span></div>
+                                <div><strong><field name="users_involved"/></strong><span>Usuarios</span></div>
+                                <div><strong><field name="duration" widget="float_time"/></strong><span>Duración</span></div>
+                            </div>
+                            <div class="setu_kcard_footer">
+                                <span><i class="fa fa-play" title="Inicio"/> <field name="session_start"/></span>
+                                <span><i class="fa fa-stop" title="Fin"/> <field name="session_end"/></span>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+
+    <!-- ================================================================
+         FORMULARIOS: organización visual consistente
+         ================================================================ -->
+    <record id="setu_stock_inventory_count_form_modern" model="ir.ui.view">
+        <field name="name">setu.stock.inventory.count.form.modern</field>
+        <field name="model">setu.stock.inventory.count</field>
+        <field name="inherit_id" ref="setu_inventory_count_management.setu_stock_inventory_count_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="attributes">
+                <attribute name="class" add="setu_form_modern" separator=" "/>
+            </xpath>
+            <xpath expr="//field[@name='use_barcode_scanner']" position="before">
+                <separator string="Modo de captura"/>
+            </xpath>
+            <xpath expr="//sheet/div[h1]" position="after">
+                <div class="setu_form_summary">
+                    <div class="setu_summary_item">
+                        <span>Ubicación</span>
+                        <strong><field name="location_id" readonly="1" nolabel="1"/></strong>
+                    </div>
+                    <div class="setu_summary_item">
+                        <span>Almacén</span>
+                        <strong><field name="warehouse_id" readonly="1" nolabel="1"/></strong>
+                    </div>
+                    <div class="setu_summary_item">
+                        <span>Sesiones</span>
+                        <strong><field name="count_session_ids" readonly="1" nolabel="1"/></strong>
+                    </div>
+                    <div class="setu_summary_item">
+                        <span>Discrepancia</span>
+                        <strong><field name="discrepancy_ratio" readonly="1" nolabel="1"/>%</strong>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="inventory_count_session_form_modern" model="ir.ui.view">
+        <field name="name">setu.inventory.count.session.form.modern</field>
+        <field name="model">setu.inventory.count.session</field>
+        <field name="inherit_id" ref="setu_inventory_count_management.inventory_count_session_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="attributes">
+                <attribute name="class" add="setu_form_modern setu_session_form_modern" separator=" "/>
+            </xpath>
+
+            <xpath expr="//div[contains(@style, 'antiquewhite')]" position="replace">
+                <div class="setu_session_help" invisible="not use_barcode_scanner">
+                    <div class="setu_session_help_icon">
+                        <i class="fa fa-barcode" title="Código de barras"/>
+                    </div>
+                    <div>
+                        <strong>Flujo de conteo con PDA</strong>
+                        <span>
+                            Abra <b>Conteo móvil / PDA</b>, escanee el producto y, cuando aplique,
+                            el lote o número de serie. La ubicación ya está definida por la sesión.
+                        </span>
+                    </div>
+                </div>
+            </xpath>
+
+            <xpath expr="//div[@class='oe_title']" position="after">
+                <div class="setu_form_summary">
+                    <div class="setu_summary_item">
+                        <span>Ubicación</span>
+                        <strong><field name="location_id" readonly="1" nolabel="1"/></strong>
+                    </div>
+                    <div class="setu_summary_item">
+                        <span>Usuarios</span>
+                        <strong><field name="user_ids_count" readonly="1" nolabel="1"/></strong>
+                    </div>
+                    <div class="setu_summary_item">
+                        <span>Escaneados</span>
+                        <strong><field name="total_scanned_products" readonly="1" nolabel="1"/></strong>
+                    </div>
+                    <div class="setu_summary_item">
+                        <span>Pendientes</span>
+                        <strong><field name="to_be_scanned" readonly="1" nolabel="1"/></strong>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="setu_stock_inventory_count_planner_form_modern" model="ir.ui.view">
+        <field name="name">setu.stock.inventory.count.planner.form.modern</field>
+        <field name="model">setu.stock.inventory.count.planner</field>
+        <field name="inherit_id" ref="setu_inventory_count_management.setu_stock_inventory_count_planner_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="attributes">
+                <attribute name="class" add="setu_form_modern" separator=" "/>
+            </xpath>
+            <xpath expr="//sheet/div[h1]" position="after">
+                <div class="setu_form_summary">
+                    <div class="setu_summary_item">
+                        <span>Almacén</span>
+                        <strong><field name="warehouse_id" readonly="1" nolabel="1"/></strong>
+                    </div>
+                    <div class="setu_summary_item">
+                        <span>Ubicación</span>
+                        <strong><field name="location_id" readonly="1" nolabel="1"/></strong>
+                    </div>
+                    <div class="setu_summary_item">
+                        <span>Frecuencia</span>
+                        <strong><field name="planing_frequency" readonly="1" nolabel="1"/> días</strong>
+                    </div>
+                    <div class="setu_summary_item">
+                        <span>Próxima ejecución</span>
+                        <strong><field name="next_execution_date" readonly="1" nolabel="1"/></strong>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         ACCIONES: Kanban primero
+         ================================================================ -->
+    <record id="setu_stock_inventory_count_act_window" model="ir.actions.act_window">
+        <field name="name">Conteos de inventario</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
+    <record id="new_inventory_count_act_window" model="ir.actions.act_window">
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
+    <record id="setu_stock_inventory_count_to_be_counted_act_window" model="ir.actions.act_window">
+        <field name="name">Conteos en progreso</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
+    <record id="setu_stock_inventory_count_to_be_approved_act_window" model="ir.actions.act_window">
+        <field name="name">Conteos por aprobar</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
+    <record id="setu_stock_inventory_count_planner_act_window" model="ir.actions.act_window">
+        <field name="name">Planificadores de conteo</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
+    <record id="inventory_count_session_act_window" model="ir.actions.act_window">
+        <field name="name">Sesiones de conteo</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
+    <record id="inventory_count_session_kanban_act_window" model="ir.actions.act_window">
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
+    <record id="setu_inventory_count_report_record_action" model="ir.actions.act_window">
+        <field name="name">Resultados de conteo</field>
+        <field name="view_mode">kanban,list,pivot</field>
+    </record>
+
+    <record id="setu_inventory_adjustment_report_action_view" model="ir.actions.act_window">
+        <field name="name">Ajustes de inventario</field>
+        <field name="view_mode">kanban,list</field>
+    </record>
+
+    <record id="setu_inventory_session_user_report_action" model="ir.actions.act_window">
+        <field name="name">Rendimiento por usuario</field>
+        <field name="view_mode">kanban,list,pivot</field>
+    </record>
+
+    <record id="count_wise_discrepancy_action" model="ir.actions.act_window">
+        <field name="name">Discrepancia por conteo</field>
+        <field name="view_mode">kanban,list</field>
+    </record>
+
+    <record id="product_wise_discrepancy_report_action" model="ir.actions.act_window">
+        <field name="name">Discrepancia por producto</field>
+        <field name="view_mode">kanban,list</field>
+    </record>
+
+    <record id="location_wise_discrepancy_report_action" model="ir.actions.act_window">
+        <field name="name">Discrepancia por ubicación</field>
+        <field name="view_mode">kanban,list</field>
+    </record>
+
+    <record id="action_inventory_session_performance_report" model="ir.actions.act_window">
+        <field name="name">Rendimiento de sesiones</field>
+        <field name="view_mode">kanban,list,pivot</field>
+    </record>
+</odoo>

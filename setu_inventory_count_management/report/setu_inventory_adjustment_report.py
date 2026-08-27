@@ -8,17 +8,17 @@ class SetuInvAdjustmentReport(models.TransientModel):
     _inherit = 'setu.inventory.reporting.template'
     _description = 'Inventory Adjustment Report'
 
-    adjustment_type = fields.Selection([('IN', 'IN'), ('OUT', 'OUT')], string="Adjustment Type")
-    count_id = fields.Many2one(comodel_name="setu.stock.inventory.count", string="Count")
+    adjustment_type = fields.Selection([('IN', 'IN'), ('OUT', 'OUT')], string="Tipo de ajuste")
+    count_id = fields.Many2one(comodel_name="setu.stock.inventory.count", string="Conteo")
 
     users_ids = fields.Many2many("res.users", "inv_adj_report_user_rel", "inv_adj_report_id", "users_id",
                                  string="Users", compute="_compute_users_ids")
 
     is_overstock = fields.Boolean(string="Overstock", index=True)
     is_understock = fields.Boolean(string="Understock", index=True)
-    discrepancy_value = fields.Float(string="Discrepancy Value")
-    serial_number_names = fields.Text(string="Serial Numbers")
-    not_found_serial_number_names = fields.Text(string="Not Found Serials")
+    discrepancy_value = fields.Float(string="Valor de discrepancia")
+    serial_number_names = fields.Text(string="Números de serie")
+    not_found_serial_number_names = fields.Text(string="Series no encontradas")
 
     @api.depends('user_ids')
     def _compute_users_ids(self):
@@ -43,7 +43,7 @@ class SetuInvAdjustmentReport(models.TransientModel):
             'cou.warehouse_id', warehouse_ids
         )
         if self.start_date and self.end_date and self.start_date > self.end_date:
-            raise UserError("Please enter a valid start date and end date.")
+            raise UserError("Ingrese una fecha inicial y final válidas.")
 
         start_date = '1990-01-01'
         end_date = '2100-01-01'

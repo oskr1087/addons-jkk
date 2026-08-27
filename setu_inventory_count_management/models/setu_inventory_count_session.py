@@ -10,71 +10,240 @@ class SetuInventoryCountSession(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin', 'portal.mixin', 'barcodes.barcode_events_mixin']
     _description = 'Inventory Count Session'
 
-    open_session_again = fields.Boolean(compute="_compute_open_session_again", string="Open session again")
-    is_session_approved = fields.Boolean(default=False, string="Is session approved")
-    re_open_session_bool = fields.Boolean(compute="_compute_re_open_session", string="Re-open session")
-    use_barcode_scanner = fields.Boolean(default=False, string="Use barcode scanner")
-    is_multi_session = fields.Boolean(default=False, string="Is multi session")
+    open_session_again = fields.Boolean(compute="_compute_open_session_again", string="Reabrir sesión")
+    is_session_approved = fields.Boolean(default=False, string="Sesión aprobada")
+    re_open_session_bool = fields.Boolean(compute="_compute_re_open_session", string="Reabrir sesión")
+    use_barcode_scanner = fields.Boolean(default=False, string="Usar escáner de códigos")
+    is_multi_session = fields.Boolean(default=False, string="Es multisesión")
 
-    name = fields.Char(string="Name")
-    time_taken = fields.Char(compute="_compute_time_taken", string="Time Taken")
+    name = fields.Char(string="Nombre")
+    time_taken = fields.Char(compute="_compute_time_taken", string="Tiempo empleado")
 
-    session_submit_date = fields.Datetime(string="Session submit date")
-    session_start_date = fields.Datetime(string="Session start date")
-    session_end_date = fields.Datetime(string="Session end date")
+    session_submit_date = fields.Datetime(string="Fecha de envío de sesión")
+    session_start_date = fields.Datetime(string="Fecha de inicio de sesión")
+    session_end_date = fields.Datetime(string="Fecha de fin de sesión")
 
     color = fields.Integer(compute="_compute_color", string="Color")
-    total_products = fields.Integer(compute="_compute_scanned_products", store=True, string="Total Products")
-    count_child_session_ids = fields.Integer(compute="_compute_child_session_ids", string="Child Sessions")
+    total_products = fields.Integer(compute="_compute_scanned_products", store=True, string="Total de productos")
+    count_child_session_ids = fields.Integer(compute="_compute_child_session_ids", string="Sesiones hijas")
     total_scanned_products = fields.Integer(compute="_compute_scanned_products",
-                                            store=True, string="Total Scanned Products")
-    to_be_scanned = fields.Integer(compute="_compute_scanned_products", store=True, string="To be scanned")
-    rejected_lines_count = fields.Integer(compute="_compute_rejected_lines_count", string="Rejected count lines")
-    session_history_count = fields.Integer(compute="_compute_session_history_count", string="Session history count")
-    user_ids_count = fields.Integer(compute="_compute_user_ids_count", string="User Count", store=True)
+                                            store=True, string="Total de productos escaneados")
+    to_be_scanned = fields.Integer(compute="_compute_scanned_products", store=True, string="Pendientes por escanear")
+    rejected_lines_count = fields.Integer(compute="_compute_rejected_lines_count", string="Líneas rechazadas")
+    session_history_count = fields.Integer(compute="_compute_session_history_count", string="Cantidad de historial de sesiones")
+    user_ids_count = fields.Integer(compute="_compute_user_ids_count", string="Cantidad de usuarios", store=True)
 
-    state = fields.Selection(selection=[('Draft', 'Draft'), ('In Progress', 'In Progress'),
-                                        ('Submitted', 'Submitted'), ('Done', 'Done'), ('Cancel', 'Cancel')],
-                             default="Draft", string="State")
-    current_state = fields.Selection(selection=[('Created', 'Created'), ('Resume', 'Resume'),
-                                                ('Start', 'Start'), ('Pause', 'Pause'), ('End', 'End')],
-                                     default='Created', string="Current State")
+    state = fields.Selection(selection=[('Draft', 'Borrador'), ('In Progress', 'En progreso'),
+                                        ('Submitted', 'Enviado'), ('Done', 'Finalizado'), ('Cancel', 'Cancelado')],
+                             default="Draft", string="Estado")
+    current_state = fields.Selection(selection=[('Created', 'Creado'), ('Resume', 'Reanudar'),
+                                                ('Start', 'Iniciar'), ('Pause', 'Pausar'), ('End', 'Finalizar')],
+                                     default='Created', string="Estado actual")
 
-    inventory_count_id = fields.Many2one(comodel_name="setu.stock.inventory.count", string="Inventory Count")
-    location_id = fields.Many2one(comodel_name="stock.location", string="Location")
-    warehouse_id = fields.Many2one(comodel_name="stock.warehouse", string="Warehouse")
-    company_id = fields.Many2one(comodel_name="res.company", related="warehouse_id.company_id", string="Company",
+    inventory_count_id = fields.Many2one(comodel_name="setu.stock.inventory.count", string="Conteo de inventario")
+    location_id = fields.Many2one(comodel_name="stock.location", string="Ubicación")
+    warehouse_id = fields.Many2one(comodel_name="stock.warehouse", string="Almacén")
+    company_id = fields.Many2one(comodel_name="res.company", related="warehouse_id.company_id", string="Compañía",
                                  store=True)
-    session_id = fields.Many2one(comodel_name="setu.inventory.count.session", string="Session")
-    current_scanning_location_id = fields.Many2one(comodel_name="stock.location", string="Current scanning location")
-    current_scanning_product_id = fields.Many2one(comodel_name="product.product", string="Current scanning product")
-    current_scanning_lot_id = fields.Many2one(comodel_name="stock.lot", string="Current scanning lot")
+    session_id = fields.Many2one(comodel_name="setu.inventory.count.session", string="Sesión")
+    current_scanning_location_id = fields.Many2one(comodel_name="stock.location", string="Ubicación actual de escaneo")
+    current_scanning_product_id = fields.Many2one(comodel_name="product.product", string="Producto actual de escaneo")
+    current_scanning_lot_id = fields.Many2one(comodel_name="stock.lot", string="Lote actual de escaneo")
+
+    # Mobile / PDA counting interface. These fields intentionally live on the
+    # session so the operator can leave/reopen the mobile view without losing
+    # the current location or quantity being captured.
+    mobile_count_qty = fields.Float(string="Cantidad física", default=1.0, copy=False)
+    mobile_progress_percent = fields.Float(compute="_compute_mobile_status", string="Progreso")
+    mobile_counted_products = fields.Integer(compute="_compute_mobile_status", string="Productos contados")
+    mobile_instruction = fields.Char(compute="_compute_mobile_status", string="Siguiente paso")
+    mobile_can_set_qty = fields.Boolean(compute="_compute_mobile_status", string="Puede ingresar cantidad")
+    mobile_is_serial = fields.Boolean(compute="_compute_mobile_status", string="Producto con serie")
 
     session_line_ids = fields.One2many('setu.inventory.count.session.line', 'session_id',
-                                       string="Inventory Session Count Lines")
-    session_ids = fields.One2many('setu.inventory.count.session', 'session_id', string='Sessions')
+                                       string="Líneas de conteo de la sesión")
+    session_ids = fields.One2many('setu.inventory.count.session', 'session_id', string='Sesiones')
 
     user_ids = fields.Many2many(
         comodel_name="res.users",
         relation="setu_inventory_count_session_user_rel",
         column1="session_id",
         column2="user_id",
-        string="Users"
+        string="Usuarios"
     )
 
-    count_state = fields.Selection(related='inventory_count_id.state', string="Count State")
-    type = fields.Selection(related="inventory_count_id.type", string="Type")
-    approver_id = fields.Many2one(related="inventory_count_id.approver_id", string="Approver", store=True)
+    count_state = fields.Selection(related='inventory_count_id.state', string="Estado del conteo")
+    type = fields.Selection(related="inventory_count_id.type", string="Tipo")
+    approver_id = fields.Many2one(related="inventory_count_id.approver_id", string="Aprobador", store=True)
+
+    @api.depends(
+        'current_scanning_location_id', 'current_scanning_product_id',
+        'current_scanning_lot_id', 'current_state', 'state',
+        'session_line_ids.scanned_qty', 'session_line_ids.product_id',
+    )
+    def _compute_mobile_status(self):
+        for session in self:
+            counted_products = len(session.session_line_ids.filtered(
+                lambda line: line.scanned_qty > 0
+            ).mapped('product_id'))
+            total = session.total_products or len(session.session_line_ids.mapped('product_id'))
+            session.mobile_counted_products = counted_products
+            session.mobile_progress_percent = (counted_products / total * 100.0) if total else 0.0
+
+            product = session.current_scanning_product_id
+            session.mobile_is_serial = bool(product and product.tracking == 'serial')
+            session.mobile_can_set_qty = bool(
+                session.current_state in ('Start', 'Resume')
+                and session.current_scanning_location_id
+                and product
+                and product.tracking != 'serial'
+                and (product.tracking != 'lot' or session.current_scanning_lot_id)
+            )
+
+            if session.current_state not in ('Start', 'Resume'):
+                if session.current_state == 'Pause':
+                    instruction = _('Sesión pausada. Pulse Reanudar para continuar.')
+                elif session.state in ('Submitted', 'Done'):
+                    instruction = _('Conteo finalizado. No se requieren más escaneos.')
+                else:
+                    instruction = _('Pulse Iniciar para comenzar el conteo.')
+            elif not session.current_scanning_location_id:
+                instruction = _('1. Escanee el QR o código de barras de la ubicación.')
+            elif not product:
+                instruction = _('2. Escanee un producto, lote o número de serie.')
+            elif product.tracking == 'lot' and not session.current_scanning_lot_id:
+                instruction = _('3. Escanee el número de lote de este producto.')
+            elif product.tracking == 'serial':
+                instruction = _('Serie registrada. Escanee la siguiente serie u otro producto.')
+            else:
+                instruction = _('3. Ingrese la cantidad física y pulse Confirmar cantidad.')
+            session.mobile_instruction = instruction
+
+    def _ensure_default_scanning_location(self):
+        """Use the session/count location as the default active scanning location.
+
+        The warehouse operator should not have to scan again a location that was
+        already defined by the supervisor when the Inventory Count was created.
+        A different valid child location can still be scanned explicitly later.
+        """
+        for session in self:
+            if not session.current_scanning_location_id and session.location_id:
+                session.current_scanning_location_id = session.location_id
+
+    def action_open_mobile_count(self):
+        """Open the operator-only handheld view for this count session."""
+        self.ensure_one()
+        self._ensure_default_scanning_location()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Conteo móvil de inventario'),
+            'res_model': self._name,
+            'res_id': self.id,
+            'view_mode': 'form',
+            'views': [(self.env.ref(
+                'setu_inventory_count_management.inventory_count_session_mobile_form_view'
+            ).id, 'form')],
+            'target': 'current',
+            'context': dict(self.env.context, setu_mobile_count=True),
+        }
+
+    def action_mobile_confirm_qty(self):
+        """Set, rather than increment, the physical quantity for the active scan.
+
+        Warehouse operators usually count a case/bin once and type the physical
+        quantity. Requiring N scans for N units is slow and error prone on a PDA.
+        Serial-tracked products remain one-unit-per-scan by design.
+        """
+        self.ensure_one()
+        if self.current_state not in ('Start', 'Resume'):
+            raise UserError(_('Inicie o reanude la sesión antes de ingresar una cantidad.'))
+        if not self.current_scanning_location_id:
+            raise UserError(_('Escanee primero una ubicación.'))
+        product = self.current_scanning_product_id
+        if not product:
+            raise UserError(_('Escanee primero un producto.'))
+        if product.tracking == 'serial':
+            raise UserError(_('Los productos con seguimiento por serie se cuentan una unidad por cada serie escaneada.'))
+        if product.tracking == 'lot' and not self.current_scanning_lot_id:
+            raise UserError(_('Escanee el lote del producto antes de confirmar la cantidad.'))
+        if self.mobile_count_qty < 0:
+            raise UserError(_('La cantidad física no puede ser negativa.'))
+
+        domain = lambda line: (
+            line.location_id == self.current_scanning_location_id
+            and line.product_id == product
+            and (product.tracking != 'lot' or line.lot_id == self.current_scanning_lot_id)
+        )
+        line = self.session_line_ids.filtered(domain)[:1]
+        if not line:
+            vals = {
+                'session_id': self.id,
+                'inventory_count_id': self.inventory_count_id.id,
+                'location_id': self.current_scanning_location_id.id,
+                'product_id': product.id,
+                'scanned_qty': self.mobile_count_qty,
+                'date_of_scanning': fields.Datetime.now(),
+                'product_scanned': True,
+            }
+            if product.tracking == 'lot':
+                vals['lot_id'] = self.current_scanning_lot_id.id
+            line = self.env['setu.inventory.count.session.line'].create(vals)
+        else:
+            line.write({
+                'scanned_qty': self.mobile_count_qty,
+                'date_of_scanning': fields.Datetime.now(),
+                'product_scanned': True,
+                'user_ids': [(4, self.env.user.id)],
+            })
+
+        # Keep the location active for rapid shelf/bin counting, clear only the
+        # item context so the next scan is unambiguous.
+        self.write({
+            'current_scanning_product_id': False,
+            'current_scanning_lot_id': False,
+            'mobile_count_qty': 1.0,
+        })
+        return {'type': 'ir.actions.client', 'tag': 'reload'}
+
+    def action_mobile_clear_item(self):
+        self.ensure_one()
+        self.write({
+            'current_scanning_product_id': False,
+            'current_scanning_lot_id': False,
+            'mobile_count_qty': 1.0,
+        })
+        return {'type': 'ir.actions.client', 'tag': 'reload'}
+
+    def action_mobile_clear_location(self):
+        self.ensure_one()
+        self.write({
+            'current_scanning_location_id': False,
+            'current_scanning_product_id': False,
+            'current_scanning_lot_id': False,
+            'mobile_count_qty': 1.0,
+        })
+        return {'type': 'ir.actions.client', 'tag': 'reload'}
 
     @api.constrains('session_line_ids')
     def check_session_line_ids(self):
-        if not self.session_line_ids:
-            self.current_scanning_location_id = self.current_scanning_product_id = self.current_scanning_lot_id = False
+        for session in self:
+            if not session.session_line_ids:
+                session.current_scanning_product_id = False
+                session.current_scanning_lot_id = False
+                session.current_scanning_location_id = session.location_id
 
     def messege_return(self, msg_type, message):
         return {'warning': {'title': _(msg_type), 'message': _(message)}}
 
     def on_barcode_scanned(self, barcode):
+        # Camera scans (QR/barcode) and physical scanners arrive through the
+        # same Odoo barcode bus. Normalize the decoded QR text before using it
+        # in the existing location/product/lot searches.
+        if isinstance(barcode, str):
+            barcode = barcode.strip()
+        if not barcode:
+            return self.messege_return("Warning", "No se detectó ningún valor QR o código de barras.")
+
         if self.use_barcode_scanner:
             if self.current_state in ('Start', 'Resume'):
                 vals = {}
@@ -92,7 +261,7 @@ class SetuInventoryCountSession(models.Model):
                     self.current_scanning_lot_id = False
                 if not self.current_scanning_location_id:
                     return self.messege_return("Warning",
-                                               "Please scan the Location first.")
+                                               "Escanee primero la ubicación.")
                 lot = self.env['stock.lot'].sudo().search([('name', '=ilike', barcode)], limit=1)
                 if lot:
                     self.current_scanning_lot_id = lot
@@ -125,7 +294,7 @@ class SetuInventoryCountSession(models.Model):
                                  'inventory_count_id': self.inventory_count_id.id})
                 if self.current_scanning_location_id and self.current_scanning_product_id and self.current_scanning_product_id.tracking != 'none' and not self.current_scanning_lot_id:
                     return self.messege_return("Warning",
-                                               "Please scan the Lot/Serial Number.")
+                                               "Escanee el lote o número de serie.")
                 if self.current_scanning_product_id.tracking == 'lot':
                     quants_lot = self.env['stock.quant'].sudo().search(
                         [('location_id', '=', self.current_scanning_location_id.id),
@@ -145,7 +314,7 @@ class SetuInventoryCountSession(models.Model):
                 if product:
                     if not self.current_scanning_lot_id and product.tracking == 'lot':
                         return self.messege_return("Warning",
-                                                   "Please scan the Lot of the Product first!")
+                                                   "Escanee primero el lote del producto.")
                     if product.tracking in ['lot',
                                             'serial'] and self.current_scanning_lot_id and self.current_scanning_lot_id.sudo().product_id != product:
                         return self.messege_return("Warning",
@@ -210,7 +379,7 @@ class SetuInventoryCountSession(models.Model):
                                                        "Please set the current location, then scan the products.")
                     if self.current_scanning_location_id and not product:
                         return self.messege_return("Warning",
-                                                   "Product or Location with scanned barcode is not found.")
+                                                   "No se encontró un producto o ubicación con el código escaneado.")
                 if not scanning_done and self.current_scanning_location_id and self.current_scanning_product_id and self.current_scanning_lot_id:
                     if product.tracking in ['lot',
                                             'serial'] and self.current_scanning_lot_id and self.current_scanning_lot_id.sudo().product_id != product:
@@ -239,20 +408,20 @@ class SetuInventoryCountSession(models.Model):
                                          'scanned_qty': 1})
                         if not self.current_scanning_lot_id:
                             return self.messege_return("Warning",
-                                                       "Please scan the Lot/Serial Number.")
+                                                       "Escanee el lote o número de serie.")
                         self.write({'session_line_ids': [(0, 0, vals)]})
                 if not lot and not location and not product:
                     return self.messege_return("Warning",
-                                               "Product, Lot/Serial Number or Location with scanned barcode is not found!")
+                                               "No se encontró un producto, lote/número de serie o ubicación con el código escaneado.")
                 if not lot and location and product and product.tracking == 'serial':
                     return self.messege_return("Warning",
-                                               "Please scan Serial Number of the product.")
+                                               "Escanee el número de serie del producto.")
             else:
                 return self.messege_return("Warning",
-                                           "Please Start/Resume the session to continue.")
+                                           "Inicie o reanude la sesión para continuar.")
         else:
             return self.messege_return("Notification",
-                                       "Contact your approver to enable the barcode scanning for this session.")
+                                       "Contacte al aprobador para habilitar el escaneo de códigos en esta sesión.")
 
     def _compute_user_ids_count(self):
         for rec in self:
@@ -294,7 +463,7 @@ class SetuInventoryCountSession(models.Model):
 
     def _compute_child_session_ids(self):
         for rec in self:
-            rec.count_child_session_ids = len(self.session_ids)
+            rec.count_child_session_ids = len(rec.session_ids)
 
     def _compute_open_session_again(self):
         for session in self:
@@ -335,12 +504,14 @@ class SetuInventoryCountSession(models.Model):
         new_session.user_ids = self.user_ids
 
     def _compute_session_history_count(self):
+        Details = self.env['setu.inventory.session.details']
         for rec in self:
             if rec.current_state == 'Created':
                 rec.session_history_count = 0
             else:
-                session_details = self.env['setu.inventory.session.details'].search([('session_id', '=', self.id)])
-                rec.session_history_count = len(session_details)
+                rec.session_history_count = Details.search_count([
+                    ('session_id', '=', rec.id)
+                ])
 
     def action_view_session_history(self):
         return {
@@ -400,6 +571,7 @@ class SetuInventoryCountSession(models.Model):
                 if len(session.user_ids) == 1 and len(self.user_ids) == 1:
                     raise ValidationError(_("Another session for the same User is Running. "
                                             "You cannot Start/Resume more than one session at a time."))
+        self._ensure_default_scanning_location()
         self.current_state = 'Start'
         date_today = datetime.now()
         self.session_start_date = date_today
@@ -435,6 +607,7 @@ class SetuInventoryCountSession(models.Model):
                 if len(session.user_ids) == 1 and len(self.user_ids) == 1:
                     raise ValidationError(_("Another session for the same User is Running. "
                                             "You cannot Start/Resume more than one session at a time."))
+        self._ensure_default_scanning_location()
         self.current_state = 'Resume'
         date_today = datetime.now()
         self.env['setu.inventory.session.details'].create({'session_id': self.id, 'start_date': date_today})
@@ -695,16 +868,26 @@ class SetuInventoryCountSession(models.Model):
 
     def action_open_child_sessions(self):
         sessions_to_open = self.session_ids
-        action = \
-            self.sudo().sudo().env.ref('setu_inventory_count_management.inventory_count_session_act_window').read()[0]
-        if len(sessions_to_open) > 1:
-            action['domain'] = [('id', 'in', sessions_to_open.ids)]
-        elif len(sessions_to_open) == 1:
-            action['views'] = [
-                (self.sudo().env.ref('setu_inventory_count_management.inventory_count_session_form_view').id, 'form')]
-            action['res_id'] = sessions_to_open.ids[0]
-        else:
-            action = {'type': 'ir.actions.act_window_close'}
+        if not sessions_to_open:
+            return {'type': 'ir.actions.act_window_close'}
+
+        action = self.sudo().env.ref(
+            'setu_inventory_count_management.inventory_count_session_act_window'
+        ).read()[0]
+        action['domain'] = [('id', 'in', sessions_to_open.ids)]
+        action['view_mode'] = 'kanban,list,form'
+        action['views'] = [
+            (self.sudo().env.ref(
+                'setu_inventory_count_management.setu_inventory_count_session_kanban_view'
+            ).id, 'kanban'),
+            (self.sudo().env.ref(
+                'setu_inventory_count_management.inventory_count_session_tree_view'
+            ).id, 'list'),
+            (self.sudo().env.ref(
+                'setu_inventory_count_management.inventory_count_session_form_view'
+            ).id, 'form'),
+        ]
+        action.pop('res_id', None)
         return action
 
     def _set_calculation_mistake_value(self, line, parent, count_line, real_quantity=False):
@@ -885,15 +1068,15 @@ class SetuInventoryCountSession(models.Model):
                 self.inventory_count_id.state = 'Draft'
 
         else:
-            raise ValidationError(_('Cannot cancel session in Done or Submitted stage.'))
+            raise ValidationError(_('No se puede cancelar una sesión finalizada o enviada.'))
 
     def _compute_re_open_session(self):
         for rec in self:
-            if self.state in ('Submitted', 'Done') and self.rejected_lines_count > 0:
-                if rec.session_ids and rec.session_ids.filtered(lambda s: s.state != 'Cancel'):
-                    rec.re_open_session_bool = False
-                else:
-                    rec.re_open_session_bool = True
+            if rec.state in ('Submitted', 'Done') and rec.rejected_lines_count > 0:
+                active_children = rec.session_ids.filtered(
+                    lambda session: session.state != 'Cancel'
+                )
+                rec.re_open_session_bool = not bool(active_children)
             else:
                 rec.re_open_session_bool = False
 

@@ -13,13 +13,13 @@ class SessionCreator(models.TransientModel):
 
     user_ids = fields.Many2many(comodel_name="res.users", string="Users",
                                 domain="[('company_ids', 'in', allowed_company_ids),('share','=',False)]")
-    product_ids = fields.Many2many(comodel_name="product.product", string="Products")
+    product_ids = fields.Many2many(comodel_name="product.product", string="Productos")
 
-    parent_count_id = fields.Many2one(related='inventory_count_id.count_id', string="Parent Count")
+    parent_count_id = fields.Many2one(related='inventory_count_id.count_id', string="Conteo principal")
 
     def confirm(self, users=False):
         if not self.user_ids:
-            raise ValidationError(_("Please add User(s)."))
+            raise ValidationError(_("Agregue al menos un usuario."))
         else:
             count_id = self.env['setu.stock.inventory.count'].sudo().browse(self.inventory_count_id.id) or self.env[
                 'setu.stock.inventory.count'].sudo().browse(self.env.context.get('active_id', False))

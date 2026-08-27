@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <odoo>
     <data>
 
@@ -6,11 +6,8 @@
             <field name="name">setu_inventory.count.valuation.report.tree.view</field>
             <field name="model">setu.inventory.count.valuation.report</field>
             <field name="arch" type="xml">
-                <list string="Inventory Count Valuation Up/Down Report"
-                      decoration-danger="total_valuation &lt; 0 or adjusted_qty &lt; 0"
-                      decoration-success="total_valuation &gt; 0 or adjusted_qty &gt; 0"
-                      create="0" edit="0" delete="0">
-                    <field name="inventory_count_date" widget="none" string="Count Date"/>
+                <list string="Reporte de valoración de conteo (aumento/disminución)" decoration-danger="total_valuation &lt; 0 or adjusted_qty &lt; 0" decoration-success="total_valuation &gt; 0 or adjusted_qty &gt; 0" create="0" edit="0" delete="0">
+                    <field name="inventory_count_date" widget="none" string="Fecha de conteo"/>
                     <field name="count_id" widget="none"/>
                     <field name="company_id" column_invisible="1"/>
                     <field name="user_id" widget="none"/>
@@ -28,7 +25,7 @@
             <field name="name">setu_inventory.count.valuation.form.tree.view</field>
             <field name="model">setu.inventory.count.valuation.report</field>
             <field name="arch" type="xml">
-                <form string="Inventory Count Valuation Up/Down Report">
+                <form string="Reporte de valoración de conteo (aumento/disminución)">
                     <sheet>
                         <group>
                             <group>
@@ -40,13 +37,10 @@
                         </group>
                         <group>
                             <group>
-                                <field name="location_ids" options="{'no_create': True, 'no_create_edit':True}"
-                                       domain="[('usage', '=', 'internal')]"
-                                       widget="many2many_tags"/>
+                                <field name="location_ids" options="{'no_create': True, 'no_create_edit':True}" domain="[('usage', '=', 'internal')]" widget="many2many_tags"/>
                             </group>
                             <group>
-                                <field name="user_ids" options="{'no_create': True, 'no_create_edit':True}"
-                                       string="Approvers" widget="many2many_tags" domain="[('share','=',False)]"/>
+                                <field name="user_ids" options="{'no_create': True, 'no_create_edit':True}" string="Approvers" widget="many2many_tags" domain="[('share','=',False)]"/>
                             </group>
                         </group>
                     </sheet>
@@ -62,36 +56,23 @@
             <field name="name">setu_inventory.count.valuation.search.tree.view</field>
             <field name="model">setu.inventory.count.valuation.report</field>
             <field name="arch" type="xml">
-                <search string="Inventory Count Valuation Up/Down Report">
-                    <field name="count_id" string="Count"
-                           filter_domain="['|','|','|','|',('user_id','ilike',self),('lot_id','ilike',self),
-                           ('product_id','ilike',self),('location_id','ilike',self),('count_id','ilike',self),]"/>
+                <search string="Reporte de valoración de conteo (aumento/disminución)">
+                    <field name="count_id" string="Conteo" filter_domain="['|','|','|','|',('user_id','ilike',self),('lot_id','ilike',self),                            ('product_id','ilike',self),('location_id','ilike',self),('count_id','ilike',self),]"/>
                     <field name="product_id"/>
                     <field name="lot_id"/>
                     <field name="location_id"/>
                     <field name="company_id"/>
-                    <filter string="UP" name="filter_adjustment_in" domain="[('valuation_graph','=','UP')]"
-                            context="{}"/>
-                    <filter string="DOWN" name="filter_adjustment_out"
-                            domain="[('valuation_graph','=','DOWN')]"
-                            context="{}"/>
-                    <group >
-                        <filter string="Inventory Count" name="group_by_count_id" domain="[]"
-                                context="{'group_by':'count_id'}"/>
-                        <filter string="Product" name="group_by_product" domain="[]"
-                                context="{'group_by':'product_id'}"/>
-                        <filter string="Lot" name="group_by_lot" domain="[]"
-                                context="{'group_by':'lot_id'}"/>
-                        <filter string="Responsible" name="group_by_user_id" domain="[]"
-                                context="{'group_by':'user_id'}"/>
-                        <filter string="Adjustment Type" name="group_by_valuation_graph" domain="[]"
-                                context="{'group_by':'valuation_graph'}"/>
-                        <filter string="Location" name="group_by_location" domain="[]"
-                                context="{'group_by':'location_id'}"/>
-                        <filter string="Date" name="group_by_inventory_count_date" domain="[]"
-                                context="{'group_by':'inventory_count_date'}"/>
-                        <filter string="Company" name="group_by_company" domain="[]"
-                                context="{'group_by':'company_id'}"/>
+                    <filter string="UP" name="filter_adjustment_in" domain="[('valuation_graph','=','UP')]" context="{}"/>
+                    <filter string="DOWN" name="filter_adjustment_out" domain="[('valuation_graph','=','DOWN')]" context="{}"/>
+                    <group>
+                        <filter string="Conteo de inventario" name="group_by_count_id" domain="[]" context="{'group_by':'count_id'}"/>
+                        <filter string="Producto" name="group_by_product" domain="[]" context="{'group_by':'product_id'}"/>
+                        <filter string="Lote" name="group_by_lot" domain="[]" context="{'group_by':'lot_id'}"/>
+                        <filter string="Responsible" name="group_by_user_id" domain="[]" context="{'group_by':'user_id'}"/>
+                        <filter string="Tipo de ajuste" name="group_by_valuation_graph" domain="[]" context="{'group_by':'valuation_graph'}"/>
+                        <filter string="Ubicación" name="group_by_location" domain="[]" context="{'group_by':'location_id'}"/>
+                        <filter string="Fecha" name="group_by_inventory_count_date" domain="[]" context="{'group_by':'inventory_count_date'}"/>
+                        <filter string="Company" name="group_by_company" domain="[]" context="{'group_by':'company_id'}"/>
                     </group>
                 </search>
             </field>

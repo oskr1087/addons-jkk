@@ -514,7 +514,7 @@
                  <div class="filter-bar">
                     <div class="filter-group">
                         <i class="fas fa-calendar-alt"></i>
-                        <label for="startDate">From</label>
+                        <label for="startDate">Desde</label>
                         <input 
                             type="date" 
                             id="startDate" 
@@ -526,7 +526,7 @@
 
                      <div class="filter-group">
                         <i class="fas fa-calendar-alt"></i>
-                         <label for="endDate">To</label>
+                         <label for="endDate">Hasta</label>
                          <input 
                             type="date" 
                             id="endDate" 
@@ -538,7 +538,7 @@
 
                      <div class="filter-group">
                         <i class="fas fa-warehouse"></i>
-                         <label for="warehouseFilter">Warehouse</label>
+                         <label for="warehouseFilter">Almacén</label>
                          <select id="warehouseFilter" class="filter-select">
                             <option value="">All Warehouses</option>
                         </select>
@@ -546,7 +546,7 @@
 
                      <div class="filter-group">
                         <i class="fas fa-users"></i>
-                         <label for="userFilter">User</label>
+                         <label for="userFilter">Usuario</label>
                          <select id="userFilter" class="filter-select">
                             <option value="">All Users</option>
                         </select>
@@ -554,7 +554,7 @@
 
                      <div class="filter-group">
                         <i class="fas fa-list"></i>
-                         <label for="sessionFilter">Session</label>
+                         <label for="sessionFilter">Sesión</label>
                          <select id="sessionFilter" class="filter-select">
                             <option value="">All Sessions</option>
                         </select>
@@ -579,7 +579,7 @@
                         </div>
                          <div class="kpi-content">
                             <div class="kpi-value avg-time-per-session">00:00:00</div>
-                             <div class="kpi-label">Avg Time/Session</div>
+                             <div class="kpi-label">Tiempo prom./sesión</div>
                         </div>
                     </div>
 
@@ -609,7 +609,7 @@
                         </div>
                          <div class="kpi-content">
                             <div class="kpi-value total-discrepancy-qty">0</div>
-                             <div class="kpi-label">Total Discrepancy</div>
+                             <div class="kpi-label">Discrepancia total</div>
                         </div>
                     </div>
 
@@ -638,7 +638,7 @@
                  <!-- User Accuracy Chart -->
                      <div class="chart-card">
                         <div class="chart-header">
-                            <h3 class="chart-title">User Accuracy vs Mistakes</h3>
+                            <h3 class="chart-title">Precisión vs. errores por usuario</h3>
                             <i class="fas fa-users" style="color: #3498db;"></i>
                         </div>
                          <div class="chart-container">
@@ -655,10 +655,10 @@
                                     <table class="data-table">
                                         <thead>
                                             <tr>
-                                                <th>Product</th>
-                                                <th>Times Counted with Discrepancy</th>
-                                                <th>Avg Discrepancy %</th>
-                                                <th>Last Discrepancy Date</th>
+                                                <th>Producto</th>
+                                                <th>Veces contado con discrepancia</th>
+                                                <th>% prom. de discrepancia</th>
+                                                <th>Última fecha con discrepancia</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -697,11 +697,11 @@
                                 <table class="data-table">
                                     <thead>
                                         <tr>
-                                            <th>Count ID</th>
-                                            <th>Product</th>
+                                            <th>ID de conteo</th>
+                                            <th>Producto</th>
                                             <th>Theoretical</th>
                                             <th>Counted</th>
-                                            <th>Adjustment Qty and Value</th>
+                                            <th>Cantidad y valor del ajuste</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -728,7 +728,7 @@
                         </div>
                      <div class="chart-card">
                             <div class="chart-header">
-                                <h3 class="chart-title">Discrepancy by Location</h3>
+                                <h3 class="chart-title">Discrepancia por ubicación</h3>
                                 <i class="fas fa-map-marker-alt" style="color: #8b5cf6;"></i>
                             </div>
                          <div class="chart-container">
@@ -753,16 +753,16 @@
                      <!-- Open Sessions Table -->
                      <div class="table-card wide">
                               <div class="table-card-header">
-                                  <h5 class="table-card-title">Open Sessions</h5>
+                                  <h5 class="table-card-title">Sesiones abiertas</h5>
                               </div>
                          <div class="table-card-body">
                                 <table class="data-table">
                                     <thead>
                                         <tr>
-                                            <th>Session ID</th>
-                                            <th>Warehouse</th>
+                                            <th>ID de sesión</th>
+                                            <th>Almacén</th>
                                             <th>Assigned Users</th>
-                                            <th>Start Time</th>
+                                            <th>Hora de inicio</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -792,7 +792,7 @@
                  <div class="charts-section">
                      <div class="chart-card ">
                          <div class="chart-header">
-                             <h3 class="chart-title">Discrepancy Trend Over Time</h3>
+                             <h3 class="chart-title">Tendencia de discrepancias en el tiempo</h3>
                              <i class="fas fa-chart-line" style="color: #f39c12;"></i>
                          </div>
                          <div class="chart-container">

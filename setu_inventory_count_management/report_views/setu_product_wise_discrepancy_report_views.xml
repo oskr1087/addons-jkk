@@ -1,11 +1,11 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <odoo>
     <data>
         <record id="product_wise_discrepancy_report_list_view" model="ir.ui.view">
             <field name="name">setu.product.wise.discrepancy.report.list</field>
             <field name="model">setu.product.wise.discrepancy.report</field>
             <field name="arch" type="xml">
-                <list string="Product-wise Discrepancy Report">
+                <list string="Reporte de discrepancias por producto">
                     <field name="product_id"/>
                     <field name="total_times_counted"/>
                     <field name="discrepancy_products"/>
@@ -17,14 +17,10 @@
             <field name="name">setu.product.wise.discrepancy.report.search</field>
             <field name="model">setu.product.wise.discrepancy.report</field>
             <field name="arch" type="xml">
-                <search string="Product-wise Discrepancy Report">
-                    <field name="product_id" string="Product"/>
-                    <filter name="high_discrepancy"
-                            string="High Discrepancy"
-                            domain="[('discrepancy_percent', '&gt;', 50)]"/>
-                    <filter name="no_discrepancy"
-                            string="No Discrepancy"
-                            domain="[('discrepancy_percent', '=', 0)]"/>
+                <search string="Reporte de discrepancias por producto">
+                    <field name="product_id" string="Producto"/>
+                    <filter name="high_discrepancy" string="Alta discrepancia" domain="[('discrepancy_percent', '&gt;', 50)]"/>
+                    <filter name="no_discrepancy" string="Sin discrepancia" domain="[('discrepancy_percent', '=', 0)]"/>
                 </search>
             </field>
         </record>
@@ -36,10 +32,6 @@
             <field name="view_mode">list</field>
         </record>
 
-        <menuitem id="menu_product_wise_discrepancy"
-                  name="Product-wise Discrepancy"
-                  parent="setu_inventory_count_management.setu_inventory_reporting_menu"
-                  action="product_wise_discrepancy_report_action"
-                  sequence="11"/>
+        <menuitem id="menu_product_wise_discrepancy" name="Product-wise Discrepancy" parent="setu_inventory_count_management.setu_inventory_reporting_menu" action="product_wise_discrepancy_report_action" sequence="11"/>
     </data>
 </odoo>

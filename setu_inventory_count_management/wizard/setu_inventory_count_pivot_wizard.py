@@ -6,7 +6,7 @@ class InventoryCountPivotWizard(models.TransientModel):
 
     start_date = fields.Date("Start Date")
     end_date = fields.Date("End Date")
-    location_ids = fields.Many2many("stock.location", string="Locations")
+    location_ids = fields.Many2many("stock.location", string="Ubicaciones")
     approver_ids = fields.Many2many("res.users", string="Approvers")
 
     def action_generate_report(self):

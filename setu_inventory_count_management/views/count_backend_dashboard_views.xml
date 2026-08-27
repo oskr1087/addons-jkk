@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="setu_stock_inventory_count_form_backend_dashboard" model="ir.ui.view">
+        <field name="name">setu.stock.inventory.count.form.backend.dashboard</field>
+        <field name="model">setu.stock.inventory.count</field>
+        <field name="inherit_id" ref="setu_inventory_count_management.setu_stock_inventory_count_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_backend_dashboard"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-dashboard"
+                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
+                        invisible="not id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Panel del</span>
+                        <span class="o_stat_text">conteo</span>
+                    </div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

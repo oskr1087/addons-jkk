@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Configuración operativa del conteo con PDA / código de barras. -->
+    <record id="setu_stock_inventory_count_form_pda" model="ir.ui.view">
+        <field name="name">setu.stock.inventory.count.form.pda</field>
+        <field name="model">setu.stock.inventory.count</field>
+        <field name="inherit_id" ref="setu_inventory_count_management.setu_stock_inventory_count_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[field[@name='product_ids']]" position="replace"/>
+
+            <xpath expr="//field[@name='use_barcode_scanner']" position="attributes">
+                <attribute name="string">Conteo con PDA / código de barras</attribute>
+                <attribute name="readonly">state != 'Draft'</attribute>
+            </xpath>
+
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_zero_result_lines"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-exclamation-triangle"
+                        invisible="zero_result_count == 0">
+                    <field name="zero_result_count" widget="statinfo" string="Cantidad cero"/>
+                </button>
+            </xpath>
+
+            <xpath expr="//field[@name='line_ids']/list/field[@name='counted_qty']" position="after">
+                <field name="pda_result" string="Resultado" optional="show"/>
+            </xpath>
+
+            <xpath expr="//field[@name='line_ids']/list/field[@name='serial_number_ids']" position="after">
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Vista administrativa de la sesión: resultado operativo de cada línea. -->
+    <record id="inventory_count_session_form_pda_status" model="ir.ui.view">
+        <field name="name">setu.inventory.count.session.form.pda.status</field>
+        <field name="model">setu.inventory.count.session</field>
+        <field name="inherit_id" ref="setu_inventory_count_management.inventory_count_session_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='session_line_ids']/list/field[@name='scanned_qty']" position="after">
+                <field name="pda_status"
+                       string="Resultado"
+                       widget="badge"
+                       decoration-success="pda_status == 'counted'"
+                       decoration-danger="pda_status == 'zero'"
+                       decoration-warning="pda_status == 'unexpected'"
+                       decoration-muted="pda_status == 'pending'"
+                       optional="show"/>
+            </xpath>
+            <xpath expr="//field[@name='session_line_ids']/list/field[@name='serial_number_ids']" position="after">
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Workspace PDA: sin cámara; el gatillo del lector es la entrada principal. -->
+    <record id="inventory_count_session_mobile_form_pda" model="ir.ui.view">
+        <field name="name">setu.inventory.count.session.mobile.form.pda</field>
+        <field name="model">setu.inventory.count.session</field>
+        <field name="inherit_id" ref="setu_inventory_count_management.inventory_count_session_mobile_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='mobile_is_serial']" position="after">
+                <field name="pda_counted_lines" invisible="1"/>
+                <field name="pda_zero_lines" invisible="1"/>
+                <field name="mobile_simulation_mode" invisible="1"/>
+                <field name="mobile_last_feedback_type" invisible="1"/>
+                <field name="mobile_current_product_barcode" invisible="1"/>
+                <field name="mobile_current_tracking" invisible="1"/>
+                <field name="mobile_current_uom_id" invisible="1"/>
+            </xpath>
+
+            <xpath expr="//div[hasclass('setu_mobile_progress_caption')]" position="replace">
+                <div class="setu_pda_metrics setu_pda_metrics_compact">
+                    <div class="setu_pda_metric setu_pda_metric_counted">
+                        <span class="setu_pda_metric_label">Artículos procesados</span>
+                        <strong><field name="pda_counted_lines" nolabel="1" readonly="1"/></strong>
+                    </div>
+                    <div class="setu_pda_metric setu_pda_metric_zero">
+                        <span class="setu_pda_metric_label">Cantidad cero</span>
+                        <strong><field name="pda_zero_lines" nolabel="1" readonly="1"/></strong>
+                    </div>
+                </div>
+            </xpath>
+
+            <xpath expr="//div[hasclass('setu_mobile_scan_zone')]" position="replace">
+                <div class="setu_mobile_scan_zone"
+                     invisible="current_state not in ['Start', 'Resume']">
+                    <div class="setu_pda_ready" role="status">
+                        <div class="setu_pda_ready_icon">
+                            <i class="fa fa-barcode" title="Indicador" aria-hidden="true"/>
+                        </div>
+                        <div class="setu_pda_ready_text">
+                            <strong>LISTO PARA ESCANEAR</strong>
+                            <span>Presione el gatillo de la PDA y lea el código del producto.</span>
+                        </div>
+                        <span class="setu_pda_online_dot" title="Lector activo"/>
+                    </div>
+                    <field name="_barcode_scanned" widget="barcode_handler" nolabel="1"/>
+
+                    <div class="setu_mobile_test_toggle">
+                        <field name="mobile_simulation_mode" widget="boolean_toggle" nolabel="1"/>
+                        <span>Simular lectura desde este celular</span>
+                    </div>
+
+                    <div class="setu_mobile_test_box" invisible="not mobile_simulation_mode">
+                        <label for="mobile_simulated_barcode" string="Código de barras de prueba"/>
+                        <div class="setu_mobile_test_row">
+                            <field name="mobile_simulated_barcode"
+                                   nolabel="1"
+                                   placeholder="Ej. 7501234567890"
+                                   class="setu_mobile_test_input"/>
+                            <button name="action_mobile_simulate_barcode"
+                                    type="object"
+                                    string="Procesar"
+                                    icon="fa-play"
+                                    class="btn-primary setu_mobile_test_button"/>
+                        </div>
+                        <small>Usa exactamente la misma lógica que el gatillo del lector PDA.</small>
+                    </div>
+                </div>
+            </xpath>
+
+            <xpath expr="//div[hasclass('setu_mobile_instruction')]" position="after">
+                <div class="setu_mobile_feedback" invisible="not mobile_last_feedback">
+                    <field name="mobile_last_feedback_type"
+                           widget="badge"
+                           nolabel="1"
+                           decoration-success="mobile_last_feedback_type == 'success'"
+                           decoration-info="mobile_last_feedback_type == 'info'"
+                           decoration-warning="mobile_last_feedback_type == 'warning'"
+                           decoration-danger="mobile_last_feedback_type == 'danger'"/>
+                    <field name="mobile_last_feedback" nolabel="1" readonly="1"/>
+                </div>
+            </xpath>
+
+            <xpath expr="//div[hasclass('setu_mobile_item')]/div[hasclass('setu_mobile_primary_value')]" position="after">
+                <div class="setu_mobile_product_meta">
+                    <span invisible="not mobile_current_product_barcode">
+                        <i class="fa fa-barcode" title="Indicador"/> <field name="mobile_current_product_barcode" nolabel="1" readonly="1"/>
+                    </span>
+                    <span>
+                        <i class="fa fa-tags" title="Indicador"/> <field name="mobile_current_tracking" nolabel="1" readonly="1"/>
+                    </span>
+                    <span>
+                        <i class="fa fa-balance-scale" title="Indicador"/> <field name="mobile_current_uom_id" nolabel="1" readonly="1"/>
+                    </span>
+                </div>
+            </xpath>
+
+            <xpath expr="//div[hasclass('setu_mobile_qty_zone')]/field[@name='mobile_count_qty']" position="before">
+                <div class="setu_mobile_qty_shortcuts">
+                    <button name="action_mobile_qty_minus" type="object" string="−1" class="btn-secondary"/>
+                    <button name="action_mobile_qty_zero" type="object" string="0" class="btn-secondary"/>
+                    <button name="action_mobile_qty_plus" type="object" string="+1" class="btn-secondary"/>
+                </div>
+            </xpath>
+
+            <xpath expr="//field[@name='session_line_ids']/kanban/field[@name='scanned_qty']" position="after">
+                <field name="pda_status"/>
+            </xpath>
+
+            <xpath expr="//div[hasclass('setu_mobile_line_qty')]" position="before">
+                <div class="setu_mobile_line_status">
+                    <field name="pda_status"
+                           widget="badge"
+                           decoration-success="pda_status == 'counted'"
+                           decoration-danger="pda_status == 'zero'"
+                           decoration-muted="pda_status == 'pending'"/>
+                </div>
+            </xpath>
+
+            <xpath expr="//div[hasclass('setu_mobile_recent')]/h3" position="replace">
+                <h3>Últimos artículos procesados</h3>
+            </xpath>
+            <xpath expr="//div[hasclass('setu_mobile_recent')]/field[@name='session_line_ids']" position="attributes">
+                <attribute name="domain">[('pda_status', '!=', 'pending')]</attribute>
+            </xpath>
+            <xpath expr="//div[hasclass('setu_mobile_recent')]//kanban" position="attributes">
+                <attribute name="limit">10</attribute>
+            </xpath>
+            <xpath expr="//div[hasclass('setu_mobile_serial_feedback')]" position="replace">
+                <div class="setu_mobile_serial_feedback" invisible="not mobile_is_serial">
+                    <i class="fa fa-barcode" title="Indicador"/> Escanee cada número de serie. Cada lectura registra 1 unidad.
+                </div>
+            </xpath>
+            <xpath expr="//sheet[hasclass('setu_mobile_count_sheet')]" position="inside">
+                <div class="setu_mobile_action_dock">
+                    <button name="start"
+                            type="object"
+                            string="Iniciar"
+                            icon="fa-play"
+                            class="btn-primary setu_mobile_dock_main"
+                            invisible="current_state != 'Created' or state == 'Cancel'"/>
+                    <button name="resume"
+                            type="object"
+                            string="Reanudar"
+                            icon="fa-play"
+                            class="btn-primary setu_mobile_dock_main"
+                            invisible="current_state != 'Pause' or state == 'Cancel'"/>
+                    <button name="pause"
+                            type="object"
+                            string="Pausar"
+                            icon="fa-pause"
+                            class="btn-secondary"
+                            invisible="current_state not in ['Start', 'Resume'] or state == 'Cancel'"/>
+                    <button name="submit"
+                            type="object"
+                            string="Finalizar"
+                            icon="fa-check"
+                            class="btn-primary"
+                            confirm="¿Finalizar y enviar este conteo para revisión?"
+                            invisible="current_state not in ['Start', 'Resume'] or state == 'Cancel'"/>
+                </div>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>

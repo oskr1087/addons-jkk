@@ -14,7 +14,7 @@
             <field name="domain">[('state','in',('Draft','In Progress'))]</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face" style="margin-top:250px;">
-                    There is no "To Be Counted" Inventory Count.
+                    No hay conteos pendientes. Los nuevos conteos aparecerán aquí hasta completar sus sesiones.
                 </p>
             </field>
         </record>
@@ -34,7 +34,7 @@
             <field name="domain">[('state','=','To Be Approved')]</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face" style="margin-top:250px;">
-                    There is no "To Be Approved" Inventory Count.
+                    No hay conteos pendientes de aprobación. Los conteos completados aparecerán aquí para revisión del supervisor.
                 </p>
             </field>
         </record>
@@ -55,13 +55,10 @@
             <field name="context">{'create':0}</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face" style="margin-top:250px;">
-                    Click to start an inventory.
+                    Los ajustes se generan desde conteos aprobados.
                 </p>
                 <p>
-                    Periodical Inventories are used to count the number of products
-                    available per location. You can use it once a year when you do
-                    the general inventory or whenever you need it, to adapt the
-                    current inventory level of a product.
+                    Revise las discrepancias aprobadas antes de aplicar el ajuste. El flujo controla ubicación, lote/serie, compañía y evita generar ajustes duplicados para el mismo conteo.
                 </p>
             </field>
         </record>

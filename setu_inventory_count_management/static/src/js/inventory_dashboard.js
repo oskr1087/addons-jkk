@@ -454,7 +454,7 @@ export class SetuInventoryDashboard extends Component {
     }
         domain.push(['state', 'not in', ['Draft', 'In Progress', 'Cancel']]);
         this.actionService.doAction({
-            name: 'Inventory Count Sessions',
+            name: 'Sesiones de conteo de inventario',
             type: 'ir.actions.act_window',
             res_model: 'setu.inventory.count.session',
             view_type: 'list',
@@ -483,7 +483,7 @@ export class SetuInventoryDashboard extends Component {
 
     openAccuracyReport(count_domain) {
         this.actionService.doAction({
-            name: 'Inventory Count',
+            name: 'Conteo de inventario',
             type: 'ir.actions.act_window',
             res_model: 'setu.stock.inventory.count',
             view_type: 'list',
@@ -503,7 +503,7 @@ export class SetuInventoryDashboard extends Component {
         discrepancy_domain.push(['line_ids.user_ids', 'in', [parseInt(userId)]]);
     }
         this.actionService.doAction({
-            name: 'Discrepancy',
+            name: 'Discrepancia',
             type: 'ir.actions.act_window',
             res_model: 'setu.stock.inventory.count',
             view_mode: 'list,form',
@@ -523,7 +523,7 @@ export class SetuInventoryDashboard extends Component {
         loss_domain.push(['line_ids.user_ids', 'in', [parseInt(userId)]]);
     }
         this.actionService.doAction({
-            name: 'Inventory Loss',
+            name: 'Pérdida de inventario',
             type: 'ir.actions.act_window',
             res_model: 'setu.stock.inventory.count',
             view_type: 'list',
@@ -614,7 +614,7 @@ export class SetuInventoryDashboard extends Component {
                         grid: { display: false },
                         title: {
                             display: true,
-                            text: 'User',
+                            text: 'Usuario',
                             font: { size: 12, weight: 'bold' }
                         }
                     },
@@ -623,7 +623,7 @@ export class SetuInventoryDashboard extends Component {
                         grid: { color: 'rgba(0, 0, 0, 0.05)' },
                         title: {
                             display: true,
-                            text: 'Count',
+                            text: 'Conteo',
                             font: { size: 12, weight: 'bold' }
                         }
                     }
@@ -642,7 +642,7 @@ export class SetuInventoryDashboard extends Component {
             data: {
                 labels: dataset.labels,
                 datasets: [{
-                    label: 'Discrepancy Found',
+                    label: 'Discrepancia encontrada',
                     data: dataset.values,
                     backgroundColor: '#8b5cf6',
                     borderColor: '#7c3aed',
@@ -667,7 +667,7 @@ export class SetuInventoryDashboard extends Component {
                         grid: { color: 'rgba(0, 0, 0, 0.05)' },
                         title: {
                             display: true,
-                            text: 'Discrepancy Count',
+                            text: 'Cantidad de discrepancias',
                             font: { size: 12, weight: 'bold' }
                         }
                     },
@@ -675,7 +675,7 @@ export class SetuInventoryDashboard extends Component {
                         grid: { display: false },
                         title: {
                             display: true,
-                            text: 'Location',
+                            text: 'Ubicación',
                             font: { size: 12, weight: 'bold' }
                         }
                     }
@@ -694,7 +694,7 @@ export class SetuInventoryDashboard extends Component {
             data: {
                 labels: dataset.labels,
                 datasets: [{
-                    label: 'Total Discrepancy Value',
+                    label: 'Valor total de discrepancias',
                     data: dataset.values,
                     borderColor: '#f59e0b',
                     backgroundColor: 'rgba(245, 158, 11, 0.1)',
@@ -730,7 +730,7 @@ export class SetuInventoryDashboard extends Component {
                         grid: { color: 'rgba(0, 0, 0, 0.05)' },
                         title: {
                             display: true,
-                            text: 'Date',
+                            text: 'Fecha',
                             font: { size: 12, weight: 'bold' }
                         }
                     },
@@ -739,7 +739,7 @@ export class SetuInventoryDashboard extends Component {
                         grid: { color: 'rgba(0, 0, 0, 0.05)' },
                         title: {
                             display: true,
-                            text: 'Discrepancy Value',
+                            text: 'Valor de discrepancia',
                             font: { size: 12, weight: 'bold' }
                         }
                     }
@@ -792,7 +792,7 @@ export class SetuInventoryDashboard extends Component {
                         grid: { display: false },
                         title: {
                             display: true,
-                            text: 'Product',
+                            text: 'Producto',
                             font: { size: 12, weight: 'bold' }
                         }
                     }

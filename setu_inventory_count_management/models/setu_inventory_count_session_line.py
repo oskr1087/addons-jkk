@@ -9,39 +9,39 @@ class InventoryCountSessionLine(models.Model):
     _name = 'setu.inventory.count.session.line'
     _description = 'Inventory Count Session Line'
 
-    user_calculation_mistake = fields.Boolean(copy=False, default=False, string="User calculation mistake")
-    product_scanned = fields.Boolean(copy=False, default=False, string="Product scanned")
-    is_system_generated = fields.Boolean(string="System Generated Line")
-    is_multi_session = fields.Boolean(default=False, string="Is multi session")
-    is_discrepancy_found = fields.Boolean(compute="_compute_is_discrepancy_found", store=True, string="Discrepancy Found")
+    user_calculation_mistake = fields.Boolean(copy=False, default=False, string="Error de cálculo del usuario")
+    product_scanned = fields.Boolean(copy=False, default=False, string="Producto escaneado")
+    is_system_generated = fields.Boolean(string="Línea generada por el sistema")
+    is_multi_session = fields.Boolean(default=False, string="Es multisesión")
+    is_discrepancy_found = fields.Boolean(compute="_compute_is_discrepancy_found", store=True, string="Discrepancia encontrada")
 
-    scanned_qty = fields.Float(copy=False, string="Scanned quantity")
-    to_be_scanned = fields.Float(string="To be quantity")
-    theoretical_qty = fields.Float(string="Theoretical quantity",compute='_compute_theoretical_qty',store=True)
+    scanned_qty = fields.Float(copy=False, string="Cantidad escaneada")
+    to_be_scanned = fields.Float(string="Cantidad esperada")
+    theoretical_qty = fields.Float(string="Cantidad teórica",compute='_compute_theoretical_qty',store=True)
 
-    date_of_scanning = fields.Datetime(string="Date of scanning", default=fields.Datetime.now)
+    date_of_scanning = fields.Datetime(string="Fecha de escaneo", default=fields.Datetime.now)
 
-    state = fields.Selection([('Pending Review', 'Pending Review'), ('Approve', 'Approve'), ('Reject', 'Reject')],
-                             default="Pending Review", string="State")
+    state = fields.Selection([('Pending Review', 'Pendiente de revisión'), ('Approve', 'Aprobar'), ('Reject', 'Rechazar')],
+                             default="Pending Review", string="Estado")
 
-    inventory_count_id = fields.Many2one(comodel_name="setu.stock.inventory.count", string="Inventory count")
-    product_id = fields.Many2one(comodel_name="product.product", string="Product")
-    session_id = fields.Many2one(comodel_name="setu.inventory.count.session", string="Session")
+    inventory_count_id = fields.Many2one(comodel_name="setu.stock.inventory.count", string="Conteo de inventario")
+    product_id = fields.Many2one(comodel_name="product.product", string="Producto")
+    session_id = fields.Many2one(comodel_name="setu.inventory.count.session", string="Sesión")
     inventory_count_line_id = fields.Many2one(comodel_name="setu.stock.inventory.count.line",
-                                              string="Inventory count line")
-    location_id = fields.Many2one(comodel_name="stock.location", string="Location")
-    lot_id = fields.Many2one(comodel_name="stock.lot", string="Lot")
+                                              string="Línea de conteo de inventario")
+    location_id = fields.Many2one(comodel_name="stock.location", string="Ubicación")
+    lot_id = fields.Many2one(comodel_name="stock.lot", string="Lote")
 
-    serial_number_ids = fields.Many2many(comodel_name="stock.lot", string="Serial Numbers")
+    serial_number_ids = fields.Many2many(comodel_name="stock.lot", string="Números de serie")
     not_found_serial_number_ids = fields.Many2many('stock.lot', 'session_not_found_stock_lot_rel', 'session_line_id',
-                                                   'lot_id', string="Serial Numbers Not Founded")
+                                                   'lot_id', string="Números de serie no encontrados")
 
     tracking = fields.Selection(related="product_id.tracking", string="Tracking")
     user_ids = fields.Many2many('res.users', string='Users', copy=False )
-    difference_qty = fields.Float(string="Difference", compute="_compute_difference",
-                                  help="Indicates the gap between the product's theoretical quantity and its newest quantity.",
+    difference_qty = fields.Float(string="Diferencia", compute="_compute_difference",
+                                  help="Indica la diferencia entre la cantidad teórica del producto y la cantidad física más reciente.",
                                   readonly=True, digits="Product Unit of Measure", search="_search_difference_qty",store=True)
-    discrepancy_value = fields.Float(string='Discrepancy Value', compute='_compute_discrepancy_value', store=True)
+    discrepancy_value = fields.Float(string='Valor de discrepancia', compute='_compute_discrepancy_value', store=True)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -50,14 +50,73 @@ class InventoryCountSessionLine(models.Model):
                 [('session_ids', 'in', vals.get('session_id'))])
             vals.update({'inventory_count_id': inventory_count.id})
             if vals.get('scanned_qty', 0) > 0:
-                vals.update({'user_ids': [(6, 0, (self.user_ids | self.env.user).ids)]})
-        return super(InventoryCountSessionLine, self).create(vals_list)
+                vals.update({'user_ids': [(4, self.env.user.id)]})
+        records = super(InventoryCountSessionLine, self).create(vals_list)
+        records._sync_persistent_count_snapshot()
+        return records
+
+    def write(self, vals):
+        watched = {
+            'scanned_qty', 'product_scanned', 'product_id', 'lot_id',
+            'location_id', 'session_id', 'inventory_count_id',
+        }
+        before_counts = self.mapped('inventory_count_id')
+        result = super().write(vals)
+        if watched.intersection(vals):
+            self._sync_persistent_count_snapshot(extra_counts=before_counts)
+        return result
+
+    def unlink(self):
+        counts = self.mapped('inventory_count_id')
+        snapshots = self._persistent_snapshot_lines()
+        result = super().unlink()
+        snapshots.exists()._refresh_from_session_lines(count_override=counts)
+        counts._refresh_persistent_kpis()
+        return result
+
+    def _persistent_snapshot_lines(self):
+        Snapshot = self.env['setu.inventory.count.snapshot.line'].sudo()
+        snapshots = Snapshot
+        for line in self:
+            if not line.inventory_count_id or not line.product_id or not line.location_id:
+                continue
+            snapshot = Snapshot.search([
+                ('count_id', '=', line.inventory_count_id.id),
+                ('product_id', '=', line.product_id.id),
+                ('location_id', '=', line.location_id.id),
+                ('lot_id', '=', line.lot_id.id if line.lot_id else False),
+            ], limit=1)
+            snapshots |= snapshot
+        return snapshots
+
+    def _sync_persistent_count_snapshot(self, extra_counts=None):
+        Snapshot = self.env['setu.inventory.count.snapshot.line'].sudo()
+        affected = Snapshot
+        counts = (extra_counts or self.env['setu.stock.inventory.count']) | self.mapped('inventory_count_id')
+        for line in self:
+            count = line.inventory_count_id
+            if not count or not line.product_id or not line.location_id:
+                continue
+            if not count.snapshot_ready:
+                # Compatibilidad con conteos antiguos: si ya existen lecturas
+                # no inventamos el esperado con el stock actual. Se crea solo
+                # la cabecera persistente y la lectura queda como No previsto.
+                header = count._get_snapshot_header(create=True)
+                if not header.ready:
+                    header.write({
+                        'ready': True,
+                        'snapshot_date': fields.Datetime.now(),
+                    })
+            snapshot = count._ensure_snapshot_line_for_session_line(line)
+            affected |= snapshot
+        affected._refresh_from_session_lines()
+        counts._refresh_persistent_kpis()
 
     @api.constrains('scanned_qty')
     def constrains_scanned_aty(self):
         for line in self:
             if line.scanned_qty < 0:
-                raise UserError(_('Counted QTY cannot be less than zero.'))
+                raise UserError(_('La cantidad contada no puede ser menor que cero.'))
 
     def change_line_state_to_approve(self):
         self.state = 'Approve'

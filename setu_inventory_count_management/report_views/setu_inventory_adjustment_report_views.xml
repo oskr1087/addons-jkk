@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <odoo>
     <data>
 
@@ -6,20 +6,20 @@
             <field name="name">setu.inventory.adjustment.report.tree.view</field>
             <field name="model">setu.inventory.adjustment.report</field>
             <field name="arch" type="xml">
-                <list string="Inventory Session" create="0" edit="0" delete="0"  decoration-success="adjustment_type == 'IN'" decoration-danger="adjustment_type == 'OUT'">
+                <list string="Sesión de inventario" create="0" edit="0" delete="0" decoration-success="adjustment_type == 'IN'" decoration-danger="adjustment_type == 'OUT'">
                     <field name="count_id" widget="none" options="{'no_create': True, 'no_open':True}"/>
-                    <field name="user_id" widget="none" string='Approver' options="{'no_create': True, 'no_open':True}"/>
+                    <field name="user_id" widget="none" string="Approver" options="{'no_create': True, 'no_open':True}"/>
                     <field name="product_id" widget="none" options="{'no_create': True, 'no_open':True}"/>
                     <field name="location_id" widget="none" options="{'no_create': True, 'no_open':True}"/>
                     <field name="serial_number_names" widget="none" options="{'no_create': True, 'no_open':True}"/>
                     <field name="not_found_serial_number_names" widget="none" options="{'no_create': True, 'no_open':True}"/>
                     <field name="lot_id" widget="none" options="{'no_create': True, 'no_open':True}"/>
                     <field name="warehouse_id" widget="none" options="{'no_create': True, 'no_open':True}"/>
-                    <field name="inventory_count_date" widget="none" string="Adjustment Date"/>
+                    <field name="inventory_count_date" widget="none" string="Fecha de ajuste"/>
                     <field name="theoretical_qty" widget="none"/>
                     <field name="counted_qty" widget="none"/>
-                    <field name="discrepancy_qty" widget="none" string="Adjustment Qty"/>
-                    <field name="discrepancy_value" widget="none" string="Adjustment value"/>
+                    <field name="discrepancy_qty" widget="none" string="Cantidad de ajuste"/>
+                    <field name="discrepancy_value" widget="none" string="Valor del ajuste"/>
                     <field name="adjustment_type" widget="none"/>
                     <field name="is_overstock" column_invisible="1"/>
                     <field name="is_understock" column_invisible="1"/>
@@ -31,7 +31,7 @@
             <field name="name">setu.inventory.adjustment.report.form.view</field>
             <field name="model">setu.inventory.adjustment.report</field>
             <field name="arch" type="xml">
-                <form string="Inventory Adjustments">
+                <form string="Ajustes de inventario">
                     <sheet>
                         <div style="margin-top:-15px;">
                             • Select the <strong>Location(s)</strong> and
@@ -51,13 +51,10 @@
                         </group>
                         <group>
                             <group>
-                                <field name="location_ids" options="{'no_create': True, 'no_create_edit':True}"
-                                       widget="many2many_tags"/>
+                                <field name="location_ids" options="{'no_create': True, 'no_create_edit':True}" widget="many2many_tags"/>
                             </group>
                             <group>
-                                <field name="user_ids" options="{'no_create': True, 'no_create_edit':True}"
-                                       string="Approvers" widget="many2many_tags"
-                                       domain="[('share','=',False),('id','in',users_ids)]"/>
+                                <field name="user_ids" options="{'no_create': True, 'no_create_edit':True}" string="Approvers" widget="many2many_tags" domain="[('share','=',False),('id','in',users_ids)]"/>
                                 <field name="users_ids" invisible="1"/>
                             </group>
                         </group>
@@ -97,35 +94,24 @@
             <field name="name">setu.inventory.adjustment.report.search.view</field>
             <field name="model">setu.inventory.adjustment.report</field>
             <field name="arch" type="xml">
-                <search string="Inventory Adjustment Report">
-                    <field name="user_id" string="Name"
-                           filter_domain="['|','|','|',('user_id','ilike',self),
-                           ('product_id','ilike',self),('location_id','ilike',self),('warehouse_id','ilike',self),]"/>
+                <search string="Reporte de ajustes de inventario">
+                    <field name="user_id" string="Name" filter_domain="['|','|','|',('user_id','ilike',self),                            ('product_id','ilike',self),('location_id','ilike',self),('warehouse_id','ilike',self),]"/>
                     <field name="product_id"/>
                     <field name="count_id"/>
                     <field name="location_id"/>
                     <field name="warehouse_id"/>
-                    <filter string="Adjustment IN" name="filter_adjustment_in" domain="[('adjustment_type','=','IN')]"
-                            context="{}"/>
-                    <filter string="Adjustment OUT" name="filter_adjustment_out"
-                            domain="[('adjustment_type','=','OUT')]"
-                            context="{}"/>
+                    <filter string="Ajuste de entrada" name="filter_adjustment_in" domain="[('adjustment_type','=','IN')]" context="{}"/>
+                    <filter string="Ajuste de salida" name="filter_adjustment_out" domain="[('adjustment_type','=','OUT')]" context="{}"/>
                     <filter string="Overstock" name="overstock" domain="[('is_overstock','=',True)]"/>
                     <filter string="Understock" name="understock" domain="[('is_understock','=',True)]"/>
                     <separator/>
                     <group>
-                        <filter string="Inventory Count" name="group_by_count_id" domain="[]"
-                                context="{'group_by':'count_id'}"/>
-                        <filter string="Responsible" name="group_by_user_id" domain="[]"
-                                context="{'group_by':'user_id'}"/>
-                        <filter string="Adjustment Type" name="group_by_adjustment_type" domain="[]"
-                                context="{'group_by':'adjustment_type'}"/>
-                        <filter string="Warehouse" name="group_by_warehouse" domain="[]"
-                                context="{'group_by':'warehouse_id'}"/>
-                        <filter string="Location" name="group_by_location" domain="[]"
-                                context="{'group_by':'location_id'}"/>
-                        <filter string="Product" name="group_by_product" domain="[]"
-                                context="{'group_by':'product_id'}"/>
+                        <filter string="Conteo de inventario" name="group_by_count_id" domain="[]" context="{'group_by':'count_id'}"/>
+                        <filter string="Responsible" name="group_by_user_id" domain="[]" context="{'group_by':'user_id'}"/>
+                        <filter string="Tipo de ajuste" name="group_by_adjustment_type" domain="[]" context="{'group_by':'adjustment_type'}"/>
+                        <filter string="Almacén" name="group_by_warehouse" domain="[]" context="{'group_by':'warehouse_id'}"/>
+                        <filter string="Ubicación" name="group_by_location" domain="[]" context="{'group_by':'location_id'}"/>
+                        <filter string="Producto" name="group_by_product" domain="[]" context="{'group_by':'product_id'}"/>
                     </group>
                 </search>
             </field>
@@ -138,9 +124,6 @@
             <field name="code">action = model.generate_report()</field>
         </record>
 
-        <menuitem id="inventory_adjustment_report_menu" name="Adjustment Report"
-                  parent="setu_inventory_count_management.setu_inventory_reporting_menu"
-                  action="setu_inventory_count_management.setu_inventory_adjustment_report_action"
-                  sequence="3"/>
+        <menuitem id="inventory_adjustment_report_menu" name="Adjustment Report" parent="setu_inventory_count_management.setu_inventory_reporting_menu" action="setu_inventory_count_management.setu_inventory_adjustment_report_action" sequence="3"/>
     </data>
 </odoo>

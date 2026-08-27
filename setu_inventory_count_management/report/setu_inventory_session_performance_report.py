@@ -7,8 +7,8 @@ class SetuInventorySessionPerformanceReport(models.Model):
     _description = 'Session Performance Report'
     _auto = False
 
-    count_id = fields.Many2one("setu.stock.inventory.count", string="Count")
-    session_id = fields.Many2one("setu.inventory.count.session", string="Session")
+    count_id = fields.Many2one("setu.stock.inventory.count", string="Conteo")
+    session_id = fields.Many2one("setu.inventory.count.session", string="Sesión")
 
     session_start = fields.Datetime("Session Start")
     session_end = fields.Datetime("Session End")
@@ -20,7 +20,7 @@ class SetuInventorySessionPerformanceReport(models.Model):
 
     avg_time_per_product = fields.Float("Avg Time Per Product (hrs)")
     accuracy_ratio = fields.Float("Accuracy Ratio (%)")
-    company_id = fields.Many2one("res.company", string="Company", readonly=True)
+    company_id = fields.Many2one("res.company", string="Compañía", readonly=True)
     def init(self):
         tools.drop_view_if_exists(self.env.cr, self._table)
         self.env.cr.execute(f"""

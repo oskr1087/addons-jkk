@@ -1,0 +1,84 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<odoo>
+    <record id="setu_stock_inventory_count_form_enhanced" model="ir.ui.view">
+        <field name="name">setu.stock.inventory.count.form.enhanced</field>
+        <field name="model">setu.stock.inventory.count</field>
+        <field name="inherit_id" ref="setu_inventory_count_management.setu_stock_inventory_count_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Configuración" name="count_settings" groups="setu_inventory_count_management.group_setu_inventory_count_manager">
+                    <group>
+                        <group string="Política de revisión">
+                            <field name="auto_approve_exact"/>
+                            <field name="auto_approve_tolerance"/>
+                            <field name="tolerance_mode"/>
+                            <field name="tolerance_quantity" invisible="tolerance_mode != 'quantity'"/>
+                            <field name="tolerance_percentage" invisible="tolerance_mode != 'percentage'"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="tolerance_value" invisible="tolerance_mode != 'value'"/>
+                        </group>
+                        <group string="Controles operativos">
+                            <field name="blind_count" widget="boolean_toggle" readonly="state != 'Draft'"/>
+                            <field name="movement_policy" invisible="1"/>
+                            <field name="warehouse_lock_active" widget="boolean_toggle" readonly="1"/>
+                            <field name="warehouse_lock_started_at" readonly="1" invisible="not warehouse_lock_active"/>
+                            <div class="text-muted">
+                                El conteo ciego oculta las cantidades esperadas mientras una sesión está en proceso.
+                                Al iniciar el conteo, todo el almacén queda bloqueado para entradas, salidas,
+                                transferencias, reservas y consumos hasta que el conteo sea aprobado.
+                            </div>
+                        </group>
+                    </group>
+                    <button name="action_apply_review_policy" type="object" string="Aplicar política de revisión automática" class="btn-primary" invisible="state not in ['In Progress', 'To Be Approved']"/>
+                </page>
+            </xpath>
+            <xpath expr="//field[@name='line_ids']/list/field[@name='difference_qty']" position="after">
+                <field name="discrepancy_type" readonly="1" optional="show"/>
+                <field name="within_tolerance" readonly="1" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="inventory_count_session_form_enhanced" model="ir.ui.view">
+        <field name="name">setu.inventory.count.session.form.enhanced</field>
+        <field name="model">setu.inventory.count.session</field>
+        <field name="inherit_id" ref="setu_inventory_count_management.inventory_count_session_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='use_barcode_scanner']" position="after">
+                <field name="blind_count" invisible="1"/>
+                <field name="movement_policy" invisible="1"/>
+            </xpath>
+            <xpath expr="/form/sheet" position="before">
+                <div class="alert alert-info setu_scan_guidance" role="status" invisible="not use_barcode_scanner or state != 'In Progress'">
+                    <strong>Escáner:</strong>
+                    <field name="scan_instruction" class="oe_inline" readonly="1"/>
+                </div>
+            </xpath>
+            <xpath expr="//field[@name='session_line_ids']/list/field[@name='theoretical_qty']" position="attributes">
+                <attribute name="column_invisible">parent.blind_count and parent.state == 'In Progress'</attribute>
+            </xpath>
+            <xpath expr="//field[@name='session_line_ids']/list/field[@name='difference_qty']" position="attributes">
+                <attribute name="column_invisible">parent.blind_count and parent.state == 'In Progress'</attribute>
+            </xpath>
+            <xpath expr="//field[@name='session_line_ids']/list/field[@name='difference_qty']" position="after">
+                <field name="discrepancy_type" readonly="1" optional="show" column_invisible="parent.blind_count and parent.state == 'In Progress'"/>
+                <field name="within_tolerance" readonly="1" optional="show" column_invisible="parent.blind_count and parent.state == 'In Progress'"/>
+                <field name="capture_source" readonly="1" optional="hide"/>
+                <field name="manual_edit_count" readonly="1" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="setu_stock_inventory_count_line_form_enhanced" model="ir.ui.view">
+        <field name="name">setu.stock.inventory.count.line.form.enhanced</field>
+        <field name="model">setu.stock.inventory.count.line</field>
+        <field name="inherit_id" ref="setu_inventory_count_management.setu_stock_inventory_count_line_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='is_discrepancy_found']" position="after">
+                <field name="difference_qty" readonly="1"/>
+                <field name="discrepancy_type" readonly="1"/>
+                <field name="within_tolerance" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

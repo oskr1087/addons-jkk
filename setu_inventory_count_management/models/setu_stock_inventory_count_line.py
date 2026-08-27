@@ -6,38 +6,38 @@ class StockInvCountLine(models.Model):
     _description = 'Stock Inventory Count Line'
 
     is_discrepancy_found = fields.Boolean(compute="_compute_is_discrepancy_found", store=True, depends=['counted_qty'],
-                                          string="Is Discrepancy Found")
-    user_calculation_mistake = fields.Boolean(default=False, string="User Calculation Mistake")
-    is_multi_session = fields.Boolean(default=False, string="Is Multi session")
-    is_system_generated = fields.Boolean(string="System Generated Line")
+                                          string="Hay discrepancia")
+    user_calculation_mistake = fields.Boolean(default=False, string="Error de cálculo del usuario")
+    is_multi_session = fields.Boolean(default=False, string="Es multisesión")
+    is_system_generated = fields.Boolean(string="Línea generada por el sistema")
 
     theoretical_qty = fields.Float(string="Theoretical Qty")
-    qty_in_stock = fields.Float(string="Quantity In Stock")
-    counted_qty = fields.Float(string="Counted Quantity")
+    qty_in_stock = fields.Float(string="Cantidad en existencias")
+    counted_qty = fields.Float(string="Cantidad contada")
 
-    state = fields.Selection([('Pending Review', 'Pending Review'), ('Approve', 'Approve'), ('Reject', 'Reject')],
-                             default="Pending Review", string="State")
+    state = fields.Selection([('Pending Review', 'Pendiente de revisión'), ('Approve', 'Aprobar'), ('Reject', 'Rechazar')],
+                             default="Pending Review", string="Estado")
 
     inventory_count_id = fields.Many2one(comodel_name="setu.stock.inventory.count", string="Inventory Count")
-    product_id = fields.Many2one(comodel_name="product.product", string="Product")
-    location_id = fields.Many2one(comodel_name="stock.location", string="Location")
-    lot_id = fields.Many2one(comodel_name="stock.lot", string="Lot")
+    product_id = fields.Many2one(comodel_name="product.product", string="Producto")
+    location_id = fields.Many2one(comodel_name="stock.location", string="Ubicación")
+    lot_id = fields.Many2one(comodel_name="stock.lot", string="Lote")
 
     session_line_ids = fields.One2many('setu.inventory.count.session.line', 'inventory_count_line_id',
-                                       string="Session Lines")
+                                       string="Líneas de sesión")
 
-    new_count_lot_ids = fields.Many2many('stock.lot', 'new_count_stock_rel', string='New Count Serial Numbers')
+    new_count_lot_ids = fields.Many2many('stock.lot', 'new_count_stock_rel', string='Nuevos números de serie contados')
     serial_number_ids = fields.Many2many('stock.lot', 'setu_stock_inventory_count_line_stock_lot_rel',
-                                         'setu_stock_inventory_count_line_id', 'stock_lot_id', string='Serial Numbers')
+                                         'setu_stock_inventory_count_line_id', 'stock_lot_id', string='Números de serie')
     not_found_serial_number_ids = fields.Many2many('stock.lot', 'not_found_stock_lot_rel', 'count_line_id', 'lot_id',
-                                                   string='Serial Numbers Not Founded')
+                                                   string='Números de serie no encontrados')
 
     tracking = fields.Selection(related="product_id.tracking", string="Tracking")
     user_ids = fields.Many2many('res.users',string='Users')
-    difference_qty = fields.Float(string="Difference", compute="_compute_difference",
-                                  help="Indicates the gap between the product's theoretical quantity and its newest quantity.",
+    difference_qty = fields.Float(string="Diferencia", compute="_compute_difference",
+                                  help="Indica la diferencia entre la cantidad teórica del producto y la cantidad física más reciente.",
                                   readonly=True, digits="Product Unit of Measure", search="_search_difference_qty",store=True)
-    discrepancy_value = fields.Float(string='Discrepancy Value', compute='_compute_discrepancy_value', store=True)
+    discrepancy_value = fields.Float(string='Valor de discrepancia', compute='_compute_discrepancy_value', store=True)
 
     def change_line_state_to_approve(self):
         self.state = 'Approve'

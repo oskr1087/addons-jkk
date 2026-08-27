@@ -11,12 +11,12 @@ class InvSessionDetails(models.Model):
 
     duration = fields.Char(compute="_compute_duration", string="Duration",store=True)
 
-    start_date = fields.Datetime(string="Start Date")
-    end_date = fields.Datetime(string="End Date")
+    start_date = fields.Datetime(string="Fecha inicial")
+    end_date = fields.Datetime(string="Fecha final")
 
     duration_seconds = fields.Integer(compute="_compute_duration", string="Duration seconds",store=True)
 
-    session_id = fields.Many2one(comodel_name="setu.inventory.count.session", string="Session")
+    session_id = fields.Many2one(comodel_name="setu.inventory.count.session", string="Sesión")
 
     @api.depends('start_date', 'end_date')
     def _compute_duration(self):

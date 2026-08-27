@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="setu_inventory_count_management.PDAFastCount">
+        <div class="setu_pda_mobile" t-att-class="state.busy ? 'is-busy' : ''">
+            <t t-if="state.loading">
+                <div class="setu_pda_mobile_loading">
+                    <i class="fa fa-spinner fa-spin" title="Cargando"/>
+                    <strong>Cargando conteo…</strong>
+                </div>
+            </t>
+
+            <t t-else="">
+                <header class="setu_pda_mobile_header">
+                    <button class="setu_pda_mobile_back" t-on-click="goBack" aria-label="Volver">
+                        <i class="fa fa-chevron-left" title="Volver"/>
+                    </button>
+                    <div class="setu_pda_mobile_header_title">
+                        <small>CONTEO PDA</small>
+                        <strong t-esc="state.data.name"/>
+                    </div>
+                    <div class="setu_pda_mobile_connection" title="Lector activo">
+                        <span class="setu_pda_mobile_connection_dot"/>
+                    </div>
+                </header>
+
+                <main class="setu_pda_mobile_body">
+                    <!-- Ubicación siempre visible -->
+                    <section class="setu_pda_mobile_location">
+                        <div class="setu_pda_mobile_location_icon">
+                            <i class="fa fa-map-marker" title="Ubicación"/>
+                        </div>
+                        <div>
+                            <small>UBICACIÓN ACTUAL</small>
+                            <strong t-esc="state.data.location ? state.data.location.name : 'Sin ubicación'"/>
+                        </div>
+                        <div class="setu_pda_mobile_counter">
+                            <strong t-esc="state.data.counted || 0"/>
+                            <small>registrados</small>
+                        </div>
+                    </section>
+
+                    <!-- Duplicado: debe dominar toda la pantalla -->
+                    <section t-if="state.data.duplicate_warning" class="setu_pda_mobile_duplicate">
+                        <div class="setu_pda_mobile_duplicate_icon">
+                            <i class="fa fa-exclamation-triangle" title="Ya escaneado"/>
+                        </div>
+                        <div>
+                            <span>YA ESCANEADO</span>
+                            <strong t-esc="state.data.feedback"/>
+                            <small>No se creó una nueva línea. Continúe con el siguiente lote.</small>
+                        </div>
+                    </section>
+
+                    <!-- Feedback normal -->
+                    <section t-elif="state.data.feedback"
+                             class="setu_pda_mobile_feedback"
+                             t-att-class="'is-' + (state.data.feedback_type || 'info')">
+                        <i t-if="state.data.feedback_type === 'success'"
+                           class="fa fa-check-circle" title="Correcto"/>
+                        <i t-elif="state.data.feedback_type === 'warning'"
+                           class="fa fa-exclamation-triangle" title="Advertencia"/>
+                        <i t-elif="state.data.feedback_type === 'danger'"
+                           class="fa fa-times-circle" title="Error"/>
+                        <i t-else="" class="fa fa-info-circle" title="Información"/>
+                        <span t-esc="state.data.feedback"/>
+                    </section>
+
+                    <!-- Estado principal de lectura -->
+                    <section t-if="state.data.running and !state.data.product"
+                             class="setu_pda_mobile_scan">
+                        <div class="setu_pda_mobile_scan_icon">
+                            <i class="fa fa-qrcode" title="QR o código de barras"/>
+                        </div>
+                        <span>LISTO PARA ESCANEAR</span>
+                        <strong>Escanee el QR o código del lote</strong>
+                        <small>
+                            El QR puede contener Artículo / Lote / Cantidad.
+                            Use el gatillo de la PDA.
+                        </small>
+                        <div class="setu_pda_mobile_reader_status">
+                            <span class="setu_pda_mobile_reader_dot"/>
+                            Lector activo
+                        </div>
+                    </section>
+
+                    <!-- Producto/lote actual -->
+                    <section t-if="state.data.product" class="setu_pda_mobile_product">
+                        <div class="setu_pda_mobile_product_title">
+                            <span>PRODUCTO IDENTIFICADO</span>
+                            <h2 t-esc="state.data.product.name"/>
+                        </div>
+
+                        <div class="setu_pda_mobile_product_data">
+                            <div>
+                                <span>ARTÍCULO</span>
+                                <strong t-esc="state.data.product.barcode || '-'"/>
+                            </div>
+                            <div t-if="state.data.lot">
+                                <span>LOTE</span>
+                                <strong t-esc="state.data.lot.name"/>
+                            </div>
+                        </div>
+
+                        <div t-if="state.data.qr_detected" class="setu_pda_mobile_qr_ok">
+                            <i class="fa fa-qrcode" title="QR leído"/>
+                            <div>
+                                <strong>QR leído correctamente</strong>
+                                <span>
+                                    Producto, lote y cantidad identificados en una sola lectura.
+                                </span>
+                            </div>
+                        </div>
+
+                        <div t-if="state.data.can_set_qty" class="setu_pda_mobile_qty">
+                            <div class="setu_pda_mobile_qty_header">
+                                <span>CANTIDAD FÍSICA</span>
+                                <small t-if="state.data.qr_detected">
+                                    QR: <b t-esc="state.data.qr_quantity"/>
+                                </small>
+                            </div>
+
+                            <input type="number"
+                                   min="0"
+                                   inputmode="decimal"
+                                   enterkeyhint="done"
+                                   class="setu_pda_mobile_qty_input"
+                                   t-att-value="state.quantity"
+                                   t-on-input="onQuantityInput"/>
+
+                            <div class="setu_pda_mobile_qty_buttons">
+                                <button type="button" t-on-click="quantityMinus">−1</button>
+                                <button type="button" t-on-click="quantityZero">0</button>
+                                <button type="button" t-on-click="quantityPlus">+1</button>
+                            </div>
+
+                            <button class="btn btn-primary setu_pda_mobile_confirm"
+                                    t-on-click="confirmQuantity"
+                                    t-att-disabled="state.busy ? true : undefined">
+                                <i class="fa fa-check" title="Confirmar"/>
+                                CONFIRMAR CANTIDAD
+                            </button>
+                        </div>
+
+                        <div t-if="state.data.is_serial" class="setu_pda_mobile_serial_hint">
+                            Escanee el siguiente número de serie.
+                        </div>
+
+                        <button class="setu_pda_mobile_cancel"
+                                t-on-click="clearItem"
+                                t-att-disabled="state.busy ? true : undefined">
+                            Cancelar lectura
+                        </button>
+                    </section>
+
+                    <!-- Acciones primarias de sesión -->
+                    <section t-if="state.data.current_state === 'Created'" class="setu_pda_mobile_start">
+                        <i class="fa fa-play-circle" title="Iniciar"/>
+                        <strong>La sesión está lista</strong>
+                        <span>Pulse iniciar para comenzar a escanear.</span>
+                        <button class="btn btn-primary" t-on-click="startSession">INICIAR CONTEO</button>
+                    </section>
+
+                    <section t-if="state.data.paused" class="setu_pda_mobile_start">
+                        <i class="fa fa-pause-circle" title="Pausado"/>
+                        <strong>Conteo pausado</strong>
+                        <span>Reanude para continuar con las lecturas.</span>
+                        <button class="btn btn-primary" t-on-click="resumeSession">REANUDAR</button>
+                    </section>
+
+                    <!-- Últimas lecturas: secundaria y compacta -->
+                    <details t-if="state.data.recent &amp;&amp; state.data.recent.length"
+                             class="setu_pda_mobile_recent">
+                        <summary>
+                            Últimos registros
+                            <span t-esc="state.data.recent.length"/>
+                        </summary>
+                        <t t-foreach="state.data.recent" t-as="line" t-key="line.id">
+                            <div class="setu_pda_mobile_recent_line">
+                                <div>
+                                    <strong t-esc="line.product"/>
+                                    <small t-if="line.lot">Lote: <t t-esc="line.lot"/></small>
+                                </div>
+                                <b t-esc="line.qty"/>
+                            </div>
+                        </t>
+                    </details>
+
+                    <!-- Simulación solo como herramienta secundaria -->
+                    <details t-if="state.data.running" class="setu_pda_mobile_simulator">
+                        <summary>Simular lectura desde celular</summary>
+                        <input type="text"
+                               autocomplete="off"
+                               enterkeyhint="done"
+                               placeholder="Artículo/Lote/Cantidad"
+                               t-att-value="state.manualBarcode"
+                               t-on-input="onManualBarcodeInput"
+                               t-on-keydown="onManualBarcodeKeydown"/>
+                        <button class="btn btn-secondary" t-on-click="processManualBarcode">
+                            Procesar código
+                        </button>
+                    </details>
+                </main>
+
+                <!-- Barra fija inferior, pensada para pulgar -->
+                <footer t-if="state.data.running" class="setu_pda_mobile_footer">
+                    <button class="btn btn-secondary" t-on-click="pauseSession">
+                        <i class="fa fa-pause" title="Pausar"/> Pausar
+                    </button>
+                    <button class="btn btn-primary" t-on-click="submitSession">
+                        <i class="fa fa-check" title="Finalizar"/> Finalizar
+                    </button>
+                </footer>
+
+                <footer t-if="state.data.finished" class="setu_pda_mobile_footer is-single">
+                    <button class="btn btn-primary" t-on-click="goBack">
+                        <i class="fa fa-arrow-left" title="Volver"/> Volver a sesiones
+                    </button>
+                </footer>
+            </t>
+        </div>
+    </t>
+</templates>

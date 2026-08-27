@@ -11,55 +11,97 @@ class StockInvCount(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin', 'portal.mixin']
     _description = 'Stock Inventory Count'
 
-    use_barcode_scanner = fields.Boolean(default=False, string="Use barcode scanner")
-    non_cancelled_session = fields.Boolean(compute="_compute_non_cancelled_session", string="Non cancelled session")
-    start_inventory_bool = fields.Boolean(compute="_compute_start_inventory_bool", string="Is Start Inventory")
-    create_count_bool = fields.Boolean(compute="_compute_create_count_bool", string="Create Count")
-    create_session_bool = fields.Boolean(compute="_compute_create_session_bool", string="Is Create Session")
+    use_barcode_scanner = fields.Boolean(default=False, string="Usar escáner de códigos")
+    non_cancelled_session = fields.Boolean(compute="_compute_non_cancelled_session", string="Sesión no cancelada")
+    start_inventory_bool = fields.Boolean(compute="_compute_start_inventory_bool", string="Inventario iniciado")
+    create_count_bool = fields.Boolean(compute="_compute_create_count_bool", string="Crear conteo")
+    create_session_bool = fields.Boolean(compute="_compute_create_session_bool", string="Crear sesión")
 
-    name = fields.Char(string="Name")
+    name = fields.Char(string="Nombre")
 
-    inventory_count_date = fields.Date(default=fields.Datetime.now, string="Date")
+    inventory_count_date = fields.Date(default=fields.Datetime.now, string="Fecha")
 
-    count_session_ids = fields.Integer(compute="_compute_count_session_ids", string="Session Count")
-    re_count_ids = fields.Integer(compute="_compute_count_ids", string="Re-Count")
-    rejected_lines_count = fields.Integer(compute="_compute_rejected_lines_count", string="Rejected lines count")
+    count_session_ids = fields.Integer(compute="_compute_count_session_ids", string="Cantidad de sesiones")
+    re_count_ids = fields.Integer(compute="_compute_count_ids", string="Reconteo")
+    rejected_lines_count = fields.Integer(compute="_compute_rejected_lines_count", string="Cantidad de líneas rechazadas")
 
-    discrepancy_ratio = fields.Float(compute="_compute_discrepancy_ratio", string="Discrepancy Ratio",store=True)
-    user_mistake_ratio = fields.Float(compute="_compute_user_mistake_ratio", string="User Mistake Ration",store=True)
+    discrepancy_ratio = fields.Float(compute="_compute_discrepancy_ratio", string="Porcentaje de discrepancia",store=True)
+    user_mistake_ratio = fields.Float(compute="_compute_user_mistake_ratio", string="Porcentaje de errores del usuario",store=True)
 
-    state = fields.Selection(selection=[('Rejected', 'Rejected'), ('Draft', 'Draft'),
-                                        ('In Progress', 'In Progress'), ('To Be Approved', 'To Be Approved'),
-                                        ('Approved', 'Approved'), ('Inventory Adjusted', 'Inventory Adjusted'),
-                                        ('Cancel', 'Cancel')], default="Draft", string="State")
-    type = fields.Selection([('Single Session', 'Single Session'), ('Multi Session', 'Multi Session')],
-                            default='Single Session', required=True, string="Type")
+    state = fields.Selection(selection=[('Rejected', 'Rechazado'), ('Draft', 'Borrador'),
+                                        ('In Progress', 'En progreso'), ('To Be Approved', 'Por aprobar'),
+                                        ('Approved', 'Aprobado'), ('Inventory Adjusted', 'Inventario ajustado'),
+                                        ('Cancel', 'Cancelado')], default="Draft", string="Estado")
+    type = fields.Selection([('Single Session', 'Sesión única'), ('Multi Session', 'Múltiples sesiones')],
+                            default='Single Session', required=True, string="Tipo")
 
-    location_id = fields.Many2one(comodel_name="stock.location", string="Location")
-    warehouse_id = fields.Many2one(comodel_name="stock.warehouse", string="Warehouse")
-    approver_id = fields.Many2one(comodel_name="res.users", string="Approver")
-    user_id = fields.Many2one(comodel_name="res.users", default=lambda self: self.env.user.id, string="User")
-    planner_id = fields.Many2one(comodel_name="setu.stock.inventory.count.planner", string='Planner', readonly=True)
-    count_id = fields.Many2one(comodel_name="setu.stock.inventory.count", readonly=True, copy=False, string="Count")
+    location_id = fields.Many2one(comodel_name="stock.location", string="Ubicación")
+    warehouse_id = fields.Many2one(comodel_name="stock.warehouse", string="Almacén")
+    approver_id = fields.Many2one(comodel_name="res.users", string="Controlador", default=lambda self: self._default_approver())
+    user_id = fields.Many2one(comodel_name="res.users", default=lambda self: self.env.user.id, string="Usuario")
+    planner_id = fields.Many2one(comodel_name="setu.stock.inventory.count.planner", string='Planificador', readonly=True)
+    count_id = fields.Many2one(comodel_name="setu.stock.inventory.count", readonly=True, copy=False, string="Conteo")
 
 
-    line_ids = fields.One2many('setu.stock.inventory.count.line', 'inventory_count_id', string="Inventory Count Lines")
-    session_ids = fields.One2many('setu.inventory.count.session', 'inventory_count_id', string="Sessions Details")
+    line_ids = fields.One2many('setu.stock.inventory.count.line', 'inventory_count_id', string="Líneas de conteo de inventario")
+    session_ids = fields.One2many('setu.inventory.count.session', 'inventory_count_id', string="Detalles de sesiones")
     inventory_adj_ids = fields.One2many('setu.stock.inventory', 'inventory_count_id',
-                                        string="Inventory Adjustment Details")
-    count_ids = fields.One2many('setu.stock.inventory.count', 'count_id', copy=False, string='Counts')
-    stock_move_line_ids = fields.One2many('stock.move.line', 'count_id', string="Move Line")
+                                        string="Detalles del ajuste de inventario")
+    count_ids = fields.One2many('setu.stock.inventory.count', 'count_id', copy=False, string='Conteos')
+    stock_move_line_ids = fields.One2many('stock.move.line', 'count_id', string="Línea de movimiento")
 
-    locations_ids = fields.Many2many('stock.location', string='Locations', compute='_compute_warehouse_id', store=True)
-    product_ids = fields.Many2many(comodel_name="product.product", string="Products")
-    approver_ids = fields.Many2many(comodel_name="res.users", compute='_compute_approver_id', store=True,string="Approvers")
-    company_id = fields.Many2one(comodel_name="res.company", related="warehouse_id.company_id", string="Company",
+    locations_ids = fields.Many2many('stock.location', string='Ubicaciones', compute='_compute_warehouse_id', store=True)
+    product_ids = fields.Many2many(comodel_name="product.product", string="Productos")
+    approver_ids = fields.Many2many(comodel_name="res.users", compute='_compute_approver_id', string="Controladores")
+    company_id = fields.Many2one(comodel_name="res.company", related="warehouse_id.company_id", string="Compañía",
                                  store=True)
+
+    def _get_approver_candidates(self, company=None):
+        """Return active inventory controllers visible for the count company.
+
+        sudo() is intentional here: record rules on res.users must not make the
+        controller selector intermittently empty for warehouse users.
+        """
+        manager_group = self.env.ref(
+            'setu_inventory_count_management.group_setu_inventory_count_manager'
+        )
+        company = company or self.env.company
+        domain = [
+            ('active', '=', True),
+            ('share', '=', False),
+            ('group_ids', 'in', manager_group.id),
+        ]
+        if company:
+            domain.append(('company_ids', 'in', company.id))
+
+        users = self.env['res.users'].sudo().search(domain, order='name, id')
+
+        # The user creating the count must remain selectable when they are a
+        # controller and have access to the selected company.
+        current = self.env.user
+        if (
+            current.active
+            and not current.share
+            and current.has_group(
+                'setu_inventory_count_management.group_setu_inventory_count_manager'
+            )
+            and (not company or company in current.company_ids)
+        ):
+            users |= current
+        return users.sorted(key=lambda user: (user.name or '', user.id))
+
+    def _default_approver(self):
+        candidates = self._get_approver_candidates(self.env.company)
+        if self.env.user in candidates:
+            return self.env.user.id
+        return candidates[:1].id if candidates else False
 
     @api.constrains('inventory_count_date')
     def _check_inventory_count_date(self):
-        if self.inventory_count_date < Date.today():
-            raise ValidationError(_('You cannot select date from past.'))
+        today = Date.today()
+        for rec in self:
+            if rec.inventory_count_date and rec.inventory_count_date < today:
+                raise ValidationError(_('No puede seleccionar una fecha anterior.'))
 
     def _compute_non_cancelled_session(self):
         for rec in self:
@@ -71,7 +113,7 @@ class StockInvCount(models.Model):
     def complete_counting(self):
         if self.session_ids.filtered(lambda s: s.state not in ('Cancel', 'Done')):
             raise ValidationError(_(
-                "Please submit and validate all the incomplete sessions before completing the counting."))
+                "Envíe y valide todas las sesiones incompletas antes de completar el conteo."))
         self.state = 'To Be Approved'
 
     def _compute_discrepancy_ratio(self):
@@ -108,23 +150,27 @@ class StockInvCount(models.Model):
 
     def _compute_user_mistake_ratio(self):
         for rec in self:
-            if rec.line_ids:
-                product_user_mistake_dict = dict()
-                for line in rec.line_ids:
-                    product_id = line.product_id.id
-                    if product_id in product_user_mistake_dict:
-                        if line.user_calculation_mistake:
-                            product_user_mistake_dict.update({product_id: True})
-                    else:
-                        product_user_mistake_dict.update({product_id: line.user_calculation_mistake})
-                number_of_products = len(product_user_mistake_dict.keys())
-                user_mistake_products = 0
-                for product, user_mistake_bool in product_user_mistake_dict.items():
-                    if user_mistake_bool:
-                        user_mistake_products += 1
-                ratio = user_mistake_products * 100 / number_of_products
-                rec.user_mistake_ratio = ratio
             rec.user_mistake_ratio = 0
+            if not rec.line_ids:
+                continue
+
+            product_user_mistake_dict = {}
+            for line in rec.line_ids:
+                product_id = line.product_id.id
+                if product_id in product_user_mistake_dict:
+                    if line.user_calculation_mistake:
+                        product_user_mistake_dict[product_id] = True
+                else:
+                    product_user_mistake_dict[product_id] = line.user_calculation_mistake
+
+            number_of_products = len(product_user_mistake_dict)
+            if number_of_products:
+                user_mistake_products = sum(
+                    1 for mistake in product_user_mistake_dict.values() if mistake
+                )
+                rec.user_mistake_ratio = (
+                    user_mistake_products * 100 / number_of_products
+                )
 
     def approve_all_lines(self):
         message = "Are you sure that you want to Approve all session lines? (Even rejected lines will also be approved)"
@@ -239,25 +285,24 @@ class StockInvCount(models.Model):
 
     def _compute_create_count_bool(self):
         for rec in self:
-            if self.state in ('To Be Approved', 'Done') and self.rejected_lines_count > 0:
-                rec.create_count_bool = True
-            else:
-                rec.create_count_bool = False
+            rec.create_count_bool = bool(
+                rec.state in ('To Be Approved', 'Done')
+                and rec.rejected_lines_count > 0
+            )
 
     def _compute_create_session_bool(self):
         for rec in self:
-            if rec.state in ('Draft', 'In Progress'):
-                if self.type == 'Single Session':
-                    session = self.session_ids.filtered(lambda l: l.state not in ('Cancel'))
-
-                    if not session:
-                        self.create_session_bool = True
-                    else:
-                        self.create_session_bool = False
-                else:
-                    self.create_session_bool = True
-            else:
+            if rec.state not in ('Draft', 'In Progress'):
                 rec.create_session_bool = False
+                continue
+
+            if rec.type == 'Single Session':
+                active_sessions = rec.session_ids.filtered(
+                    lambda session: session.state != 'Cancel'
+                )
+                rec.create_session_bool = not bool(active_sessions)
+            else:
+                rec.create_session_bool = True
 
     def _compute_start_inventory_bool(self):
         for rec in self:
@@ -287,16 +332,28 @@ class StockInvCount(models.Model):
         return action
 
     def action_open_sessions(self):
+        """Always open count sessions in Kanban, even when there is only one."""
         sessions_to_open = self.session_ids
-        action = self.sudo().env.ref('setu_inventory_count_management.inventory_count_session_act_window').read()[0]
-        if len(sessions_to_open) > 1:
-            action['domain'] = [('id', 'in', sessions_to_open.ids)]
-        elif len(sessions_to_open) == 1:
-            action['views'] = [
-                (self.sudo().env.ref('setu_inventory_count_management.inventory_count_session_form_view').id, 'form')]
-            action['res_id'] = sessions_to_open.ids[0]
-        else:
-            action = {'type': 'ir.actions.act_window_close'}
+        if not sessions_to_open:
+            return {'type': 'ir.actions.act_window_close'}
+
+        action = self.sudo().env.ref(
+            'setu_inventory_count_management.inventory_count_session_act_window'
+        ).read()[0]
+        action['domain'] = [('id', 'in', sessions_to_open.ids)]
+        action['view_mode'] = 'kanban,list,form'
+        action['views'] = [
+            (self.sudo().env.ref(
+                'setu_inventory_count_management.setu_inventory_count_session_kanban_view'
+            ).id, 'kanban'),
+            (self.sudo().env.ref(
+                'setu_inventory_count_management.inventory_count_session_tree_view'
+            ).id, 'list'),
+            (self.sudo().env.ref(
+                'setu_inventory_count_management.inventory_count_session_form_view'
+            ).id, 'form'),
+        ]
+        action.pop('res_id', None)
         return action
 
     def action_open_counts(self):
@@ -314,10 +371,30 @@ class StockInvCount(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        seq = self.env['ir.sequence'].next_by_code('setu.inventory.count.seq')
         for vals in vals_list:
-            vals.update({'name': seq})
-        return super(StockInvCount, self).create(vals_list)
+            vals['name'] = self.env['ir.sequence'].next_by_code('setu.inventory.count.seq')
+            warehouse = self.env['stock.warehouse'].browse(vals.get('warehouse_id'))
+            company = warehouse.company_id or self.env.company
+            candidates = self._get_approver_candidates(company)
+
+            approver = self.env['res.users'].browse(vals.get('approver_id')).exists()
+            if not approver or approver not in candidates:
+                preferred = self.env.user if self.env.user in candidates else candidates[:1]
+                if preferred:
+                    vals['approver_id'] = preferred.id
+
+        records = super(StockInvCount, self).create(vals_list)
+        for record in records.filtered(lambda count: not count.approver_id):
+            raise ValidationError(_(
+                "No existe un usuario controlador activo para la compañía %s. "
+                "Asigne al menos un usuario al grupo Responsable de Conteo de Inventario."
+            ) % (record.company_id.display_name or self.env.company.display_name))
+
+        # 6.8.0: cada conteo conserva su propia fotografía persistente del stock.
+        # Se prepara una sola vez al crear el documento; las sesiones solo
+        # alimentan este universo y el panel deja de consultar stock.quant.
+        records.filtered(lambda count: count.warehouse_id and count.location_id)._prepare_inventory_snapshot()
+        return records
 
     def create_session(self):
         if self.type == 'Multi Session':
@@ -375,7 +452,7 @@ class StockInvCount(models.Model):
         session_states = session_ids.mapped('state')
         if any(state in session_states for state in ('Draft', 'In Progress', 'Submitted')):
             raise ValidationError(
-                _("Please validate all sessions before approving the Inventory Count.")
+                _("Valide todas las sesiones antes de aprobar el conteo.")
             )
 
         # Check count lines for pending review or rejection
@@ -415,7 +492,7 @@ class StockInvCount(models.Model):
             try:
                 self.message_post(
                     body=Markup("<div style='color:red; margin:10px 30px;;'>&bull; %s <strong>%s</strong>%s</div>") % (
-                        _('Discrepancy found.'),
+                        _('Se encontró una discrepancia.'),
                         _('Inventory Adjustment'),
                         _(' is created.')
                     ))
@@ -426,7 +503,7 @@ class StockInvCount(models.Model):
                 self.message_post(
                     body=Markup(
                         "<div style='color:green; margin:10px 30px;;'>&bull; %s <strong>%s</strong> %s</div>") % (
-                             _('No discrepancy found.'),
+                             _('No se encontraron discrepancias.'),
                              _('Inventory Adjustment'),
                              _('is not created.')
                          ))
@@ -554,17 +631,16 @@ class StockInvCount(models.Model):
     @api.onchange('warehouse_id')
     def onchange_warehouse_id(self):
         if self.warehouse_id:
-            return {'value': {
-                'location_id': self.warehouse_id.lot_stock_id.id}}
+            candidates = self._get_approver_candidates(self.warehouse_id.company_id)
+            if self.approver_id not in candidates:
+                self.approver_id = self.env.user if self.env.user in candidates else candidates[:1]
+            self.location_id = self.warehouse_id.lot_stock_id
 
-    @api.depends('approver_id')
+    @api.depends('warehouse_id', 'company_id')
     def _compute_approver_id(self):
         for record in self:
-            users = self.env['res.users'].search([('group_ids', 'in', self.env.ref(
-                'setu_inventory_count_management.group_setu_inventory_count_manager').id),
-                                                  ('company_ids', 'in', self.env.companies.ids)])
-            ids = users.ids if users else []
-            record.approver_ids = ids
+            company = record.company_id or record.warehouse_id.company_id or self.env.company
+            record.approver_ids = record._get_approver_candidates(company)
 
     @api.model
     def get_counted_products(self, domain, user_ids=None):

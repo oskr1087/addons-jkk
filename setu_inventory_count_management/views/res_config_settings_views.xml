@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <odoo>
     <data>
         <record id="res_config_settings_view_form" model="ir.ui.view">
@@ -8,8 +8,8 @@
             <field name="priority" eval="50"/>
             <field name="arch" type="xml">
                 <xpath expr="//form" position="inside">
-                    <app id="inventory_count" name="setu_inventory_count_management" string="Inventory Count">
-                        <block string="Inventory">
+                    <app id="inventory_count" name="setu_inventory_count_management" string="Conteo de inventario">
+                        <block string="Inventario">
                             <setting id="auto_inventory_adjustment_setting">
                                 <field name="auto_inventory_adjustment"/>
                                 <label for="auto_inventory_adjustment"/>
@@ -30,10 +30,7 @@
             <field name="context">{'module' : 'setu_inventory_count_management', 'bin_size': False}</field>
         </record>
 
-        <menuitem sequence="1" name="Settings"
-                  id="inventory_count_settings_menu" parent="setu_inventory_count_management.main_configuration_menu"
-                  groups="setu_inventory_count_management.group_setu_inventory_count_manager"
-                  action="setu_inventory_count_management_config_settings_action"/>
+        <menuitem sequence="1" name="Settings" id="inventory_count_settings_menu" parent="setu_inventory_count_management.main_configuration_menu" groups="setu_inventory_count_management.group_setu_inventory_count_manager" action="setu_inventory_count_management_config_settings_action"/>
 
     </data>
 </odoo>

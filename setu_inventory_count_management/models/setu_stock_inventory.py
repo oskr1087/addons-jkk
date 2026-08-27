@@ -6,30 +6,30 @@ class StockInventory(models.Model):
     _name = 'setu.stock.inventory'
     _description = 'Setu Stock Inventory'
 
-    name = fields.Char(string="Name")
+    name = fields.Char(string="Nombre")
 
-    date = fields.Date(string="Inventory Date")
+    date = fields.Date(string="Fecha de inventario")
 
     state = fields.Selection(string='Status', selection=[
-        ('draft', 'Draft'), ('cancel', 'Cancelled'),
-        ('confirm', 'In Progress'), ('done', 'Validated')], copy=False, index=True, readonly=True, default='draft')
+        ('draft', 'Borrador'), ('cancel', 'Cancelado'),
+        ('confirm', 'En progreso'), ('done', 'Validado')], copy=False, index=True, readonly=True, default='draft')
 
     inventory_count_id = fields.Many2one(comodel_name="setu.stock.inventory.count", string="Inventory Count")
-    location_id = fields.Many2one(comodel_name="stock.location", required=True, string="Location")
+    location_id = fields.Many2one(comodel_name="stock.location", required=True, string="Ubicación")
     partner_id = fields.Many2one(comodel_name="res.users",
-                                 string="Inventoried Owner", readonly=True,
-                                 help="Specify Owner to focus your inventory on a particular Owner.")
-    company_id = fields.Many2one(comodel_name="res.company", string="Company",
+                                 string="Propietario inventariado", readonly=True,
+                                 help="Especifique un propietario para limitar el inventario a dicho propietario.")
+    company_id = fields.Many2one(comodel_name="res.company", string="Compañía",
                                  readonly=True, index=True, required=True, default=lambda self: self.env.company)
 
-    line_ids = fields.One2many('setu.stock.inventory.line', 'inventory_id', string='Inventories', copy=True,
+    line_ids = fields.One2many('setu.stock.inventory.line', 'inventory_id', string='Inventarios', copy=True,
                                readonly=False)
     move_ids = fields.One2many('stock.move', 'inventory_adj_id', readonly=True, string="Moves")
 
-    product_ids = fields.Many2many('product.product', string='Products', check_company=True,
+    product_ids = fields.Many2many('product.product', string='Productos', check_company=True,
                                    domain="[('type', '=', 'product'), '|', ('company_id', '=', False), ('company_id', '=', company_id)]",
                                    readonly=True,
-                                   help="Specify Products to focus your inventory on particular Products.")
+                                   help="Especifique productos para limitar el inventario a esos productos.")
 
     def action_cancel(self):
         if self.inventory_count_id:

@@ -1,11 +1,11 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <odoo>
     <data>
         <record id="setu_inventory_user_states_report_tree_view" model="ir.ui.view">
             <field name="name">setu.inventory.user.states.report.tree.view</field>
             <field name="model">setu.inventory.user.states.report</field>
             <field name="arch" type="xml">
-                <list string="Inventory Session" create="0" edit="0" delete="0">
+                <list string="Sesión de inventario" create="0" edit="0" delete="0">
                     <field name="user_id"/>
                     <field name="sessions"/>
                     <field name="mistake_sessions"/>
@@ -20,7 +20,7 @@
             <field name="name">setu.inventory.user.states.report.graph.view</field>
             <field name="model">setu.inventory.user.states.report</field>
             <field name="arch" type="xml">
-                <graph string="User Statistics Graph" type="bar" stacked="False">
+                <graph string="Gráfico de estadísticas de usuarios" type="bar" stacked="False">
                     <field name="user_id" type="row"/>
                     <field name="user_mistake_ratio" type="measure"/>
                 </graph>
@@ -32,8 +32,8 @@
             <field name="name">setu.inventory.user.states.report.search.view</field>
             <field name="model">setu.inventory.user.states.report</field>
             <field name="arch" type="xml">
-                <search string="Inventory User Statistics Report">
-                    <field name="user_id" string="User"/>
+                <search string="Reporte de estadísticas de usuarios">
+                    <field name="user_id" string="Usuario"/>
                 </search>
             </field>
         </record>
@@ -60,9 +60,6 @@
             <field name="code">action = model.generate_report()</field>
         </record>
 
-        <menuitem name="User Statistics Report" id="setu_inventory_user_states_report_menu"
-                  parent="setu_inventory_count_management.setu_inventory_reporting_menu"
-                  action="setu_inventory_count_management.setu_inventory_user_states_report_sever_action"
-        sequence="4"/>
+        <menuitem name="User Statistics Report" id="setu_inventory_user_states_report_menu" parent="setu_inventory_count_management.setu_inventory_reporting_menu" action="setu_inventory_count_management.setu_inventory_user_states_report_sever_action" sequence="4"/>
     </data>
 </odoo>
