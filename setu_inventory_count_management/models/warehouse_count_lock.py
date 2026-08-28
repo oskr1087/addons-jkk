@@ -60,6 +60,13 @@ class StockInventoryCountWarehouseLock(models.Model):
         string="Almacén bloqueado desde",
         compute="_compute_warehouse_lock_info",
     )
+    warehouse_lock_manual_disabled = fields.Boolean(
+        string="Bloqueo desactivado por administrador",
+        default=False,
+        copy=False,
+        readonly=True,
+        help="Permite al administrador desactivar temporalmente el bloqueo del almacén durante un conteo activo.",
+    )
 
     @api.depends("warehouse_id", "state")
     def _compute_warehouse_lock_info(self):
@@ -81,6 +88,8 @@ class StockInventoryCountWarehouseLock(models.Model):
     def _activate_warehouse_lock(self):
         Lock = self.env["setu.inventory.count.warehouse.lock"].sudo()
         for count in self:
+            if count.warehouse_lock_manual_disabled and not self.env.context.get("force_warehouse_lock"):
+                continue
             if not count.warehouse_id:
                 raise ValidationError(
                     _("Debe seleccionar un almacén antes de iniciar el conteo.")
@@ -128,6 +137,59 @@ class StockInventoryCountWarehouseLock(models.Model):
             locks.unlink()
         return True
 
+    def _check_warehouse_lock_admin(self):
+        if not self.env.user.has_group(
+            "setu_inventory_count_management.group_setu_inventory_count_admin"
+        ):
+            raise ValidationError(
+                _("Solo un administrador de Conteo de Inventarios puede cambiar manualmente el bloqueo del almacén.")
+            )
+
+    def action_admin_unlock_warehouse(self):
+        self._check_warehouse_lock_admin()
+        for count in self:
+            if count.state not in ACTIVE_COUNT_STATES:
+                raise ValidationError(
+                    _("El desbloqueo manual solo aplica a conteos activos o pendientes de aprobación.")
+                )
+            was_locked = bool(count._warehouse_lock_record())
+            count._release_warehouse_lock()
+            count.with_context(setu_admin_lock_change=True).write({
+                "warehouse_lock_manual_disabled": True,
+            })
+            if was_locked:
+                count.message_post(
+                    body=_(
+                        "El administrador %(user)s desbloqueó manualmente el almacén %(warehouse)s durante el conteo. "
+                        "Los movimientos quedan habilitados hasta reactivar el bloqueo o finalizar el conteo."
+                    ) % {
+                        "user": self.env.user.display_name,
+                        "warehouse": count.warehouse_id.display_name,
+                    }
+                )
+        return True
+
+    def action_admin_lock_warehouse(self):
+        self._check_warehouse_lock_admin()
+        for count in self:
+            if count.state not in ACTIVE_COUNT_STATES:
+                raise ValidationError(
+                    _("El bloqueo manual solo aplica a conteos activos o pendientes de aprobación.")
+                )
+            count.with_context(setu_admin_lock_change=True).write({
+                "warehouse_lock_manual_disabled": False,
+            })
+            count.with_context(force_warehouse_lock=True)._activate_warehouse_lock()
+            count.message_post(
+                body=_(
+                    "El administrador %(user)s reactivó manualmente el bloqueo del almacén %(warehouse)s."
+                ) % {
+                    "user": self.env.user.display_name,
+                    "warehouse": count.warehouse_id.display_name,
+                }
+            )
+        return True
+
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
@@ -137,6 +199,8 @@ class StockInventoryCountWarehouseLock(models.Model):
         return records
 
     def write(self, vals):
+        if "warehouse_lock_manual_disabled" in vals and not self.env.context.get("setu_admin_lock_change"):
+            self._check_warehouse_lock_admin()
         if "warehouse_id" in vals:
             locked = self.filtered(lambda count: bool(count._warehouse_lock_record()))
             if locked:
@@ -153,6 +217,11 @@ class StockInventoryCountWarehouseLock(models.Model):
 
         if new_state in RELEASE_COUNT_STATES:
             self._release_warehouse_lock()
+            manual_disabled = self.filtered("warehouse_lock_manual_disabled")
+            if manual_disabled:
+                super(StockInventoryCountWarehouseLock, manual_disabled).write({
+                    "warehouse_lock_manual_disabled": False,
+                })
 
         return result
 

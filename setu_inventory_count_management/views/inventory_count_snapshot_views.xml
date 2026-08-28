@@ -130,6 +130,23 @@
                             <span class="o_setu_count_eyebrow">CONTROL DEL CONTEO</span>
                             <h2>Avance físico del inventario</h2>
                         </div>
+                        <div class="d-flex justify-content-end gap-2 mb-2"
+                             groups="setu_inventory_count_management.group_setu_inventory_count_admin"
+                             invisible="state not in ['In Progress', 'To Be Approved']">
+                            <button name="action_admin_unlock_warehouse" type="object"
+                                    string="Desbloquear almacén" class="btn btn-outline-danger"
+                                    icon="fa-unlock" invisible="not warehouse_lock_active"/>
+                            <button name="action_admin_lock_warehouse" type="object"
+                                    string="Bloquear almacén" class="btn btn-outline-success"
+                                    icon="fa-lock" invisible="warehouse_lock_active"/>
+                        </div>
+                        <div class="alert alert-warning py-2"
+                             groups="setu_inventory_count_management.group_setu_inventory_count_admin"
+                             invisible="not warehouse_lock_manual_disabled">
+                            <i class="fa fa-unlock me-1" title="Bloqueo desactivado"/>
+                            Bloqueo del almacén desactivado manualmente por un administrador.
+                        </div>
+                        <field name="warehouse_lock_manual_disabled" invisible="1"/>
                         <div class="o_setu_count_lock" invisible="not warehouse_lock_active">
                             <i class="fa fa-lock" title="Almacén bloqueado"/>
                             <div>

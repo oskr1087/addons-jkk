@@ -14,3 +14,5 @@ from . import test_recount_grouping
 from . import test_performance_batch
 
 from . import test_kpi_legacy_null_booleans
+
+from . import test_warehouse_admin_lock
