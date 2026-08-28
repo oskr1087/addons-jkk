@@ -12,3 +12,5 @@ from . import test_review_and_financial_flow
 from . import test_recount_grouping
 
 from . import test_performance_batch
+
+from . import test_kpi_legacy_null_booleans

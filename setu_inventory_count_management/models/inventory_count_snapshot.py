@@ -102,6 +102,19 @@ class InventoryCountSnapshotLine(models.Model):
                 (count_id, product_id, location_id, lot_id)
         """)
 
+        # Compatibilidad con snapshots creados por versiones anteriores:
+        # Boolean NULL debe significar False, nunca excluir una línea esperada.
+        self.env.cr.execute(f"""
+            UPDATE {self._table}
+               SET unexpected = FALSE
+             WHERE unexpected IS NULL
+        """)
+        self.env.cr.execute(f"""
+            UPDATE {self._table}
+               SET duplicate = FALSE
+             WHERE duplicate IS NULL
+        """)
+
     snapshot_id = fields.Many2one(
         "setu.inventory.count.snapshot",
         string="Información persistente",
@@ -169,8 +182,8 @@ class InventoryCountSnapshotLine(models.Model):
     last_user_id = fields.Many2one("res.users", string="Último usuario", readonly=True)
     first_scan_at = fields.Datetime(string="Primera lectura", readonly=True)
     last_scan_at = fields.Datetime(string="Última lectura", readonly=True)
-    unexpected = fields.Boolean(string="No previsto", readonly=True)
-    duplicate = fields.Boolean(string="Posible duplicado", readonly=True)
+    unexpected = fields.Boolean(string="No previsto", default=False, readonly=True)
+    duplicate = fields.Boolean(string="Posible duplicado", default=False, readonly=True)
     status = fields.Selection(
         [
             ("pending", "Pendiente"),
@@ -859,9 +872,17 @@ class StockInventoryCountPersistentSnapshot(models.Model):
             self.env.cr.execute(
                 f"""
                     SELECT
-                        COUNT(*) FILTER (WHERE NOT unexpected),
-                        COUNT(*) FILTER (WHERE status = 'pending'),
-                        COUNT(*) FILTER (WHERE status = 'matched'),
+                        COUNT(*) FILTER (
+                            WHERE COALESCE(unexpected, FALSE) = FALSE
+                        ),
+                        COUNT(*) FILTER (
+                            WHERE status = 'pending'
+                              AND COALESCE(unexpected, FALSE) = FALSE
+                        ),
+                        COUNT(*) FILTER (
+                            WHERE status = 'matched'
+                              AND COALESCE(unexpected, FALSE) = FALSE
+                        ),
                         COUNT(*) FILTER (WHERE status = 'zero'),
                         COUNT(*) FILTER (WHERE status = 'unexpected'),
                         COUNT(*) FILTER (WHERE status = 'duplicate'),

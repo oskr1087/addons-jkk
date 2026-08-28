@@ -1,3 +1,10 @@
+19.0.7.4.4
+- Corregido KPI de esperados/contados/avance para snapshots históricos con unexpected=NULL.
+- PostgreSQL ahora trata NULL como False mediante COALESCE en la agregación gerencial.
+- Normalización automática de unexpected/duplicate NULL al actualizar el módulo.
+- Valores por defecto False para nuevas líneas de snapshot.
+- Agregada prueba de regresión para booleanos NULL históricos.
+
 19.0.7.4.3
 - Cuando el conteo define product_ids (por ejemplo desde el planificador), el snapshot se limita a esos productos; vacío significa contar todo el alcance.
 - Invalidación explícita de KPIs calculados después de actualizar la cabecera persistente; elimina valores obsoletos en caché.
