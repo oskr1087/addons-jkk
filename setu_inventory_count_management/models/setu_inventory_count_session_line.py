@@ -80,13 +80,19 @@ class InventoryCountSessionLine(models.Model):
         for line in self:
             if not line.inventory_count_id or not line.product_id or not line.location_id:
                 continue
-            snapshot = Snapshot.search([
+            domain = [
                 ('count_id', '=', line.inventory_count_id.id),
                 ('product_id', '=', line.product_id.id),
                 ('location_id', '=', line.location_id.id),
-                ('lot_id', '=', line.lot_id.id if line.lot_id else False),
-            ], limit=1)
-            snapshots |= snapshot
+            ]
+            if line.product_id.tracking == 'serial':
+                serials = line.serial_number_ids | line.not_found_serial_number_ids
+                if serials:
+                    snapshots |= Snapshot.search(domain + [('lot_id', 'in', serials.ids)])
+            else:
+                snapshots |= Snapshot.search(
+                    domain + [('lot_id', '=', line.lot_id.id if line.lot_id else False)]
+                )
         return snapshots
 
     def _sync_persistent_count_snapshot(self, extra_counts=None):
@@ -107,8 +113,8 @@ class InventoryCountSessionLine(models.Model):
                         'ready': True,
                         'snapshot_date': fields.Datetime.now(),
                     })
-            snapshot = count._ensure_snapshot_line_for_session_line(line)
-            affected |= snapshot
+            snapshots = count._ensure_snapshot_lines_for_session_line(line)
+            affected |= snapshots
         affected._refresh_from_session_lines()
         counts._refresh_persistent_kpis()
 

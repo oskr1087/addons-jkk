@@ -517,39 +517,6 @@
     <!-- ================================================================
          FORMULARIOS: organización visual consistente
          ================================================================ -->
-    <record id="setu_stock_inventory_count_form_modern" model="ir.ui.view">
-        <field name="name">setu.stock.inventory.count.form.modern</field>
-        <field name="model">setu.stock.inventory.count</field>
-        <field name="inherit_id" ref="setu_inventory_count_management.setu_stock_inventory_count_form_view"/>
-        <field name="arch" type="xml">
-            <xpath expr="//form" position="attributes">
-                <attribute name="class" add="setu_form_modern" separator=" "/>
-            </xpath>
-            <xpath expr="//field[@name='use_barcode_scanner']" position="before">
-                <separator string="Modo de captura"/>
-            </xpath>
-            <xpath expr="//sheet/div[h1]" position="after">
-                <div class="setu_form_summary">
-                    <div class="setu_summary_item">
-                        <span>Ubicación</span>
-                        <strong><field name="location_id" readonly="1" nolabel="1"/></strong>
-                    </div>
-                    <div class="setu_summary_item">
-                        <span>Almacén</span>
-                        <strong><field name="warehouse_id" readonly="1" nolabel="1"/></strong>
-                    </div>
-                    <div class="setu_summary_item">
-                        <span>Sesiones</span>
-                        <strong><field name="count_session_ids" readonly="1" nolabel="1"/></strong>
-                    </div>
-                    <div class="setu_summary_item">
-                        <span>Discrepancia</span>
-                        <strong><field name="discrepancy_ratio" readonly="1" nolabel="1"/>%</strong>
-                    </div>
-                </div>
-            </xpath>
-        </field>
-    </record>
 
     <record id="inventory_count_session_form_modern" model="ir.ui.view">
         <field name="name">setu.inventory.count.session.form.modern</field>

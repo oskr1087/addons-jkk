@@ -97,6 +97,7 @@ class TestInventoryCountComprehensive(TransactionCase):
             'product_id': self.prod_none.id,
             'location_id': session.location_id.id,
             'scanned_qty': 12 if discrepancies else 10,
+            'product_scanned': True,
             'theoretical_qty': 10,
             'state': 'Approve',
 
@@ -109,6 +110,7 @@ class TestInventoryCountComprehensive(TransactionCase):
             'location_id': session.location_id.id,
             'lot_id': self.lot1.id,
             'scanned_qty': 2 if discrepancies else 3,
+            'product_scanned': True,
             'theoretical_qty': 3,
             'state': 'Approve',
         })
@@ -120,6 +122,7 @@ class TestInventoryCountComprehensive(TransactionCase):
             'location_id': session.location_id.id,
             'serial_number_ids': [(6, 0, [self.sn1.id, self.sn2.id])],
             'scanned_qty': 2,
+            'product_scanned': True,
             'theoretical_qty': 2,
             'state': 'Approve',
         })
@@ -162,6 +165,7 @@ class TestInventoryCountComprehensive(TransactionCase):
 
         # Complete count and approve should create adjustment because discrepancy exists
         count.complete_counting()
+        count.action_accept_adjustment_candidates()
         count.approve_inventory_count()
         self.assertIn(count.state, ('Approved', 'Inventory Adjusted'))
         # If inventory adjusted, there should be an adjustment record linked
@@ -185,22 +189,37 @@ class TestInventoryCountComprehensive(TransactionCase):
         s1 = self._make_session(count, multi=True, users=[self.approver_b.id])
         s2 = self._make_session(count, multi=True, users=[self.approver_b.id])
 
-        for s in (s1, s2):
-            s.start()
-            self.SessionLine.create({
-                'session_id': s.id,
-                'inventory_count_id': count.id,
-                'product_id': self.prod_lot.id,
-                'location_id': count.location_id.id,
-                'lot_id': self.lot1.id,
-                'scanned_qty': 3,
-                'theoretical_qty': 3,
-                'state': 'Approve',
-            })
-            s.submit()
-            s.validate_session()
+        s1.start()
+        self.SessionLine.create({
+            'session_id': s1.id,
+            'inventory_count_id': count.id,
+            'product_id': self.prod_lot.id,
+            'location_id': count.location_id.id,
+            'lot_id': self.lot1.id,
+            'scanned_qty': 3,
+            'product_scanned': True,
+            'theoretical_qty': 3,
+            'state': 'Approve',
+        })
+        s1.submit()
+        s1.validate_session()
 
-        # Approve the count (no rejected/pending lines)
+        s2.start()
+        self.SessionLine.create({
+            'session_id': s2.id,
+            'inventory_count_id': count.id,
+            'product_id': self.prod_ser.id,
+            'location_id': count.location_id.id,
+            'serial_number_ids': [(6, 0, [self.sn1.id, self.sn2.id])],
+            'scanned_qty': 2,
+            'product_scanned': True,
+            'theoretical_qty': 2,
+            'state': 'Approve',
+        })
+        s2.submit()
+        s2.validate_session()
+
+        # Approve the count (no rejected/pending/duplicate lines)
         count.complete_counting()
         count.approve_inventory_count()
         self.assertIn(count.state, ('Approved', 'Inventory Adjusted'))
@@ -217,6 +236,7 @@ class TestInventoryCountComprehensive(TransactionCase):
             'location_id': count.location_id.id,
             'lot_id': self.lot1.id,
             'scanned_qty': 1,
+            'product_scanned': True,
             'theoretical_qty': 3,
             'state': 'Reject',
         })
@@ -227,6 +247,7 @@ class TestInventoryCountComprehensive(TransactionCase):
             'product_id': self.prod_none.id,
             'location_id': count.location_id.id,
             'scanned_qty': 10,
+            'product_scanned': True,
             'theoretical_qty': 10,
             'state': 'Approve',
         })

@@ -148,6 +148,7 @@ class TestInventoryCount(TransactionCase):
             'product_id': self.product.id,
             'location_id': self.location.id,
             'scanned_qty': 10,
+            'product_scanned': True,
             'theoretical_qty': 10
         })
 
@@ -339,6 +340,7 @@ class TestInventoryCount(TransactionCase):
             'location_id': self.location.id,
             'lot_id': self.lot1.id,
             'scanned_qty': 10,
+            'product_scanned': True,
             'theoretical_qty': 10,
             'state': 'Approve',
         })
@@ -349,6 +351,7 @@ class TestInventoryCount(TransactionCase):
             'location_id': self.location.id,
             'serial_number_ids': [(6, 0, [self.serial1.id, self.serial2.id])],
             'scanned_qty': 2,
+            'product_scanned': True,
             'theoretical_qty': 2,
             'state': 'Reject',
         })

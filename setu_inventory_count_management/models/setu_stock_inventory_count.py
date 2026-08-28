@@ -406,7 +406,7 @@ class StockInvCount(models.Model):
         products = self.product_ids.ids
         session_creator_wiz.write({'product_ids': [(6, 0, products)]})
 
-        return {'name': 'Create Session',
+        return {'name': 'Crear sesión',
                 'view_type': 'form',
                 'view_mode': 'form',
                 'context': {'products': products},
@@ -419,7 +419,7 @@ class StockInvCount(models.Model):
 
     def create_re_count(self):
         session_creator_wiz = self.env['setu.inventory.session.validate.wizard'].create({})
-        return {'name': 'Create Inventory Count',
+        return {'name': 'Crear reconteo',
                 'view_type': 'form',
                 'view_mode': 'form',
                 'res_model': 'setu.inventory.session.validate.wizard',
@@ -460,10 +460,10 @@ class StockInvCount(models.Model):
         pending_lines = self.line_ids.filtered(lambda p: p.state == 'Pending Review')
         if pending_lines:
             raise ValidationError(
-                _('Please check and set the state in all count lines of this count to open this count again.'))
+                _('Existen líneas pendientes de revisión. Apruebe las diferencias o envíelas a reconteo antes de continuar.'))
         if rejected_lines:
             return {
-                'name': 'Rejected Lines Found!!!',
+                'name': 'Líneas rechazadas encontradas',
                 'view_mode': 'form',
                 'view_id': self.sudo().env.ref(
                     'setu_inventory_count_management.setu_inventory_session_reject_recount_validate_form_view').id,
@@ -477,7 +477,7 @@ class StockInvCount(models.Model):
     def unlink(self):
         for count in self:
             if count.state != 'Draft':
-                raise ValidationError(_(f'You cannot delete the Inventory Count once it is in {count.state} state.'))
+                raise ValidationError(_(f'No puede eliminar el conteo de inventario cuando está en estado {count.state}.'))
         if self.session_ids:
             self.session_ids.with_context(from_count=True).unlink()
         return super(StockInvCount, self).unlink()
@@ -493,8 +493,8 @@ class StockInvCount(models.Model):
                 self.message_post(
                     body=Markup("<div style='color:red; margin:10px 30px;;'>&bull; %s <strong>%s</strong>%s</div>") % (
                         _('Se encontró una discrepancia.'),
-                        _('Inventory Adjustment'),
-                        _(' is created.')
+                        _('Ajuste de inventario'),
+                        _(' fue creado.')
                     ))
             except Exception as e:
                 pass
@@ -504,8 +504,8 @@ class StockInvCount(models.Model):
                     body=Markup(
                         "<div style='color:green; margin:10px 30px;;'>&bull; %s <strong>%s</strong> %s</div>") % (
                              _('No se encontraron discrepancias.'),
-                             _('Inventory Adjustment'),
-                             _('is not created.')
+                             _('Ajuste de inventario'),
+                             _('no fue creado.')
                          ))
             except Exception as e:
                 pass

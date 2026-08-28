@@ -9,12 +9,18 @@
                   decoration-danger="status in ('difference', 'unexpected')"
                   decoration-warning="status in ('zero', 'duplicate')"
                   decoration-muted="status == 'pending'">
+                <field name="currency_id" column_invisible="True"/>
                 <field name="product_id"/>
                 <field name="lot_id"/>
                 <field name="location_id"/>
                 <field name="expected_qty" sum="Esperado"/>
                 <field name="counted_qty" sum="Contado"/>
                 <field name="difference_display"/>
+                <field name="unit_cost" widget="monetary" optional="hide"/>
+                <field name="impact_value" widget="monetary" optional="show"
+                       decoration-danger="impact_value &lt; 0"
+                       decoration-success="impact_value &gt; 0"/>
+                <field name="high_impact" optional="show"/>
                 <field name="status" widget="badge"
        decoration-success="status == 'matched'"
        decoration-danger="status in ('difference', 'unexpected')"
@@ -24,6 +30,8 @@
                 <field name="last_session_id" optional="show"/>
                 <field name="last_user_id" optional="show"/>
                 <field name="last_scan_at" optional="show"/>
+                            <field name="closed_as_zero" optional="hide"/>
+                            <field name="recount_required" optional="hide"/>
             </list>
         </field>
     </record>
@@ -55,6 +63,66 @@
         <field name="priority">90</field>
         <field name="inherit_id" ref="setu_inventory_count_management.setu_stock_inventory_count_form_view"/>
         <field name="arch" type="xml">
+            <xpath expr="//sheet/div[@name='button_box']/button[@name='action_open_user_mistake_lines']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//sheet/div[@name='button_box']/button[@name='action_open_discrepancy_lines']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+<xpath expr="//header/button[@name='approve_all_lines']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='reject_all_lines']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='create_re_count']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='create_inventory_adj']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='complete_counting']" position="attributes">
+                <attribute name="string">Enviar a revisión</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='approve_inventory_count']" position="attributes">
+                <attribute name="string">Aprobar y generar ajuste</attribute>
+                <attribute name="confirm">Se generará el ajuste únicamente con las diferencias aceptadas. ¿Desea continuar?</attribute>
+            </xpath>
+
+            <xpath expr="//header/button[@name='complete_counting']" position="before">
+                <button name="action_mark_pending_as_zero"
+                        type="object"
+                        string="Pendientes = 0"
+                        icon="fa-ban"
+                        class="btn-secondary"
+                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
+                        invisible="state != 'In Progress' or pending_item_count == 0"
+                        confirm="Los productos/lotes pendientes se considerarán NO ENCONTRADOS y su cantidad física será 0. ¿Desea continuar?"/>
+                <button name="action_accept_adjustment_candidates"
+                        type="object"
+                        string="Aceptar diferencias"
+                        icon="fa-check"
+                        class="btn-secondary"
+                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
+                        invisible="state != 'To Be Approved' or adjustment_candidate_count == 0"
+                        confirm="Las diferencias resueltas se aceptarán para el ajuste. ¿Desea continuar?"/>
+                <button name="action_prepare_directed_recount"
+                        type="object"
+                        string="Reconteo de divergencias"
+                        icon="fa-refresh"
+                        class="btn-secondary"
+                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
+                        invisible="state != 'To Be Approved' or adjustment_candidate_count == 0"
+                        confirm="Se enviarán las diferencias al flujo de reconteo. ¿Desea continuar?"/>
+                <button name="action_open_financial_adjustment_preview"
+                        type="object"
+                        string="Vista previa del ajuste"
+                        icon="fa-search"
+                        class="btn-secondary"
+                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
+                        invisible="state != 'To Be Approved' or adjustment_candidate_count == 0"/>
+            </xpath>
+
             <xpath expr="//sheet/div[@name='button_box']" position="after">
                 <div class="o_setu_count_control">
                     <div class="o_setu_count_control_header">
@@ -76,28 +144,23 @@
 
                     <div class="o_setu_count_progress">
                         <div class="o_setu_count_progress_value">
-                            <field name="progress_percent" widget="percentage" readonly="1" nolabel="1"/>
+                            <field name="progress_percent" readonly="1" nolabel="1"/>
                         </div>
                         <div class="o_setu_count_progress_track">
                             <field name="progress_percent" widget="progressbar" readonly="1" nolabel="1"/>
                         </div>
                     </div>
 
-                    <div class="o_setu_count_kpis">
-                        <div class="o_setu_count_kpi o_setu_kpi_expected">
-                            <div class="o_setu_kpi_icon"><i class="fa fa-cubes" title="Esperados"/></div>
-                            <div class="o_setu_kpi_body">
-                                <span>Esperados</span>
-                                <strong><field name="expected_item_count" readonly="1" nolabel="1"/></strong>
-                                <small><field name="expected_percent" widget="percentage" readonly="1" nolabel="1"/> del total</small>
-                            </div>
-                        </div>
+                    <div class="o_setu_count_kpis o_setu_count_kpis_primary">
                         <div class="o_setu_count_kpi o_setu_kpi_counted">
-                            <div class="o_setu_kpi_icon"><i class="fa fa-check-circle" title="Contados"/></div>
+                            <div class="o_setu_kpi_icon"><i class="fa fa-check-circle" title="Avance"/></div>
                             <div class="o_setu_kpi_body">
-                                <span>Contados</span>
-                                <strong><field name="counted_item_count" readonly="1" nolabel="1"/></strong>
-                                <small><field name="progress_percent" widget="percentage" readonly="1" nolabel="1"/> del total</small>
+                                <span>Procesados</span>
+                                <strong>
+                                    <field name="counted_item_count" readonly="1" nolabel="1"/>
+                                    <small> de <field name="expected_item_count" readonly="1" nolabel="1"/></small>
+                                </strong>
+                                <small>Productos/lotes ya resueltos</small>
                             </div>
                         </div>
                         <div class="o_setu_count_kpi o_setu_kpi_pending">
@@ -105,40 +168,95 @@
                             <div class="o_setu_kpi_body">
                                 <span>Pendientes</span>
                                 <strong><field name="pending_item_count" readonly="1" nolabel="1"/></strong>
-                                <small><field name="pending_percent" widget="percentage" readonly="1" nolabel="1"/> del total</small>
-                            </div>
-                        </div>
-                        <div class="o_setu_count_kpi o_setu_kpi_matched">
-                            <div class="o_setu_kpi_icon"><i class="fa fa-check" title="Coincidencias"/></div>
-                            <div class="o_setu_kpi_body">
-                                <span>Coincidencias</span>
-                                <strong><field name="matched_item_count" readonly="1" nolabel="1"/></strong>
-                                <small><field name="matched_percent" widget="percentage" readonly="1" nolabel="1"/> del total</small>
+                                <small>Faltan por contar o declarar en cero</small>
                             </div>
                         </div>
                         <div class="o_setu_count_kpi o_setu_kpi_difference">
-                            <div class="o_setu_kpi_icon"><i class="fa fa-exclamation-triangle" title="Divergencias"/></div>
+                            <div class="o_setu_kpi_icon"><i class="fa fa-exchange" title="Diferencias"/></div>
                             <div class="o_setu_kpi_body">
-                                <span>Divergencias</span>
-                                <strong><field name="difference_item_count" readonly="1" nolabel="1"/></strong>
-                                <small><field name="difference_percent" widget="percentage" readonly="1" nolabel="1"/> de lo contado</small>
-                            </div>
-                        </div>
-                        <div class="o_setu_count_kpi o_setu_kpi_unexpected">
-                            <div class="o_setu_kpi_icon"><i class="fa fa-plus-circle" title="No previstos"/></div>
-                            <div class="o_setu_kpi_body">
-                                <span>No previstos</span>
-                                <strong><field name="unexpected_item_count" readonly="1" nolabel="1"/></strong>
-                                <small><field name="unexpected_percent" widget="percentage" readonly="1" nolabel="1"/> del total</small>
+                                <span>Diferencias a revisar</span>
+                                <strong><field name="adjustment_candidate_count" readonly="1" nolabel="1"/></strong>
+                                <small>Faltantes, sobrantes o no previstos</small>
                             </div>
                         </div>
                         <div class="o_setu_count_kpi o_setu_kpi_duplicate">
-                            <div class="o_setu_kpi_icon"><i class="fa fa-clone" title="Duplicados"/></div>
+                            <div class="o_setu_kpi_icon"><i class="fa fa-shield" title="Bloqueos"/></div>
                             <div class="o_setu_kpi_body">
-                                <span>Duplicados</span>
-                                <strong><field name="duplicate_item_count" readonly="1" nolabel="1"/></strong>
-                                <small><field name="duplicate_percent" widget="percentage" readonly="1" nolabel="1"/> del total</small>
+                                <span>Bloqueos para cerrar</span>
+                                <strong><field name="blocking_issue_count" readonly="1" nolabel="1"/></strong>
+                                <small>Sesiones, pendientes o duplicados</small>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="o_setu_count_readiness o_setu_count_readiness_ok"
+                         invisible="not adjustment_ready">
+                        <i class="fa fa-check-circle" title="Listo"/>
+                        <div>
+                            <strong>Listo para generar el ajuste</strong>
+                            <span><field name="adjustment_readiness_text" readonly="1" nolabel="1"/></span>
+                        </div>
+                    </div>
+                    <div class="o_setu_count_readiness o_setu_count_readiness_wait"
+                         invisible="adjustment_ready">
+                        <i class="fa fa-info-circle" title="Revisión pendiente"/>
+                        <div>
+                            <strong>Estado previo al ajuste</strong>
+                            <span><field name="adjustment_readiness_text" readonly="1" nolabel="1"/></span>
+                        </div>
+                    </div>
+
+                    <div class="o_setu_count_financial">
+                        <div class="o_setu_count_financial_header">
+                            <div>
+                                <span class="o_setu_count_eyebrow">IMPACTO ECONÓMICO</span>
+                                <strong>Estimación sobre diferencias resueltas</strong>
+                            </div>
+                            <span class="o_setu_financial_note">
+                                <i class="fa fa-info-circle" title="Información"/>
+                                Referencial: no modifica costos ni valoración contable.
+                            </span>
+                        </div>
+                        <div class="o_setu_count_kpis o_setu_count_kpis_financial">
+                            <div class="o_setu_count_kpi o_setu_kpi_expected">
+                                <div class="o_setu_kpi_icon"><i class="fa fa-money" title="Valor esperado"/></div>
+                                <div class="o_setu_kpi_body">
+                                    <span>Valor base del inventario</span>
+                                    <strong><field name="expected_value" widget="monetary" readonly="1" nolabel="1"/></strong>
+                                    <small>Según costo congelado al iniciar</small>
+                                </div>
+                            </div>
+                            <div class="o_setu_count_kpi o_setu_kpi_difference">
+                                <div class="o_setu_kpi_icon"><i class="fa fa-arrow-down" title="Pérdida estimada"/></div>
+                                <div class="o_setu_kpi_body">
+                                    <span>Faltantes valorizados</span>
+                                    <strong><field name="shortage_value" widget="monetary" readonly="1" nolabel="1"/></strong>
+                                    <small>Disminución estimada</small>
+                                </div>
+                            </div>
+                            <div class="o_setu_count_kpi o_setu_kpi_matched">
+                                <div class="o_setu_kpi_icon"><i class="fa fa-arrow-up" title="Sobrante estimado"/></div>
+                                <div class="o_setu_kpi_body">
+                                    <span>Sobrantes valorizados</span>
+                                    <strong><field name="surplus_value" widget="monetary" readonly="1" nolabel="1"/></strong>
+                                    <small>Incremento estimado</small>
+                                </div>
+                            </div>
+                            <div class="o_setu_count_kpi o_setu_kpi_unexpected">
+                                <div class="o_setu_kpi_icon"><i class="fa fa-balance-scale" title="Impacto neto"/></div>
+                                <div class="o_setu_kpi_body">
+                                    <span>Impacto neto estimado</span>
+                                    <strong><field name="net_adjustment_value" widget="monetary" readonly="1" nolabel="1"/></strong>
+                                    <small>Faltantes + sobrantes</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="o_setu_high_impact_alert" invisible="high_impact_item_count == 0">
+                            <i class="fa fa-exclamation-triangle" title="Alto impacto"/>
+                            <span>
+                                <strong><field name="high_impact_item_count" readonly="1" nolabel="1"/></strong>
+                                divergencia(s) superan el umbral económico y deben revisarse primero.
+                            </span>
                         </div>
                     </div>
 
@@ -156,13 +274,11 @@
                     </div>
 
                     <field name="snapshot_ready" invisible="1"/>
+                    <field name="currency_id" invisible="1"/>
                     <field name="warehouse_lock_active" invisible="1"/>
                 </div>
             </xpath>
-
-            <xpath expr="//div[hasclass('setu_form_summary')]" position="replace"/>
-
-            <xpath expr="//sheet/div[h1]" position="replace">
+<xpath expr="//sheet/div[h1]" position="replace">
                 <div class="o_setu_count_identity">
                     <div class="o_setu_count_identity_icon">
                         <i class="fa fa-cube" title="Conteo"/>
@@ -206,11 +322,6 @@
                             <strong><field name="warehouse_id" readonly="state != 'Draft'" nolabel="1" options="{'no_create': True, 'no_open':True}"/></strong>
                         </div>
                         <div class="o_setu_summary_row">
-                            <i class="fa fa-archive" title="Depósito"/>
-                            <span>Depósito</span>
-                            <strong><field name="warehouse_id" readonly="1" nolabel="1" options="{'no_create': True, 'no_open':True}"/></strong>
-                        </div>
-                        <div class="o_setu_summary_row">
                             <i class="fa fa-barcode" title="Modo de captura"/>
                             <span>Modo de captura</span>
                             <strong>
@@ -231,11 +342,6 @@
                             <span>Compañía</span>
                             <strong><field name="company_id" readonly="1" nolabel="1" options="{'no_create': True, 'no_open':True}"/></strong>
                         </div>
-                        <div class="o_setu_summary_row">
-                            <i class="fa fa-exclamation-circle" title="Discrepancia"/>
-                            <span>Discrepancia</span>
-                            <strong><field name="discrepancy_ratio" widget="percentage" readonly="1" nolabel="1"/></strong>
-                        </div>
                     </div>
 
                     <field name="approver_ids" invisible="1"/>
@@ -245,13 +351,8 @@
                     <field name="count_id" invisible="1"/>
                 </div>
             </xpath>
-
-            <xpath expr="//sheet/notebook/page[field[@name='line_ids']]" position="attributes">
-                <attribute name="invisible">1</attribute>
-            </xpath>
-
-            <xpath expr="//sheet/notebook/page[@name='count_settings']" position="before">
-                <page string="Todos" name="snapshot_all" class="o_setu_tab_all"
+<xpath expr="//sheet/notebook" position="inside">
+                <page string="Todos" name="snapshot_all"
                       groups="setu_inventory_count_management.group_setu_inventory_count_manager">
                     <field name="snapshot_line_ids" readonly="1">
                         <list create="0" delete="0"
@@ -259,6 +360,7 @@
                               decoration-danger="status in ('difference', 'unexpected')"
                               decoration-warning="status in ('zero', 'duplicate')"
                               decoration-muted="status == 'pending'">
+                            <field name="currency_id" column_invisible="True"/>
                             <field name="product_id"/>
                             <field name="lot_id"/>
                             <field name="location_id"/>
@@ -266,18 +368,17 @@
                             <field name="counted_qty"/>
                             <field name="difference_display"/>
                             <field name="status" widget="badge"
-       decoration-success="status == 'matched'"
-       decoration-danger="status in ('difference', 'unexpected')"
-       decoration-warning="status in ('zero', 'duplicate')"
-       decoration-muted="status == 'pending'"/>
-                            <field name="last_session_id" optional="show"/>
+                                   decoration-success="status == 'matched'"
+                                   decoration-danger="status in ('difference', 'unexpected')"
+                                   decoration-warning="status in ('zero', 'duplicate')"
+                                   decoration-muted="status == 'pending'"/>
                             <field name="last_user_id" optional="show"/>
                             <field name="last_scan_at" optional="show"/>
                         </list>
                     </field>
                 </page>
 
-                <page string="Pendientes" name="snapshot_pending" class="o_setu_tab_pending"
+                <page string="Pendientes" name="snapshot_pending"
                       groups="setu_inventory_count_management.group_setu_inventory_count_manager">
                     <field name="snapshot_line_ids" readonly="1" domain="[('status', '=', 'pending')]">
                         <list create="0" delete="0" decoration-muted="1">
@@ -285,106 +386,49 @@
                             <field name="lot_id"/>
                             <field name="location_id"/>
                             <field name="expected_qty"/>
-                            <field name="status" widget="badge"
-       decoration-success="status == 'matched'"
-       decoration-danger="status in ('difference', 'unexpected')"
-       decoration-warning="status in ('zero', 'duplicate')"
-       decoration-muted="status == 'pending'"/>
+                            <field name="status" widget="badge" decoration-muted="1"/>
                         </list>
                     </field>
                 </page>
 
-                <page string="Contados" name="snapshot_counted" class="o_setu_tab_counted"
-                      groups="setu_inventory_count_management.group_setu_inventory_count_manager">
-                    <field name="snapshot_line_ids" readonly="1" domain="[('status', '!=', 'pending')]">
-                        <list create="0" delete="0"
-                              decoration-success="status == 'matched'"
-                              decoration-danger="status in ('difference', 'unexpected')"
-                              decoration-warning="status in ('zero', 'duplicate')">
-                            <field name="product_id"/>
-                            <field name="lot_id"/>
-                            <field name="location_id"/>
-                            <field name="expected_qty"/>
-                            <field name="counted_qty"/>
-                            <field name="difference_display"/>
-                            <field name="status" widget="badge"
-       decoration-success="status == 'matched'"
-       decoration-danger="status in ('difference', 'unexpected')"
-       decoration-warning="status in ('zero', 'duplicate')"
-       decoration-muted="status == 'pending'"/>
-                            <field name="last_user_id"/>
-                            <field name="last_scan_at"/>
-                        </list>
-                    </field>
-                </page>
-
-                <page string="Divergencias" name="snapshot_differences" class="o_setu_tab_differences"
+                <page string="Por resolver" name="snapshot_to_resolve"
                       groups="setu_inventory_count_management.group_setu_inventory_count_manager">
                     <field name="snapshot_line_ids" readonly="1"
-                           domain="[('status', 'in', ['difference', 'zero'])]">
-                        <list create="0" delete="0" decoration-danger="1">
+                           domain="[('status', 'in', ['difference', 'zero', 'unexpected', 'duplicate'])]">
+                        <list create="0" delete="0"
+                              decoration-danger="status in ('difference', 'unexpected')"
+                              decoration-warning="status in ('zero', 'duplicate')">
+                            <field name="currency_id" column_invisible="True"/>
                             <field name="product_id"/>
                             <field name="lot_id"/>
                             <field name="location_id"/>
                             <field name="expected_qty"/>
                             <field name="counted_qty"/>
                             <field name="difference_display"/>
+                            <field name="unit_cost" widget="monetary"/>
+                            <field name="impact_value" widget="monetary"
+                                   decoration-danger="impact_value &lt; 0"
+                                   decoration-success="impact_value &gt; 0"/>
+                            <field name="high_impact"/>
                             <field name="status" widget="badge"
-       decoration-success="status == 'matched'"
-       decoration-danger="status in ('difference', 'unexpected')"
-       decoration-warning="status in ('zero', 'duplicate')"
-       decoration-muted="status == 'pending'"/>
-                            <field name="last_session_id"/>
-                            <field name="last_user_id"/>
-                            <field name="last_scan_at"/>
+                                   decoration-danger="status in ('difference', 'unexpected')"
+                                   decoration-warning="status in ('zero', 'duplicate')"/>
+                            <field name="closed_as_zero" optional="show"/>
+                            <field name="recount_required" optional="show"/>
+                            <field name="last_session_id" optional="show"/>
+                            <field name="last_user_id" optional="show"/>
+                            <field name="last_scan_at" optional="show"/>
                         </list>
                     </field>
                 </page>
 
-                <page string="No previstos" name="snapshot_unexpected" class="o_setu_tab_unexpected"
-                      groups="setu_inventory_count_management.group_setu_inventory_count_manager">
-                    <field name="snapshot_line_ids" readonly="1" domain="[('unexpected', '=', True)]">
-                        <list create="0" delete="0" decoration-danger="1">
-                            <field name="product_id"/>
-                            <field name="lot_id"/>
-                            <field name="location_id"/>
-                            <field name="counted_qty"/>
-                            <field name="status" widget="badge"
-       decoration-success="status == 'matched'"
-       decoration-danger="status in ('difference', 'unexpected')"
-       decoration-warning="status in ('zero', 'duplicate')"
-       decoration-muted="status == 'pending'"/>
-                            <field name="last_session_id"/>
-                            <field name="last_user_id"/>
-                            <field name="last_scan_at"/>
-                        </list>
-                    </field>
-                </page>
-
-                <page string="Duplicados" name="snapshot_duplicates" class="o_setu_tab_duplicates"
-                      groups="setu_inventory_count_management.group_setu_inventory_count_manager">
-                    <field name="snapshot_line_ids" readonly="1" domain="[('duplicate', '=', True)]">
-                        <list create="0" delete="0" decoration-warning="1">
-                            <field name="product_id"/>
-                            <field name="lot_id"/>
-                            <field name="location_id"/>
-                            <field name="scan_count"/>
-                            <field name="counted_qty"/>
-                            <field name="difference_display"/>
-                            <field name="last_session_id"/>
-                            <field name="last_user_id"/>
-                            <field name="last_scan_at"/>
-                        </list>
-                    </field>
-                </page>
-
-                <page string="Sesiones" name="snapshot_sessions" class="o_setu_tab_sessions">
+                <page string="Sesiones" name="snapshot_sessions">
                     <field name="session_ids" readonly="1">
                         <list create="0" delete="0">
                             <field name="name"/>
                             <field name="user_ids" widget="many2many_tags"/>
                             <field name="location_id"/>
-                            <field name="state"/>
+                            <field name="state" widget="badge"/>
                         </list>
                     </field>
                 </page>

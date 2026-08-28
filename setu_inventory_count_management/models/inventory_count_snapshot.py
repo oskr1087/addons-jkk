@@ -55,6 +55,13 @@ class InventoryCountSnapshot(models.Model):
     difference_percent = fields.Float(
         string="Divergencia (%)", readonly=True, digits=(16, 2)
     )
+    currency_id = fields.Many2one("res.currency", related="company_id.currency_id", store=True, readonly=True)
+    expected_value = fields.Monetary(string="Valor esperado", currency_field="currency_id", readonly=True)
+    counted_value = fields.Monetary(string="Valor contado", currency_field="currency_id", readonly=True)
+    shortage_value = fields.Monetary(string="Pérdida estimada", currency_field="currency_id", readonly=True)
+    surplus_value = fields.Monetary(string="Sobrante estimado", currency_field="currency_id", readonly=True)
+    net_adjustment_value = fields.Monetary(string="Impacto neto", currency_field="currency_id", readonly=True)
+    high_impact_item_count = fields.Integer(string="Divergencias de alto impacto", readonly=True)
 
     line_ids = fields.One2many(
         "setu.inventory.count.snapshot.line",
@@ -124,6 +131,13 @@ class InventoryCountSnapshotLine(models.Model):
         string="Diferencia",
         compute="_compute_difference_display",
     )
+    currency_id = fields.Many2one("res.currency", related="company_id.currency_id", store=True, readonly=True)
+    unit_cost = fields.Monetary(string="Costo unitario", currency_field="currency_id", readonly=True)
+    expected_value = fields.Monetary(string="Valor esperado", currency_field="currency_id", compute="_compute_financial_values", store=True, readonly=True)
+    counted_value = fields.Monetary(string="Valor contado", currency_field="currency_id", compute="_compute_financial_values", store=True, readonly=True)
+    impact_value = fields.Monetary(string="Impacto", currency_field="currency_id", compute="_compute_financial_values", store=True, readonly=True)
+    impact_abs = fields.Monetary(string="Impacto absoluto", currency_field="currency_id", compute="_compute_financial_values", store=True, readonly=True)
+    high_impact = fields.Boolean(string="Alto impacto", compute="_compute_financial_values", readonly=True)
     scan_count = fields.Integer(string="Lecturas", readonly=True)
     first_session_id = fields.Many2one(
         "setu.inventory.count.session", string="Primera sesión", readonly=True
@@ -151,6 +165,20 @@ class InventoryCountSnapshotLine(models.Model):
         index=True,
         readonly=True,
     )
+
+    @api.depends("expected_qty", "counted_qty", "difference_qty", "unit_cost")
+    def _compute_financial_values(self):
+        threshold = float(
+            self.env["ir.config_parameter"].sudo().get_param(
+                "setu_inventory_count_management.high_impact_threshold", 500.0
+            ) or 500.0
+        )
+        for line in self:
+            line.expected_value = line.expected_qty * line.unit_cost
+            line.counted_value = line.counted_qty * line.unit_cost
+            line.impact_value = line.difference_qty * line.unit_cost
+            line.impact_abs = abs(line.impact_value)
+            line.high_impact = line.impact_abs >= threshold
 
     @api.depends("status", "difference_qty")
     def _compute_difference_display(self):
@@ -215,24 +243,40 @@ class InventoryCountSnapshotLine(models.Model):
         )
 
         for snapshot_line in self:
-            session_lines = SessionLine.search([
+            domain = [
                 ("inventory_count_id", "=", snapshot_line.count_id.id),
                 ("product_id", "=", snapshot_line.product_id.id),
                 ("location_id", "=", snapshot_line.location_id.id),
-                ("lot_id", "=", snapshot_line.lot_id.id if snapshot_line.lot_id else False),
                 ("product_scanned", "=", True),
                 ("session_id.state", "!=", "Cancel"),
-            ], order="date_of_scanning, id")
+            ]
+            if snapshot_line.product_id.tracking == "serial" and snapshot_line.lot_id:
+                domain.append(("serial_number_ids", "in", snapshot_line.lot_id.id))
+            else:
+                domain.append(
+                    ("lot_id", "=", snapshot_line.lot_id.id if snapshot_line.lot_id else False)
+                )
+            session_lines = SessionLine.search(
+                domain, order="date_of_scanning, id"
+            )
 
-            counted = sum(session_lines.mapped("scanned_qty"))
+            counted = (
+                float(len(session_lines))
+                if snapshot_line.product_id.tracking == "serial"
+                else sum(session_lines.mapped("scanned_qty"))
+            )
             scan_count = len(session_lines)
             first = session_lines[:1]
             last = session_lines[-1:]
-            status = snapshot_line._status_from_values(
-                snapshot_line.expected_qty,
-                counted,
-                scan_count,
-                unexpected=snapshot_line.unexpected,
+            status = (
+                "zero"
+                if snapshot_line.closed_as_zero and not scan_count
+                else snapshot_line._status_from_values(
+                    snapshot_line.expected_qty,
+                    counted,
+                    scan_count,
+                    unexpected=snapshot_line.unexpected,
+                )
             )
             snapshot_line.write({
                 "counted_qty": counted,
@@ -323,6 +367,17 @@ class StockInventoryCountPersistentSnapshot(models.Model):
     duplicate_percent = fields.Float(
         string="Duplicados (%)", compute="_compute_snapshot_metrics", digits=(16, 2)
     )
+    currency_id = fields.Many2one("res.currency", related="company_id.currency_id", readonly=True)
+    expected_value = fields.Monetary(string="Valor esperado", currency_field="currency_id", compute="_compute_snapshot_metrics")
+    counted_value = fields.Monetary(string="Valor contado", currency_field="currency_id", compute="_compute_snapshot_metrics")
+    shortage_value = fields.Monetary(string="Pérdida estimada", currency_field="currency_id", compute="_compute_snapshot_metrics")
+    surplus_value = fields.Monetary(string="Sobrante estimado", currency_field="currency_id", compute="_compute_snapshot_metrics")
+    net_adjustment_value = fields.Monetary(string="Impacto neto", currency_field="currency_id", compute="_compute_snapshot_metrics")
+    high_impact_item_count = fields.Integer(string="Alto impacto", compute="_compute_snapshot_metrics")
+    adjustment_candidate_count = fields.Integer(string="Líneas a ajustar", compute="_compute_snapshot_metrics")
+    blocking_issue_count = fields.Integer(string="Bloqueos pendientes", compute="_compute_snapshot_metrics")
+    adjustment_ready = fields.Boolean(string="Listo para ajustar", compute="_compute_snapshot_metrics")
+    adjustment_readiness_text = fields.Char(string="Estado previo al ajuste", compute="_compute_snapshot_metrics")
     dashboard_last_update = fields.Datetime(
         string="Última actualización", compute="_compute_snapshot_metrics"
     )
@@ -332,7 +387,11 @@ class StockInventoryCountPersistentSnapshot(models.Model):
             ("count_id", "in", self.ids)
         ])
 
-    @api.depends()
+    @api.depends(
+        "session_ids.state",
+        "line_ids.state",
+        "line_ids.is_discrepancy_found",
+    )
     def _compute_snapshot_metrics(self):
         headers = {
             header.count_id.id: header
@@ -351,23 +410,61 @@ class StockInventoryCountPersistentSnapshot(models.Model):
             count.zero_item_count = header.zero_item_count if header else 0
             count.unexpected_item_count = header.unexpected_item_count if header else 0
             count.duplicate_item_count = header.duplicate_item_count if header else 0
+            count.expected_value = header.expected_value if header else 0.0
+            count.counted_value = header.counted_value if header else 0.0
+            count.shortage_value = header.shortage_value if header else 0.0
+            count.surplus_value = header.surplus_value if header else 0.0
+            count.net_adjustment_value = header.net_adjustment_value if header else 0.0
+            count.high_impact_item_count = header.high_impact_item_count if header else 0
+            count.adjustment_candidate_count = max(
+                (header.difference_item_count - header.duplicate_item_count) if header else 0,
+                0,
+            )
+            open_sessions = count.session_ids.filtered(
+                lambda session: session.state not in ("Done", "Cancel")
+            )
+            pending_decisions = count.line_ids.filtered(
+                lambda line: (
+                    line.is_discrepancy_found
+                    and line.state == "Pending Review"
+                )
+            )
+            count.blocking_issue_count = (
+                (header.pending_item_count + header.duplicate_item_count) if header else 0
+            ) + len(open_sessions) + len(pending_decisions)
+            count.adjustment_ready = bool(
+                header and count.state == "To Be Approved" and not count.blocking_issue_count
+            )
+            if open_sessions:
+                count.adjustment_readiness_text = "Hay sesiones abiertas"
+            elif header and header.pending_item_count:
+                count.adjustment_readiness_text = "Faltan productos/lotes por resolver"
+            elif header and header.duplicate_item_count:
+                count.adjustment_readiness_text = "Hay lecturas duplicadas por revisar"
+            elif pending_decisions:
+                count.adjustment_readiness_text = "Hay diferencias sin decisión"
+            elif count.state == "To Be Approved":
+                count.adjustment_readiness_text = "Listo para generar el ajuste"
+            else:
+                count.adjustment_readiness_text = "Conteo en proceso"
             count.progress_percent = header.progress_percent if header else 0.0
             count.difference_percent = header.difference_percent if header else 0.0
             expected = header.expected_item_count if header else 0
-            counted = header.counted_item_count if header else 0
             denominator = expected or 1
-            count.expected_percent = 100.0 if expected else 0.0
+            # El widget percentage de Odoo espera valores entre 0.0 y 1.0.
+            # Ejemplo: 1.0 = 100%, 0.25 = 25%.
+            count.expected_percent = 1.0 if expected else 0.0
             count.pending_percent = (
-                (header.pending_item_count * 100.0 / denominator) if header else 0.0
+                (header.pending_item_count / denominator) if header else 0.0
             )
             count.matched_percent = (
-                (header.matched_item_count * 100.0 / denominator) if header else 0.0
+                (header.matched_item_count / denominator) if header else 0.0
             )
             count.unexpected_percent = (
-                (header.unexpected_item_count * 100.0 / denominator) if header else 0.0
+                (header.unexpected_item_count / denominator) if header else 0.0
             )
             count.duplicate_percent = (
-                (header.duplicate_item_count * 100.0 / denominator) if header else 0.0
+                (header.duplicate_item_count / denominator) if header else 0.0
             )
             count.dashboard_last_update = header.last_update if header else False
 
@@ -471,6 +568,8 @@ class StockInventoryCountPersistentSnapshot(models.Model):
                     "lot_id": lot_id,
                     "location_id": location_id,
                     "expected_qty": quantity,
+                    # Costo congelado al preparar el conteo; solo informativo.
+                    "unit_cost": product.with_company(count.company_id).standard_price,
                     "counted_qty": 0.0,
                     "difference_qty": -quantity,
                     "status": "pending",
@@ -487,34 +586,77 @@ class StockInventoryCountPersistentSnapshot(models.Model):
 
         return True
 
-    def _ensure_snapshot_line_for_session_line(self, session_line):
+    def _ensure_snapshot_lines_for_session_line(self, session_line):
         self.ensure_one()
         header = self._get_snapshot_header(create=True)
         SnapshotLine = self.env["setu.inventory.count.snapshot.line"].sudo()
-        domain = [
+        base_domain = [
             ("snapshot_id", "=", header.id),
             ("product_id", "=", session_line.product_id.id),
             ("location_id", "=", session_line.location_id.id),
-            ("lot_id", "=", session_line.lot_id.id if session_line.lot_id else False),
         ]
-        snapshot_line = SnapshotLine.search(domain, limit=1)
-        if not snapshot_line:
-            snapshot_line = SnapshotLine.create({
+
+        if session_line.product_id.tracking == "serial":
+            snapshots = SnapshotLine
+            for serial in session_line.serial_number_ids:
+                snapshot = SnapshotLine.search(
+                    base_domain + [("lot_id", "=", serial.id)], limit=1
+                )
+                if not snapshot:
+                    snapshot = SnapshotLine.create({
+                        "snapshot_id": header.id,
+                        "product_id": session_line.product_id.id,
+                        "lot_id": serial.id,
+                        "location_id": session_line.location_id.id,
+                        "expected_qty": 0.0,
+                        "unit_cost": session_line.product_id.with_company(
+                            self.company_id
+                        ).standard_price,
+                        "unexpected": True,
+                        "status": "unexpected",
+                    })
+                snapshots |= snapshot
+            return snapshots
+
+        snapshot = SnapshotLine.search(
+            base_domain + [
+                ("lot_id", "=", session_line.lot_id.id if session_line.lot_id else False)
+            ],
+            limit=1,
+        )
+        if not snapshot:
+            snapshot = SnapshotLine.create({
                 "snapshot_id": header.id,
                 "product_id": session_line.product_id.id,
                 "lot_id": session_line.lot_id.id if session_line.lot_id else False,
                 "location_id": session_line.location_id.id,
                 "expected_qty": 0.0,
+                "unit_cost": session_line.product_id.with_company(
+                    self.company_id
+                ).standard_price,
                 "unexpected": True,
                 "status": "unexpected",
             })
-        return snapshot_line
+        return snapshot
+
+    def _ensure_snapshot_line_for_session_line(self, session_line):
+        """Compatibilidad con llamadas antiguas que esperan un recordset."""
+        return self._ensure_snapshot_lines_for_session_line(session_line)
 
     def _refresh_persistent_kpis(self):
         SnapshotLine = self.env["setu.inventory.count.snapshot.line"].sudo()
         for count in self:
             header = count._get_snapshot_header(create=True)
             domain = [("snapshot_id", "=", header.id)]
+
+            # Compatibilidad con snapshots creados antes de incorporar la
+            # visualización económica: completamos el costo sin reconstruir
+            # ni volver a consultar existencias.
+            legacy_cost_lines = SnapshotLine.search(domain + [("unit_cost", "=", 0.0)])
+            for legacy_line in legacy_cost_lines:
+                legacy_line.unit_cost = legacy_line.product_id.with_company(
+                    count.company_id
+                ).standard_price
             grouped = SnapshotLine._read_group(
                 domain,
                 groupby=["status"],
@@ -542,6 +684,34 @@ class StockInventoryCountPersistentSnapshot(models.Model):
                 by_status.get(status, 0)
                 for status in ("difference", "zero", "unexpected", "duplicate")
             )
+            financial = SnapshotLine._read_group(
+                domain,
+                aggregates=["expected_value:sum", "counted_value:sum"],
+            )
+            expected_value = counted_value = 0.0
+            if financial:
+                expected_value, counted_value = financial[0]
+
+            # Pendientes y duplicados no forman parte de la vista previa
+            # económica porque todavía no representan un ajuste aprobado.
+            actionable_lines = SnapshotLine.search(
+                domain + [("status", "in", ["difference", "zero", "unexpected"])]
+            )
+            net_value = sum(actionable_lines.mapped("impact_value"))
+            shortage_value = sum(
+                -line.impact_value for line in actionable_lines if line.impact_value < 0
+            )
+            surplus_value = sum(
+                line.impact_value for line in actionable_lines if line.impact_value > 0
+            )
+            threshold = float(
+                self.env["ir.config_parameter"].sudo().get_param(
+                    "setu_inventory_count_management.high_impact_threshold", 500.0
+                ) or 500.0
+            )
+            high_impact = len(
+                actionable_lines.filtered(lambda line: line.impact_abs >= threshold)
+            )
             counted = max(expected - pending, 0)
             progress = (counted * 100.0 / expected) if expected else 100.0
             difference_percent = (
@@ -559,6 +729,12 @@ class StockInventoryCountPersistentSnapshot(models.Model):
                 "duplicate_item_count": duplicate,
                 "progress_percent": progress,
                 "difference_percent": difference_percent,
+                "expected_value": expected_value,
+                "counted_value": counted_value,
+                "shortage_value": shortage_value,
+                "surplus_value": surplus_value,
+                "net_adjustment_value": net_value,
+                "high_impact_item_count": high_impact,
                 "last_update": fields.Datetime.now(),
             })
         return True

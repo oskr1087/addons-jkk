@@ -22,3 +22,7 @@ from . import count_backend_dashboard
 from . import inventory_count_snapshot
 
 from . import warehouse_count_lock
+
+from . import inventory_count_workflow
+
+from . import view_repair_diagnostics

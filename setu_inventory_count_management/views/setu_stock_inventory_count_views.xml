@@ -7,7 +7,7 @@
             <field name="arch" type="xml">
                 <form string="Conteo de inventario">
                     <header>
-                        <field name="state" widget="statusbar" statusbar_visible="Draft,In Progress,To Be Approved"/>
+                        <field name="state" widget="statusbar" statusbar_visible="Draft,In Progress,To Be Approved,Approved,Inventory Adjusted"/>
                         <field name="start_inventory_bool" invisible="1"/>
                         <field name="create_session_bool" invisible="1"/>
                         <field name="inventory_adj_ids" invisible="1"/>
@@ -67,7 +67,7 @@
                             </group>
                         </group>
                         <notebook>
-                            <page string="Líneas de conteo de inventario" invisible="not line_ids">
+                            <page string="Líneas de conteo de inventario" invisible="1">
                                 <field name="line_ids">
                                     <list decoration-danger="is_system_generated" editable="bottom" create="false" delete="false">
                                         <field name="user_ids" widget="many2many_tags" readonly="1" column_invisible="1"/>
@@ -92,7 +92,7 @@
 
                                 </field>
                             </page>
-                            <page string="Productos" invisible="not product_ids">
+                            <page string="Productos incluidos" invisible="not product_ids">
                                 <field name="product_ids" readonly="session_ids" domain="[('type','=','product')]" options="{'no_create': True, 'no_create_edit':True, 'no_open': True}">
                                     <list>
                                         <field name="default_code"/>
@@ -101,7 +101,7 @@
                                     </list>
                                 </field>
                             </page>
-                            <page string="Líneas de movimientos de stock" invisible="not stock_move_line_ids">
+                            <page string="Movimientos relacionados" invisible="not stock_move_line_ids">
                                 <field name="stock_move_line_ids" nolabel="1" readonly="1" options="{'no_open':True}"/>
                             </page>
                         </notebook>
@@ -180,7 +180,7 @@
             <field name="model">setu.stock.inventory.count</field>
             <field name="arch" type="xml">
                 <search string="Conteo de inventario">
-                    <field name="name" string="Name" filter_domain="['|','|',('name','ilike',self),('location_id','ilike',self),('warehouse_id','ilike',self)]"/>
+                    <field name="name" string="Nombre" filter_domain="['|','|',('name','ilike',self),('location_id','ilike',self),('warehouse_id','ilike',self)]"/>
                     <field name="location_id"/>
                     <field name="warehouse_id"/>
                     <field name="approver_id"/>
@@ -204,7 +204,7 @@
         </record>
 
         <record id="setu_stock_inventory_count_act_window" model="ir.actions.act_window">
-            <field name="name">Inventory Counts</field>
+            <field name="name">Conteos de inventario</field>
             <field name="type">ir.actions.act_window</field>
             <field name="res_model">setu.stock.inventory.count</field>
             <field name="view_mode">list,form</field>
@@ -216,7 +216,7 @@
         </record>
 
         <record id="new_inventory_count_act_window" model="ir.actions.act_window">
-            <field name="name">Inventory Counts</field>
+            <field name="name">Conteos de inventario</field>
             <field name="type">ir.actions.act_window</field>
             <field name="res_model">setu.stock.inventory.count</field>
             <field name="view_mode">list,form</field>
@@ -227,10 +227,10 @@
             </field>
         </record>
 
-        <menuitem name="Inventory Counts" id="setu_inventory_count_root" web_icon="setu_inventory_count_management,static/description/icon.png"/>
+        <menuitem name="Conteos de inventario" id="setu_inventory_count_root" web_icon="setu_inventory_count_management,static/description/icon.png"/>
 
-        <menuitem name="Documents" id="main_documents_menu" parent="setu_inventory_count_management.setu_inventory_count_root"/>
+        <menuitem name="Operaciones" id="main_documents_menu" parent="setu_inventory_count_management.setu_inventory_count_root"/>
 
-        <menuitem name="Inventory Counts" id="setu_stock_inventory_count_menu" parent="setu_inventory_count_management.main_documents_menu" action="setu_stock_inventory_count_act_window" groups="setu_inventory_count_management.group_setu_inventory_count_manager" sequence="0"/>
+        <menuitem name="Conteos" id="setu_stock_inventory_count_menu" parent="setu_inventory_count_management.main_documents_menu" action="setu_stock_inventory_count_act_window" groups="setu_inventory_count_management.group_setu_inventory_count_manager" sequence="0"/>
     </data>
 </odoo>

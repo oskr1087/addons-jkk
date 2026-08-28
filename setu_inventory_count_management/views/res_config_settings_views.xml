@@ -14,7 +14,15 @@
                                 <field name="auto_inventory_adjustment"/>
                                 <label for="auto_inventory_adjustment"/>
                                 <div class="text-muted">
-                                    By doing this while the user Validate the inventory, the stock will be automatically updated in real time.
+                                    Al validar el inventario, las existencias se actualizarán automáticamente mediante el flujo de ajuste.
+                                </div>
+                            </setting>
+                            <setting id="inventory_count_high_impact_threshold_setting"
+                                     string="Divergencia de alto impacto">
+                                <field name="inventory_count_high_impact_threshold"/>
+                                <div class="text-muted">
+                                    Resalta las diferencias cuyo impacto económico absoluto alcance o supere este importe.
+                                    Es un indicador de revisión; no modifica el costo ni la valoración del inventario.
                                 </div>
                             </setting>
                         </block>
@@ -24,13 +32,13 @@
         </record>
 
         <record id="setu_inventory_count_management_config_settings_action" model="ir.actions.act_window">
-            <field name="name">Settings</field>
+            <field name="name">Configuración</field>
             <field name="res_model">res.config.settings</field>
             <field name="view_mode">form</field>
             <field name="context">{'module' : 'setu_inventory_count_management', 'bin_size': False}</field>
         </record>
 
-        <menuitem sequence="1" name="Settings" id="inventory_count_settings_menu" parent="setu_inventory_count_management.main_configuration_menu" groups="setu_inventory_count_management.group_setu_inventory_count_manager" action="setu_inventory_count_management_config_settings_action"/>
+        <menuitem sequence="1" name="Configuración" id="inventory_count_settings_menu" parent="setu_inventory_count_management.main_configuration_menu" groups="setu_inventory_count_management.group_setu_inventory_count_manager" action="setu_inventory_count_management_config_settings_action"/>
 
     </data>
 </odoo>

@@ -1,3 +1,100 @@
+19.0.7.3.6
+- Se incorpora procedimiento de recuperación directa para bases con XML IDs de vistas ya cruzados.
+- La reparación de base reasigna setu_stock_inventory_count_form_view a una vista raíz real y restaura el snapshot heredado.
+- El alias obsoleto setu_stock_inventory_count_form_modern queda eliminado.
+- La reparación solo afecta ir.model.data / ir.ui.view del formulario setu.stock.inventory.count.
+- No toca conteos, sesiones, snapshots de inventario, stock, movimientos ni ajustes.
+- El formulario continúa utilizando el notebook y pestañas nativas de Odoo 19.
+
+19.0.7.3.5
+- Corrección definitiva del mecanismo de migración para Odoo 19: versión normalizada 19.0.7.3.5.
+- La pre-migración ahora está en migrations/19.0.7.3.5/pre-migrate.py para ejecutarse antes de cargar vistas.
+- Reparación de los XML IDs cruzados de vista base, snapshot y alias visual antiguo.
+- Los XML IDs se eliminan primero y se reconstruyen únicamente contra vistas canónicas identificadas por modelo, nombre y herencia.
+- Las vistas antiguas del modelo de conteo que quedaron como targets cruzados se desactivan antes de la carga XML.
+- No se modifica ningún conteo, sesión, snapshot, stock.move, stock.quant ni ajuste de inventario.
+- Se mantiene el notebook/pestañas nativo de Odoo 19.
+- Agregado diagnóstico técnico de mappings de vistas para futuras verificaciones.
+- Suite ampliada a 75 pruebas unitarias definidas.
+
+7.3.4
+- Reparación ampliada de XML IDs cruzados del formulario de conteo.
+- La pre-migración repara tanto setu_stock_inventory_count_form_view como setu_stock_inventory_count_snapshot_form_extension.
+- Los registros canónicos se localizan por modelo, nombre exacto y condición de herencia antes de cargar XML.
+- Si falta una vista canónica, se elimina únicamente el alias roto para que Odoo la recree desde el código.
+- Se elimina el alias legado setu_stock_inventory_count_form_modern.
+- Las vistas huérfanas que pierden toda referencia externa se desactivan.
+- La reparación no toca conteos, sesiones, movimientos, snapshots ni ajustes.
+- Nueva prueba que exige IDs distintos y relación de herencia correcta entre vista base y snapshot.
+
+7.3.3
+- Reparación definitiva de la vista heredada antigua mediante pre-migración.
+- El alias XML ID corrupto setu_stock_inventory_count_form_modern se elimina de ir.model.data antes de cargar las vistas.
+- Si el registro de vista tiene otro XML ID válido, la vista se conserva; si está huérfano, se desactiva.
+- Eliminada la estrategia de limpieza por XML que provocaba validación prematura de la arquitectura antigua.
+- El formulario de conteo conserva pestañas y navegación nativas de Odoo 19.
+- Nueva prueba de integridad para impedir que reaparezca el XML ID visual legado.
+
+7.3.2
+- Reparación de migración para bases que conservaron una arquitectura antigua del XML ID setu_stock_inventory_count_form_modern.
+- El XML ID antiguo se reescribe con una arquitectura mínima válida y se desactiva antes de cargar las vistas heredadas.
+- Eliminada definitivamente la vista “modern” del formulario principal de conteo.
+- El formulario conserva la navegación y las pestañas nativas de Odoo 19.
+- No se modifica la interfaz PDA, kanban de sesiones ni los KPIs del centro de control.
+
+7.3.1
+- Corrección de carga de la vista administrativa en Odoo 19.
+- Eliminados xpaths frágiles que intentaban ocultar las pestañas base Productos y Líneas de movimientos de stock.
+- Las pestañas/notebook vuelven a utilizar completamente el estilo nativo de Odoo.
+- Eliminados estilos SCSS personalizados sobre nav-tabs, nav-link y pestaña activa.
+- Se mantienen los KPIs, la pestaña Por resolver y el flujo previo al ajuste sin modificar la navegación estándar de Odoo.
+
+7.3.0
+- Simplificación de la vista administrativa para evitar exceso de indicadores.
+- KPIs físicos principales reducidos a: Procesados, Pendientes, Diferencias a revisar y Bloqueos para cerrar.
+- Indicador explícito “Estado previo al ajuste” / “Listo para generar el ajuste”.
+- Resumen económico reducido a Valor base, Faltantes valorizados, Sobrantes valorizados e Impacto neto.
+- Las divergencias de alto impacto se muestran como alerta prioritaria, no como otra tarjeta.
+- Pestañas simplificadas a Todos, Pendientes, Por resolver, Sesiones y Configuración.
+- Eliminadas de la vista principal las pestañas redundantes Contados, Divergencias, No previstos y Duplicados.
+- Eliminados datos duplicados como Depósito=Almacén y el porcentaje de discrepancia repetido.
+- Ocultados smart buttons y acciones antiguas que duplicaban el nuevo flujo de revisión.
+- Botones renombrados para explicar el flujo: Enviar a revisión / Aceptar diferencias / Vista previa del ajuste / Aprobar y generar ajuste.
+- Coincidencias exactas se aprueban automáticamente al enviar el conteo a revisión.
+- El cierre exige decisión para todas las diferencias antes de aprobar.
+- Pendientes y duplicados nunca generan impacto económico ficticio.
+- La vista previa económica excluye duplicados y usa solo diferencias potencialmente ajustables.
+- Corrección de sincronización persistente para productos con números de serie.
+- Textos operativos, acciones, menús y mensajes revisados en español.
+- 12 pruebas unitarias nuevas de snapshot, costos, impacto económico, seriales, cierre, decisiones, preview y claridad de vista.
+- Suite total del módulo: 72 pruebas unitarias definidas.
+
+7.2.0
+- Resumen económico previo al ajuste: valor esperado, valor contado, pérdida estimada, sobrante estimado e impacto neto.
+- Costo unitario congelado en el snapshot del conteo; la visualización económica no modifica costos ni valoración contable.
+- Impacto económico por producto/lote y resaltado de divergencias de alto impacto.
+- Umbral de alto impacto configurable desde Configuración (valor inicial 500).
+- Acción "Vista previa del ajuste" antes de aprobar/generar el ajuste.
+- Compatibilidad con snapshots existentes: completa costos faltantes sin reconstruir existencias ni releer stock.quant.
+- Columnas económicas en detalle y divergencias.
+
+7.1.1
+- Corrección de escala de porcentajes del centro de control.
+- Esperados, Pendientes, Coincidencias, No previstos y Duplicados ahora trabajan en escala 0.0–1.0 para el widget percentage de Odoo.
+- 1.0 se muestra como 100% y ya no como 10000%.
+- Avance y porcentaje de divergencia mantienen su escala 0–100 y se muestran sin widget percentage para evitar multiplicación doble.
+- Revisión completa de los porcentajes visuales del formulario del conteo.
+
+7.1.0
+- Cierre controlado: no permite completar/aprobar con sesiones abiertas, pendientes sin resolver o duplicados.
+- Acción “Aprobar coincidencias” para aprobar masivamente líneas que coinciden con el snapshot.
+- Acción “Pendientes = 0” para convertir productos/lotes no encontrados en diferencias reales sin consultar stock.quant.
+- Las líneas marcadas como no encontradas conservan su estado cero aunque se refresquen los KPIs.
+- Acción “Reconteo de divergencias” que prepara únicamente las líneas problemáticas para el flujo de reconteo existente.
+- Trazabilidad por línea: No encontrado/cero y Requiere reconteo.
+- Corrección del ajuste en Sesión única: las líneas rechazadas para reconteo no se ajustan antes de ser recontadas.
+- Todas las acciones usan la fotografía persistente del conteo y no regeneran existencias.
+
 7.0.2
 - Corrección de compatibilidad con Odoo 19 al desactivar el menú Panel.
 - Eliminado el campo obsoleto groups_id del modelo ir.ui.menu.
