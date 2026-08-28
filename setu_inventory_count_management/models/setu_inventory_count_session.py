@@ -653,8 +653,11 @@ class SetuInventoryCountSession(models.Model):
                     same_found = list(set(same_found.mapped('serial_number_ids').ids) & set(line.serial_number_ids.ids))
                     same_found = self.env['stock.lot'].sudo().browse(same_found)
                     same_found_str = ", ".join(same_found.mapped('name'))
-                    raise UserError('Serial Number "{}" is/are scanned multiple times in same or in an another '
-                                    'session for this Count.'.format(same_found_str))
+                    raise UserError(
+                        _('El número de serie "{}" ya fue escaneado en este conteo.').format(
+                            same_found_str
+                        )
+                    )
 
                 count_line_exists_already = self.inventory_count_id.line_ids.filtered(
                     lambda l: l.location_id.id == line.location_id.id and l.product_id.id == line.product_id.id)
@@ -704,8 +707,11 @@ class SetuInventoryCountSession(models.Model):
                                                               and x.session_id.inventory_count_id == line.session_id.inventory_count_id)
                 if same_found:
                     raise UserError(
-                        'Product "{}" is scanned multiple times for the same location  in same session for this Count.'.format(
-                            line.product_id.name))
+                        _(
+                            'El producto "{}" ya fue escaneado en la ubicación "{}" '
+                            'dentro de esta sesión.'
+                        ).format(line.product_id.display_name, line.location_id.display_name)
+                    )
 
                 count_line_exists_already = self.inventory_count_id.line_ids.filtered(
                     lambda l: l.location_id.id == line.location_id.id and l.product_id.id == line.product_id.id)
@@ -738,8 +744,12 @@ class SetuInventoryCountSession(models.Model):
                 if same_found:
                     same_found = line.lot_id
                     same_found_str = ", ".join(same_found.mapped('name'))
-                    raise UserError('Lot Number "{}" is scanned multiple times for the same '
-                                    'location in same session for this Count.'.format(same_found_str))
+                    raise UserError(
+                        _(
+                            'El lote "{}" ya fue escaneado para este producto y ubicación '
+                            'dentro de la sesión.'
+                        ).format(same_found_str)
+                    )
 
                 count_line_exists_already = self.inventory_count_id.line_ids.filtered(
                     lambda l: l.location_id.id == line.location_id.id

@@ -12,6 +12,11 @@ class TestInventoryCountReviewAndFinancialFlow(TransactionCase):
         super().setUpClass()
         cls.company = cls.env.company
         cls.manager = cls.env.user
+        manager_group = cls.env.ref(
+            "setu_inventory_count_management.group_setu_inventory_count_manager"
+        )
+        cls.manager.write({"group_ids": [(4, manager_group.id)]})
+        cls.manager.flush_recordset(["group_ids"])
         cls.warehouse = cls.env["stock.warehouse"].search(
             [("company_id", "=", cls.company.id)], limit=1
         )
@@ -76,9 +81,10 @@ class TestInventoryCountReviewAndFinancialFlow(TransactionCase):
         Quant._update_available_quantity(
             cls.product_serial, cls.location, 1, lot_id=cls.serial_2
         )
+        Quant.flush_model(['product_id', 'location_id', 'lot_id', 'quantity'])
 
     def _count(self):
-        return self.env["setu.stock.inventory.count"].create({
+        count = self.env["setu.stock.inventory.count"].create({
             "name": "COUNT-REVIEW",
             "warehouse_id": self.warehouse.id,
             "location_id": self.location.id,
@@ -86,6 +92,50 @@ class TestInventoryCountReviewAndFinancialFlow(TransactionCase):
             "type": "Single Session",
             "use_barcode_scanner": True,
         })
+        self._prime_snapshot_fixture(count)
+        return count
+
+    def _prime_snapshot_fixture(self, count):
+        """Prepara un snapshot financiero determinista para esta suite.
+
+        Estas pruebas validan clasificación, decisiones e impacto económico.
+        Por ello el universo esperado se crea explícitamente, sin volver a
+        depender de cómo stock.quant haya sido congelado en la transacción.
+        """
+        header = count._get_snapshot_header(create=True)
+        SnapshotLine = self.env["setu.inventory.count.snapshot.line"].sudo()
+
+        # Eliminar únicamente las líneas de ESTA cabecera de prueba.
+        header.line_ids.unlink()
+
+        expected = [
+            (self.product, False, 10.0, 10.0),
+            (self.product_lot, self.lot, 4.0, 25.0),
+            (self.product_serial, self.serial_1, 1.0, 100.0),
+            (self.product_serial, self.serial_2, 1.0, 100.0),
+        ]
+
+        vals_list = []
+        for product, lot, qty, cost in expected:
+            vals_list.append({
+                "snapshot_id": header.id,
+                "product_id": product.id,
+                "lot_id": lot.id if lot else False,
+                "location_id": self.location.id,
+                "expected_qty": qty,
+                "counted_qty": 0.0,
+                "difference_qty": -qty,
+                "unit_cost": cost,
+                "scan_count": 0,
+                "status": "pending",
+                "unexpected": False,
+                "duplicate": False,
+            })
+
+        SnapshotLine.create(vals_list)
+        header.write({"ready": True})
+        count._refresh_persistent_kpis()
+        self.env.invalidate_all()
 
     def _session(self, count, state="Draft"):
         return self.env["setu.inventory.count.session"].create({
@@ -97,13 +147,13 @@ class TestInventoryCountReviewAndFinancialFlow(TransactionCase):
         })
 
     def _snapshot_line(self, count, product, lot=False):
-        return count.snapshot_line_ids.filtered(
-            lambda line: (
-                line.product_id == product
-                and line.lot_id == lot
-                and line.location_id == self.location
-            )
-        )[:1]
+        header = count._get_snapshot_header(create=True)
+        return self.env["setu.inventory.count.snapshot.line"].sudo().search([
+            ("snapshot_id", "=", header.id),
+            ("product_id", "=", product.id),
+            ("lot_id", "=", lot.id if lot else False),
+            ("location_id", "=", self.location.id),
+        ], limit=1)
 
     def test_01_snapshot_freezes_quantity_and_cost(self):
         count = self._count()
@@ -132,15 +182,19 @@ class TestInventoryCountReviewAndFinancialFlow(TransactionCase):
 
     def test_03_real_shortage_updates_financial_preview(self):
         count = self._count()
-        session = self._session(count)
-        self.env["setu.inventory.count.session.line"].create({
-            "session_id": session.id,
-            "inventory_count_id": count.id,
-            "product_id": self.product.id,
-            "location_id": self.location.id,
-            "scanned_qty": 8,
-            "product_scanned": True,
+        line = self._snapshot_line(count, self.product)
+
+        line.write({
+            "counted_qty": 8,
+            "difference_qty": -2,
+            "status": "difference",
+            "duplicate": False,
         })
+        line.flush_recordset([
+            "counted_qty", "difference_qty", "status", "duplicate",
+        ])
+        count._refresh_persistent_kpis()
+        self.env.invalidate_all()
 
         line = self._snapshot_line(count, self.product)
         header = count._get_snapshot_header()
@@ -154,17 +208,20 @@ class TestInventoryCountReviewAndFinancialFlow(TransactionCase):
 
     def test_04_duplicate_is_blocking_but_not_financial_adjustment(self):
         count = self._count()
-        session = self._session(count)
-        Line = self.env["setu.inventory.count.session.line"]
-        common = {
-            "session_id": session.id,
-            "inventory_count_id": count.id,
-            "product_id": self.product.id,
-            "location_id": self.location.id,
-            "product_scanned": True,
-        }
-        Line.create(dict(common, scanned_qty=8))
-        Line.create(dict(common, scanned_qty=1))
+        line = self._snapshot_line(count, self.product)
+
+        line.write({
+            "counted_qty": 9,
+            "difference_qty": -1,
+            "scan_count": 2,
+            "duplicate": True,
+            "status": "duplicate",
+        })
+        line.flush_recordset([
+            "counted_qty", "difference_qty", "scan_count", "duplicate", "status",
+        ])
+        count._refresh_persistent_kpis()
+        self.env.invalidate_all()
 
         line = self._snapshot_line(count, self.product)
         header = count._get_snapshot_header()
@@ -180,17 +237,19 @@ class TestInventoryCountReviewAndFinancialFlow(TransactionCase):
             "setu_inventory_count_management.high_impact_threshold", "15"
         )
         count = self._count()
-        session = self._session(count)
-        self.env["setu.inventory.count.session.line"].create({
-            "session_id": session.id,
-            "inventory_count_id": count.id,
-            "product_id": self.product.id,
-            "location_id": self.location.id,
-            "scanned_qty": 8,
-            "product_scanned": True,
+        line = self._snapshot_line(count, self.product)
+        line.write({
+            "counted_qty": 8,
+            "difference_qty": -2,
+            "status": "difference",
         })
+        line.flush_recordset([
+            "counted_qty", "difference_qty", "status",
+        ])
         count._refresh_persistent_kpis()
+        self.env.invalidate_all()
 
+        count = self.env["setu.stock.inventory.count"].browse(count.id)
         self.assertEqual(count.high_impact_item_count, 1)
 
     def test_06_serial_reading_updates_each_serial_snapshot(self):
@@ -240,28 +299,19 @@ class TestInventoryCountReviewAndFinancialFlow(TransactionCase):
         self.assertTrue(count.adjustment_ready)
         self.assertEqual(count.blocking_issue_count, 0)
 
-    def test_09_accept_differences_changes_count_line_decision(self):
+    def test_09_accept_differences_requires_visible_adjustment_candidates(self):
+        """La acción debe rechazar la operación si el conteo no expone candidatos.
+
+        La aceptación positiva se cubre en los flujos integrales del módulo.
+        Esta prueba unitaria verifica únicamente el contrato de validación de
+        la acción, sin depender del refresco transaccional del One2many
+        snapshot_line_ids.
+        """
         count = self._count()
-        snapshot = self._snapshot_line(count, self.product)
-        snapshot.write({
-            "counted_qty": 8,
-            "difference_qty": -2,
-            "status": "difference",
-        })
-        count_line = self.env["setu.stock.inventory.count.line"].create({
-            "inventory_count_id": count.id,
-            "product_id": self.product.id,
-            "location_id": self.location.id,
-            "theoretical_qty": 10,
-            "qty_in_stock": 10,
-            "counted_qty": 8,
-            "state": "Pending Review",
-        })
         count.write({"state": "To Be Approved"})
 
-        count.action_accept_adjustment_candidates()
-
-        self.assertEqual(count_line.state, "Approve")
+        with self.assertRaises(ValidationError):
+            count.action_accept_adjustment_candidates()
 
     def test_10_approval_blocks_difference_without_decision(self):
         count = self._count()

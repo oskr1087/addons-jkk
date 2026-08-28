@@ -8,9 +8,7 @@ class SessionCreatorPDA(models.TransientModel):
 
     def confirm(self, users=False):
         self.ensure_one()
-        assigned_users = self.user_ids or users
-        if not assigned_users:
-            raise ValidationError(_("Agregue al menos un usuario."))
+        assigned_users = self.user_ids or users or self.env.user
 
         count = self.inventory_count_id
         if count.count_id:

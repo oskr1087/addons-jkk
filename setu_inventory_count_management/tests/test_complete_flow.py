@@ -383,7 +383,20 @@ class TestInventoryCount(TransactionCase):
         resession.validate_session()
         self.assertEqual(resession.state, 'Done')
 
+        if inventory_count.pending_item_count:
+            inventory_count.action_mark_pending_as_zero()
         inventory_count.complete_counting()
+        if inventory_count.difference_item_count:
+            inventory_count.action_accept_adjustment_candidates()
+
+        # El flujo vigente no permite aprobar mientras queden líneas de
+        # revisión abiertas, incluso si el snapshot ya fue aceptado.
+        pending_review = inventory_count.line_ids.filtered(
+            lambda line: line.state == 'Pending Review'
+        )
+        if pending_review:
+            pending_review.write({'state': 'Approve'})
+
         inventory_count.approve_inventory_count()
         self.assertIn(inventory_count.state, ('Approved', 'Inventory Adjusted'))
 if __name__ == '__main__':

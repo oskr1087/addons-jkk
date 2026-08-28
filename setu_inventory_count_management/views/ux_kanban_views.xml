@@ -542,7 +542,7 @@
                 </div>
             </xpath>
 
-            <xpath expr="//div[@class='oe_title']" position="after">
+            <xpath expr="//div[hasclass('oe_title')]" position="after">
                 <div class="setu_form_summary">
                     <div class="setu_summary_item">
                         <span>Ubicación</span>

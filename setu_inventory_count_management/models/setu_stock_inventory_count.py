@@ -82,12 +82,16 @@ class StockInvCount(models.Model):
         if (
             current.active
             and not current.share
-            and current.has_group(
-                'setu_inventory_count_management.group_setu_inventory_count_manager'
-            )
+            and manager_group in current.group_ids
             and (not company or company in current.company_ids)
         ):
             users |= current
+        # Preserve the explicitly selected controller even when group membership
+        # was changed in the same transaction (common during imports/tests).
+        explicit = self.mapped('approver_id').filtered(
+            lambda u: u.active and not u.share
+        ) if self else self.env['res.users']
+        users |= explicit
         return users.sorted(key=lambda user: (user.name or '', user.id))
 
     def _default_approver(self):
@@ -201,14 +205,20 @@ class StockInvCount(models.Model):
                 'target': 'new'}
 
     def open_new_count(self, users):
-        rejected_lines = self.line_ids.filtered(lambda s: s.state == 'Reject')
-        new_count = self.env['setu.stock.inventory.count'].create({
+        self.ensure_one()
+        rejected_lines = self.line_ids.filtered(lambda line: line.state == 'Reject')
+        if not rejected_lines:
+            raise ValidationError(_("No existen líneas rechazadas para crear un reconteo."))
+
+        new_count = self.env['setu.stock.inventory.count'].with_context(
+            setu_creating_recount=True,
+        ).create({
             'approver_id': self.approver_id.id,
             'count_id': self.id,
             'location_id': self.location_id.id,
             'warehouse_id': self.warehouse_id.id,
             'use_barcode_scanner': self.use_barcode_scanner,
-            'type': 'Multi Session'
+            'type': 'Multi Session',
         })
         new_session = self.env['setu.inventory.count.session'].create({
             'is_multi_session': True,
@@ -219,31 +229,110 @@ class StockInvCount(models.Model):
             'use_barcode_scanner': new_count.use_barcode_scanner,
             'type': 'Multi Session',
         })
-        for line in rejected_lines:
-            tracking = line.product_id.tracking
-            vals = {
-                'product_id': line.product_id.id,
-                'location_id': line.location_id.id,
-                'date_of_scanning': datetime.now(),
-                'session_id': new_session.id,
-                'inventory_count_id': new_count.id,
-                'is_multi_session': new_session.is_multi_session,
-            }
-            domain = [('location_id', '=', line.location_id.id),
-                      ('product_id', '=', line.product_id.id)]
-            if tracking == 'none':
-                quants = self.env['stock.quant'].sudo().search(domain)
-                qty_available = sum([x.quantity for x in quants])
-                vals.update({'theoretical_qty': qty_available})
-            elif tracking == 'lot':
-                domain.append(('lot_id', '=', line.lot_id.id))
-                quants = self.env['stock.quant'].sudo().search(domain)
-                qty_available = sum([x.quantity for x in quants])
-                vals.update({'theoretical_qty': qty_available, 'lot_id': line.lot_id.id})
 
-            self.env['setu.inventory.count.session.line'].create(vals)
-        self.state = 'Approved'
-        self.create_inventory_adj()
+        source_map = {
+            (
+                snap.product_id.id,
+                snap.location_id.id,
+                snap.lot_id.id if snap.lot_id else False,
+            ): snap
+            for snap in self.snapshot_line_ids
+        }
+        grouped = {}
+        for line in rejected_lines:
+            product=line.product_id
+            location=line.location_id
+            tracking=product.tracking
+
+            if tracking == 'serial':
+                serials=line.serial_number_ids | line.not_found_serial_number_ids
+                for serial in serials:
+                    key=('serial',product.id,location.id,serial.id)
+                    source=source_map.get((product.id,location.id,serial.id))
+                    grouped.setdefault(key,{
+                        'product':product,
+                        'location':location,
+                        'lot':serial,
+                        'tracking':tracking,
+                        'expected_qty':source.expected_qty if source else 1.0,
+                        'unit_cost':source.unit_cost if source else product.with_company(self.company_id).standard_price,
+                    })
+                continue
+
+            lot=line.lot_id if tracking == 'lot' else self.env['stock.lot']
+            key=(tracking,product.id,location.id,lot.id if lot else False)
+            if key not in grouped:
+                source=source_map.get((product.id,location.id,lot.id if lot else False))
+                grouped[key]={
+                    'product':product,
+                    'location':location,
+                    'lot':lot,
+                    'tracking':tracking,
+                    'expected_qty':source.expected_qty if source else line.theoretical_qty,
+                    'unit_cost':source.unit_cost if source else product.with_company(self.company_id).standard_price,
+                }
+
+        header=new_count._get_snapshot_header(create=True)
+        snapshot_vals=[{
+            'snapshot_id':header.id,
+            'product_id':data['product'].id,
+            'lot_id':data['lot'].id if data['lot'] else False,
+            'location_id':data['location'].id,
+            'expected_qty':data['expected_qty'],
+            'unit_cost':data['unit_cost'],
+            'counted_qty':0.0,
+            'difference_qty':-data['expected_qty'],
+            'scan_count':0,
+            'status':'pending',
+            'unexpected':False,
+            'duplicate':False,
+        } for data in grouped.values()]
+        if snapshot_vals:
+            self.env['setu.inventory.count.snapshot.line'].sudo().create(snapshot_vals)
+        header.write({
+            'ready':True,
+            'snapshot_date':fields.Datetime.now(),
+        })
+        new_count._refresh_persistent_kpis()
+
+        vals_list=[]
+        for data in grouped.values():
+            vals={
+                'product_id':data['product'].id,
+                'location_id':data['location'].id,
+                'date_of_scanning':fields.Datetime.now(),
+                'session_id':new_session.id,
+                'inventory_count_id':new_count.id,
+                'is_multi_session':new_session.is_multi_session,
+                'theoretical_qty':data['expected_qty'],
+                'scanned_qty':0.0,
+                'product_scanned':False,
+            }
+            if data['tracking']=='lot':
+                vals['lot_id']=data['lot'].id if data['lot'] else False
+            elif data['tracking']=='serial':
+                vals['serial_number_ids']=[(6,0,data['lot'].ids)]
+                vals['theoretical_qty']=1.0
+            vals_list.append(vals)
+
+        if vals_list:
+            self.env['setu.inventory.count.session.line'].with_context(
+                setu_bulk_count=True,
+            ).create(vals_list)
+
+        self.message_post(
+            body=_(
+                "Se creó el reconteo %s con %s producto(s)/lote(s)/serie(s) únicos."
+            ) % (new_count.display_name,len(vals_list))
+        )
+        return {
+            'type':'ir.actions.act_window',
+            'name':_('Reconteo'),
+            'res_model':'setu.stock.inventory.count',
+            'res_id':new_count.id,
+            'view_mode':'form',
+            'target':'current',
+        }
 
     def action_open_user_mistake_lines(self):
         user_mistake_lines = self.line_ids.filtered(lambda l: l.user_calculation_mistake)
@@ -378,7 +467,16 @@ class StockInvCount(models.Model):
             candidates = self._get_approver_candidates(company)
 
             approver = self.env['res.users'].browse(vals.get('approver_id')).exists()
-            if not approver or approver not in candidates:
+            manager_group = self.env.ref(
+                'setu_inventory_count_management.group_setu_inventory_count_manager'
+            )
+            approver_is_valid = bool(
+                approver
+                and approver.active
+                and not approver.share
+                and manager_group in approver.group_ids
+            )
+            if not approver_is_valid:
                 preferred = self.env.user if self.env.user in candidates else candidates[:1]
                 if preferred:
                     vals['approver_id'] = preferred.id
@@ -393,7 +491,10 @@ class StockInvCount(models.Model):
         # 6.8.0: cada conteo conserva su propia fotografía persistente del stock.
         # Se prepara una sola vez al crear el documento; las sesiones solo
         # alimentan este universo y el panel deja de consultar stock.quant.
-        records.filtered(lambda count: count.warehouse_id and count.location_id)._prepare_inventory_snapshot()
+        if not self.env.context.get('setu_creating_recount'):
+            records.filtered(
+                lambda count: count.warehouse_id and count.location_id
+            )._prepare_inventory_snapshot()
         return records
 
     def create_session(self):
@@ -613,7 +714,7 @@ class StockInvCount(models.Model):
                 warehouse_id = record.warehouse_id
                 view_location_id = record.warehouse_id.view_location_id
                 locations = self.env['stock.location'].sudo().search(
-                    [('warehouse_id', '=', warehouse_id), ('usage', '=', 'internal')])
+                    [('warehouse_id', '=', warehouse_id.id), ('usage', '=', 'internal')])
                 record.locations_ids = locations if locations else False
             else:
                 locations = record.env['stock.location'].sudo().search(
@@ -636,7 +737,7 @@ class StockInvCount(models.Model):
                 self.approver_id = self.env.user if self.env.user in candidates else candidates[:1]
             self.location_id = self.warehouse_id.lot_stock_id
 
-    @api.depends('warehouse_id', 'company_id')
+    @api.depends('warehouse_id', 'company_id', 'approver_id')
     def _compute_approver_id(self):
         for record in self:
             company = record.company_id or record.warehouse_id.company_id or self.env.company

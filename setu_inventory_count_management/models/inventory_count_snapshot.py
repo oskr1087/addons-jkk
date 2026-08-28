@@ -4,6 +4,7 @@ from collections import defaultdict
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
 from odoo.tools.float_utils import float_is_zero
+from psycopg2.extras import execute_values
 
 
 class InventoryCountSnapshot(models.Model):
@@ -81,6 +82,26 @@ class InventoryCountSnapshotLine(models.Model):
     _order = "location_id, product_id, lot_id, id"
     _rec_name = "product_id"
 
+    def init(self):
+        self.env.cr.execute(f"""
+            CREATE INDEX IF NOT EXISTS
+                setu_inv_snapshot_line_key_idx
+            ON {self._table}
+                (snapshot_id, product_id, location_id, lot_id)
+        """)
+        self.env.cr.execute(f"""
+            CREATE INDEX IF NOT EXISTS
+                setu_inv_snapshot_line_status_idx
+            ON {self._table}
+                (snapshot_id, status)
+        """)
+        self.env.cr.execute(f"""
+            CREATE INDEX IF NOT EXISTS
+                setu_inv_snapshot_line_count_key_idx
+            ON {self._table}
+                (count_id, product_id, location_id, lot_id)
+        """)
+
     snapshot_id = fields.Many2one(
         "setu.inventory.count.snapshot",
         string="Información persistente",
@@ -137,7 +158,7 @@ class InventoryCountSnapshotLine(models.Model):
     counted_value = fields.Monetary(string="Valor contado", currency_field="currency_id", compute="_compute_financial_values", store=True, readonly=True)
     impact_value = fields.Monetary(string="Impacto", currency_field="currency_id", compute="_compute_financial_values", store=True, readonly=True)
     impact_abs = fields.Monetary(string="Impacto absoluto", currency_field="currency_id", compute="_compute_financial_values", store=True, readonly=True)
-    high_impact = fields.Boolean(string="Alto impacto", compute="_compute_financial_values", readonly=True)
+    high_impact = fields.Boolean(string="Alto impacto", compute="_compute_financial_values", store=True, readonly=True)
     scan_count = fields.Integer(string="Lecturas", readonly=True)
     first_session_id = fields.Many2one(
         "setu.inventory.count.session", string="Primera sesión", readonly=True
@@ -192,25 +213,39 @@ class InventoryCountSnapshotLine(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        seen = set()
-        for vals in vals_list:
-            key = (
+        keys = {
+            (
                 vals.get("snapshot_id"),
                 vals.get("product_id"),
                 vals.get("lot_id") or False,
                 vals.get("location_id"),
             )
-            if key in seen:
-                raise ValidationError(
-                    _("La fotografía contiene duplicado el mismo producto, lote y ubicación.")
+            for vals in vals_list
+        }
+        if len(keys) != len(vals_list):
+            raise ValidationError(
+                _("La fotografía contiene duplicado el mismo producto, lote y ubicación.")
+            )
+
+        snapshot_ids = {key[0] for key in keys if key[0]}
+        product_ids = {key[1] for key in keys if key[1]}
+        location_ids = {key[3] for key in keys if key[3]}
+        if snapshot_ids and product_ids and location_ids:
+            existing = self.search([
+                ("snapshot_id", "in", list(snapshot_ids)),
+                ("product_id", "in", list(product_ids)),
+                ("location_id", "in", list(location_ids)),
+            ])
+            existing_keys = {
+                (
+                    line.snapshot_id.id,
+                    line.product_id.id,
+                    line.lot_id.id if line.lot_id else False,
+                    line.location_id.id,
                 )
-            seen.add(key)
-            if self.search_count([
-                ("snapshot_id", "=", key[0]),
-                ("product_id", "=", key[1]),
-                ("lot_id", "=", key[2]),
-                ("location_id", "=", key[3]),
-            ]):
+                for line in existing
+            }
+            if keys & existing_keys:
                 raise ValidationError(
                     _("Ya existe el mismo producto, lote y ubicación en este conteo.")
                 )
@@ -300,6 +335,138 @@ class InventoryCountSnapshotLine(models.Model):
             })
 
         affected_counts._refresh_persistent_kpis()
+        return True
+
+    def _refresh_from_session_lines_bulk(self):
+        if not self:
+            return True
+
+        SessionLine = self.env["setu.inventory.count.session.line"].sudo()
+        snapshots = self.sudo()
+        session_lines = SessionLine.search([
+            ("inventory_count_id", "in", snapshots.count_id.ids),
+            ("product_id", "in", snapshots.product_id.ids),
+            ("location_id", "in", snapshots.location_id.ids),
+            ("product_scanned", "=", True),
+            ("session_id.state", "!=", "Cancel"),
+        ], order="date_of_scanning, id")
+
+        session_lines.mapped("serial_number_ids")
+        session_lines.mapped("session_id.user_ids")
+
+        aggregates = {}
+        for line in session_lines:
+            base = (
+                line.inventory_count_id.id,
+                line.product_id.id,
+                line.location_id.id,
+            )
+            if line.product_id.tracking == "serial":
+                keys = [(*base, serial.id) for serial in line.serial_number_ids]
+                qty = 1.0
+            else:
+                keys = [(*base, line.lot_id.id if line.lot_id else False)]
+                qty = line.scanned_qty
+
+            for key in keys:
+                data = aggregates.setdefault(key, {
+                    "counted": 0.0,
+                    "scan_count": 0,
+                    "first": False,
+                    "last": False,
+                })
+                data["counted"] += qty
+                data["scan_count"] += 1
+                if not data["first"]:
+                    data["first"] = line
+                data["last"] = line
+
+        values=[]
+        for snapshot in snapshots:
+            key=(
+                snapshot.count_id.id,
+                snapshot.product_id.id,
+                snapshot.location_id.id,
+                snapshot.lot_id.id if snapshot.lot_id else False,
+            )
+            data=aggregates.get(key)
+            counted=data["counted"] if data else 0.0
+            scan_count=data["scan_count"] if data else 0
+            status=(
+                "zero"
+                if snapshot.closed_as_zero and not scan_count
+                else snapshot._status_from_values(
+                    snapshot.expected_qty,
+                    counted,
+                    scan_count,
+                    unexpected=snapshot.unexpected,
+                )
+            )
+            difference=counted-snapshot.expected_qty
+            first=data["first"] if data else SessionLine
+            last=data["last"] if data else SessionLine
+            first_user=(
+                first.session_id.user_ids[:1].id
+                if first and first.session_id.user_ids else None
+            )
+            last_user=(
+                last.session_id.user_ids[:1].id
+                if last and last.session_id.user_ids else None
+            )
+            impact=difference*snapshot.unit_cost
+            values.append((
+                snapshot.id,
+                counted,
+                difference,
+                counted*snapshot.unit_cost,
+                impact,
+                abs(impact),
+                scan_count,
+                first.session_id.id if first else None,
+                last.session_id.id if last else None,
+                last_user or first_user,
+                first.date_of_scanning if first else None,
+                last.date_of_scanning if last else None,
+                bool(scan_count > 1),
+                status,
+            ))
+
+        if values:
+            execute_values(
+                self.env.cr,
+                f"""
+                    UPDATE {self._table} AS snap
+                       SET counted_qty = data.counted_qty::double precision,
+                           difference_qty = data.difference_qty::double precision,
+                           counted_value = data.counted_value::numeric,
+                           impact_value = data.impact_value::numeric,
+                           impact_abs = data.impact_abs::numeric,
+                           scan_count = data.scan_count::integer,
+                           first_session_id = data.first_session_id::integer,
+                           last_session_id = data.last_session_id::integer,
+                           last_user_id = data.last_user_id::integer,
+                           first_scan_at = data.first_scan_at::timestamp,
+                           last_scan_at = data.last_scan_at::timestamp,
+                           duplicate = data.duplicate::boolean,
+                           status = data.status::varchar
+                      FROM (VALUES %s) AS data(
+                           id, counted_qty, difference_qty, counted_value,
+                           impact_value, impact_abs, scan_count,
+                           first_session_id, last_session_id, last_user_id,
+                           first_scan_at, last_scan_at, duplicate, status
+                      )
+                     WHERE snap.id = data.id
+                """,
+                values,
+                page_size=5000,
+            )
+            snapshots.invalidate_recordset([
+                "counted_qty","difference_qty","counted_value",
+                "impact_value","impact_abs","scan_count",
+                "first_session_id","last_session_id","last_user_id",
+                "first_scan_at","last_scan_at","duplicate","status",
+                "difference_display","high_impact",
+            ])
         return True
 
 
@@ -480,11 +647,16 @@ class StockInventoryCountPersistentSnapshot(models.Model):
         self.ensure_one()
         if not self.location_id:
             return self.env["stock.location"]
-        return self.env["stock.location"].sudo().search([
+        Location = self.env["stock.location"].sudo()
+        locations = Location.search([
             ("id", "child_of", self.location_id.id),
             ("usage", "=", "internal"),
-            ("company_id", "in", [False, self.company_id.id]),
         ])
+        # child_of depende de parent_path; una ubicación creada dentro de la
+        # misma transacción debe entrar siempre en su propia fotografía.
+        if self.location_id.usage == "internal":
+            locations |= self.location_id.sudo()
+        return locations
 
     @api.model
     def _backfill_missing_inventory_snapshots(self):
@@ -542,17 +714,40 @@ class StockInventoryCountPersistentSnapshot(models.Model):
             grouped = defaultdict(float)
 
             if locations:
-                quants = Quant.search([
-                    ("location_id", "in", locations.ids),
-                    ("quantity", "!=", 0),
-                    ("product_id.active", "=", True),
-                ])
-                for quant in quants:
-                    grouped[(
-                        quant.product_id.id,
-                        quant.lot_id.id or False,
-                        quant.location_id.id,
-                    )] += quant.quantity
+                # El snapshot debe ser consistente incluso dentro de la misma
+                # transacción (tests, importaciones y cargas masivas).  Se
+                # fuerza el flush y se agrega directamente en PostgreSQL para
+                # evitar caché ORM y un recorrido de miles de stock.quant.
+                Quant.flush_model(["product_id", "location_id", "lot_id", "quantity"])
+                product_filter = count.product_ids.ids
+                if product_filter:
+                    self.env.cr.execute(
+                        """
+                            SELECT product_id, lot_id, location_id, SUM(quantity)
+                              FROM stock_quant
+                             WHERE location_id = ANY(%s)
+                               AND product_id = ANY(%s)
+                               AND quantity <> 0
+                             GROUP BY product_id, lot_id, location_id
+                        """,
+                        (locations.ids, product_filter),
+                    )
+                else:
+                    self.env.cr.execute(
+                        """
+                            SELECT product_id, lot_id, location_id, SUM(quantity)
+                              FROM stock_quant
+                             WHERE location_id = ANY(%s)
+                               AND quantity <> 0
+                             GROUP BY product_id, lot_id, location_id
+                        """,
+                        (locations.ids,),
+                    )
+                for product_id, lot_id, location_id, quantity in self.env.cr.fetchall():
+                    product = self.env["product.product"].browse(product_id)
+                    if not product.active:
+                        continue
+                    grouped[(product_id, lot_id or False, location_id)] += quantity
 
             vals_list = []
             for (product_id, lot_id, location_id), quantity in grouped.items():
@@ -645,98 +840,99 @@ class StockInventoryCountPersistentSnapshot(models.Model):
 
     def _refresh_persistent_kpis(self):
         SnapshotLine = self.env["setu.inventory.count.snapshot.line"].sudo()
+        table = SnapshotLine._table
+
         for count in self:
             header = count._get_snapshot_header(create=True)
-            domain = [("snapshot_id", "=", header.id)]
-
-            # Compatibilidad con snapshots creados antes de incorporar la
-            # visualización económica: completamos el costo sin reconstruir
-            # ni volver a consultar existencias.
-            legacy_cost_lines = SnapshotLine.search(domain + [("unit_cost", "=", 0.0)])
-            for legacy_line in legacy_cost_lines:
-                legacy_line.unit_cost = legacy_line.product_id.with_company(
-                    count.company_id
-                ).standard_price
-            grouped = SnapshotLine._read_group(
-                domain,
-                groupby=["status"],
-                aggregates=["__count"],
-            )
-            by_status = {
-                status: qty
-                for status, qty in grouped
-                if status
-            }
-
-            expected = SnapshotLine.search_count(
-                domain + [("unexpected", "=", False)]
-            )
-            pending = by_status.get("pending", 0)
-            matched = by_status.get("matched", 0)
-            zero = by_status.get("zero", 0)
-            unexpected = SnapshotLine.search_count(
-                domain + [("unexpected", "=", True)]
-            )
-            duplicate = SnapshotLine.search_count(
-                domain + [("duplicate", "=", True)]
-            )
-            differences = sum(
-                by_status.get(status, 0)
-                for status in ("difference", "zero", "unexpected", "duplicate")
-            )
-            financial = SnapshotLine._read_group(
-                domain,
-                aggregates=["expected_value:sum", "counted_value:sum"],
-            )
-            expected_value = counted_value = 0.0
-            if financial:
-                expected_value, counted_value = financial[0]
-
-            # Pendientes y duplicados no forman parte de la vista previa
-            # económica porque todavía no representan un ajuste aprobado.
-            actionable_lines = SnapshotLine.search(
-                domain + [("status", "in", ["difference", "zero", "unexpected"])]
-            )
-            net_value = sum(actionable_lines.mapped("impact_value"))
-            shortage_value = sum(
-                -line.impact_value for line in actionable_lines if line.impact_value < 0
-            )
-            surplus_value = sum(
-                line.impact_value for line in actionable_lines if line.impact_value > 0
-            )
             threshold = float(
                 self.env["ir.config_parameter"].sudo().get_param(
-                    "setu_inventory_count_management.high_impact_threshold", 500.0
+                    "setu_inventory_count_management.high_impact_threshold",
+                    500.0,
                 ) or 500.0
             )
-            high_impact = len(
-                actionable_lines.filtered(lambda line: line.impact_abs >= threshold)
-            )
-            counted = max(expected - pending, 0)
-            progress = (counted * 100.0 / expected) if expected else 100.0
-            difference_percent = (
-                differences * 100.0 / counted if counted else 0.0
-            )
 
+            SnapshotLine.flush_model([
+                "snapshot_id","status","unexpected","duplicate",
+                "expected_value","counted_value","impact_value","impact_abs",
+            ])
+
+            self.env.cr.execute(
+                f"""
+                    SELECT
+                        COUNT(*) FILTER (WHERE NOT unexpected),
+                        COUNT(*) FILTER (WHERE status = 'pending'),
+                        COUNT(*) FILTER (WHERE status = 'matched'),
+                        COUNT(*) FILTER (WHERE status = 'zero'),
+                        COUNT(*) FILTER (WHERE status = 'unexpected'),
+                        COUNT(*) FILTER (WHERE status = 'duplicate'),
+                        COUNT(*) FILTER (
+                            WHERE status IN ('difference','zero','unexpected','duplicate')
+                        ),
+                        COALESCE(SUM(expected_value),0.0),
+                        COALESCE(SUM(counted_value),0.0),
+                        COALESCE(SUM(CASE
+                            WHEN status IN ('difference','zero','unexpected')
+                             AND impact_value < 0
+                            THEN -impact_value ELSE 0 END),0.0),
+                        COALESCE(SUM(CASE
+                            WHEN status IN ('difference','zero','unexpected')
+                             AND impact_value > 0
+                            THEN impact_value ELSE 0 END),0.0),
+                        COALESCE(SUM(CASE
+                            WHEN status IN ('difference','zero','unexpected')
+                            THEN impact_value ELSE 0 END),0.0),
+                        COUNT(*) FILTER (
+                            WHERE status IN ('difference','zero','unexpected')
+                              AND impact_abs >= %s
+                        )
+                    FROM {table}
+                    WHERE snapshot_id = %s
+                """,
+                (threshold,header.id),
+            )
+            row=self.env.cr.fetchone()
+            (
+                expected,pending,matched,zero,unexpected,duplicate,differences,
+                expected_value,counted_value,shortage,surplus,net,high_impact,
+            )=row
+            counted=max(expected-pending,0)
+            progress=(counted*100.0/expected) if expected else 0.0
+            difference_percent=(differences*100.0/counted) if counted else 0.0
             header.write({
-                "expected_item_count": expected,
-                "counted_item_count": counted,
-                "pending_item_count": pending,
-                "matched_item_count": matched,
-                "difference_item_count": differences,
-                "zero_item_count": zero,
-                "unexpected_item_count": unexpected,
-                "duplicate_item_count": duplicate,
-                "progress_percent": progress,
-                "difference_percent": difference_percent,
-                "expected_value": expected_value,
-                "counted_value": counted_value,
-                "shortage_value": shortage_value,
-                "surplus_value": surplus_value,
-                "net_adjustment_value": net_value,
-                "high_impact_item_count": high_impact,
-                "last_update": fields.Datetime.now(),
+                "expected_item_count":expected,
+                "counted_item_count":counted,
+                "pending_item_count":pending,
+                "matched_item_count":matched,
+                "difference_item_count":differences,
+                "zero_item_count":zero,
+                "unexpected_item_count":unexpected,
+                "duplicate_item_count":duplicate,
+                "progress_percent":progress,
+                "difference_percent":difference_percent,
+                "expected_value":expected_value,
+                "counted_value":counted_value,
+                "shortage_value":shortage,
+                "surplus_value":surplus,
+                "net_adjustment_value":net,
+                "high_impact_item_count":high_impact,
+                "last_update":fields.Datetime.now(),
             })
+            # Los campos gerenciales del conteo se calculan buscando esta
+            # cabecera (no existe una dependencia ORM directa). Invalídalos
+            # explícitamente para que no queden KPIs antiguos en caché.
+            count.invalidate_recordset([
+                "snapshot_ready", "snapshot_date", "expected_item_count",
+                "counted_item_count", "pending_item_count", "matched_item_count",
+                "difference_item_count", "zero_item_count", "unexpected_item_count",
+                "duplicate_item_count", "progress_percent", "difference_percent",
+                "expected_percent", "pending_percent", "matched_percent",
+                "unexpected_percent", "duplicate_percent", "expected_value",
+                "counted_value", "shortage_value", "surplus_value",
+                "net_adjustment_value", "high_impact_item_count",
+                "adjustment_candidate_count", "blocking_issue_count",
+                "adjustment_ready", "adjustment_readiness_text",
+                "dashboard_last_update",
+            ])
         return True
 
     def action_refresh_inventory_snapshot(self):

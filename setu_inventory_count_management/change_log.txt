@@ -1,3 +1,41 @@
+19.0.7.4.3
+- Cuando el conteo define product_ids (por ejemplo desde el planificador), el snapshot se limita a esos productos; vacío significa contar todo el alcance.
+- Invalidación explícita de KPIs calculados después de actualizar la cabecera persistente; elimina valores obsoletos en caché.
+- Dependencia de candidatos de controlador incluye approver_id; se conserva la selección válida.
+- Correos del planificador no se renderizan durante --test-enable.
+- Corrección de raíz del snapshot: agregación SQL directa de stock.quant después de flush.
+- Tests de inventario aislados en ubicaciones dedicadas para no mezclar stock real de jkkMRP.
+- Datos de stock de pruebas creados con _update_available_quantity.
+- Controlador explícitamente seleccionado se conserva y candidatos usan membresía de grupo sin caché has_group.
+- Planificador usa message_subscribe en lugar de escribir mail.followers directamente.
+- Corregido XML ID de plantilla de correo y envío diferido.
+- Tests de cierre actualizados al flujo vigente: pendientes -> cero, diferencias -> decisión.
+- XPath @class sustituido por hasclass().
+- Eliminada carpeta i18n; los textos permanecen directamente en español en el código.
+
+19.0.7.4.0
+- Optimización estructural para conteos/reconteos con miles de registros.
+- Modo batch setu_bulk_count para diferir sincronización de snapshot.
+- Eliminado search N+1 sesión→conteo en create de líneas.
+- SnapshotLine.create valida duplicados en lote.
+- Refresco batch del snapshot con una sola carga de lecturas y UPDATE masivo.
+- KPIs consolidados con agregación SQL por conteo.
+- Índices compuestos para claves críticas.
+- Reconteo crea snapshot dirigido; no carga nuevamente todo el almacén.
+- Reconteo conserva cantidad esperada/costo congelado del snapshot padre.
+- Lectura PDA individual mantiene sincronización incremental.
+- 3 pruebas nuevas de rendimiento. Suite total: 80 tests.
+
+19.0.7.3.7
+- Reconteo corregido para crear claves únicas y evitar líneas duplicadas.
+- Sin seguimiento: una línea por producto + ubicación.
+- Por lote: una línea por producto + lote + ubicación.
+- Por serie: una línea por producto + número de serie + ubicación.
+- El reconteo conserva las cantidades esperadas del snapshot/conteo original y deja de consultar stock.quant.
+- Crear un reconteo ya no aprueba ni genera el ajuste del conteo padre.
+- Las líneas del reconteo se crean masivamente.
+- Mensajes de duplicidad traducidos y aclarados en español.
+
 19.0.7.3.6
 - Se incorpora procedimiento de recuperación directa para bases con XML IDs de vistas ya cruzados.
 - La reparación de base reasigna setu_stock_inventory_count_form_view a una vista raíz real y restaura el snapshot heredado.

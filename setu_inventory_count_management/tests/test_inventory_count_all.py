@@ -45,8 +45,18 @@ class TestInventoryCountComprehensive(TransactionCase):
         cls.wh_b = cls.Warehouse.create({'name': 'WH B', 'code': 'WHB', 'company_id': cls.company_b.id})
 
         # Locations (internal)
-        cls.loc_a = cls.wh_a.lot_stock_id
-        cls.loc_b = cls.wh_b.lot_stock_id
+        cls.loc_a = cls.Location.create({
+            'name': 'TEST COUNT A',
+            'usage': 'internal',
+            'location_id': cls.wh_a.lot_stock_id.id,
+            'company_id': cls.company_a.id,
+        })
+        cls.loc_b = cls.Location.create({
+            'name': 'TEST COUNT B',
+            'usage': 'internal',
+            'location_id': cls.wh_b.lot_stock_id.id,
+            'company_id': cls.company_b.id,
+        })
 
         # Products: none/lot/serial
         cls.prod_none = cls.Product.create({'name': 'P-None', 'type': 'consu','is_storable': True, 'standard_price': 3.0})
@@ -59,10 +69,10 @@ class TestInventoryCountComprehensive(TransactionCase):
 
         # Seed theoretical quants in each company/warehouse
         def seed_quants(location):
-            cls.Quant.with_context(inventory_mode=True).create({'product_id': cls.prod_none.id, 'location_id': location.id, 'inventory_quantity': 10})
-            cls.Quant.with_context(inventory_mode=True).create({'product_id': cls.prod_lot.id, 'location_id': location.id, 'lot_id': cls.lot1.id, 'inventory_quantity': 3})
+            cls.Quant._update_available_quantity(cls.prod_none, location, 10)
+            cls.Quant._update_available_quantity(cls.prod_lot, location, 3, lot_id=cls.lot1)
             for sn in (cls.sn1, cls.sn2):
-                cls.Quant.with_context(inventory_mode=True).create({'product_id': cls.prod_ser.id, 'location_id': location.id, 'lot_id': sn.id, 'inventory_quantity': 1})
+                cls.Quant._update_available_quantity(cls.prod_ser, location, 1, lot_id=sn)
         seed_quants(cls.loc_a)
         seed_quants(cls.loc_b)
 
@@ -163,7 +173,9 @@ class TestInventoryCountComprehensive(TransactionCase):
         session.submit()
         session.validate_session()
 
-        # Complete count and approve should create adjustment because discrepancy exists
+        # Cerrar cualquier esperado que no haya sido escaneado antes de completar.
+        if count.pending_item_count:
+            count.action_mark_pending_as_zero()
         count.complete_counting()
         count.action_accept_adjustment_candidates()
         count.approve_inventory_count()
@@ -180,7 +192,11 @@ class TestInventoryCountComprehensive(TransactionCase):
         self._scan_lines_variants(session, discrepancies=False)
         session.submit()
         session.validate_session()
+        if count.pending_item_count:
+            count.action_mark_pending_as_zero()
         count.complete_counting()
+        if count.difference_item_count:
+            count.action_accept_adjustment_candidates()
         count.approve_inventory_count()
         self.assertIn(count.state, ('Approved', 'Inventory Adjusted'))
 
@@ -219,8 +235,12 @@ class TestInventoryCountComprehensive(TransactionCase):
         s2.submit()
         s2.validate_session()
 
-        # Approve the count (no rejected/pending/duplicate lines)
+        # Aprobar el conteo siguiendo el flujo vigente de decisiones.
+        if count.pending_item_count:
+            count.action_mark_pending_as_zero()
         count.complete_counting()
+        if count.difference_item_count:
+            count.action_accept_adjustment_candidates()
         count.approve_inventory_count()
         self.assertIn(count.state, ('Approved', 'Inventory Adjusted'))
 

@@ -10,7 +10,7 @@ class StockMove(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        inventory_adj_id = self._context.get('adj_context', False)
+        inventory_adj_id = self.env.context.get('adj_context', False)
         if inventory_adj_id:
             inventory_adj_id = self.env['setu.stock.inventory'].sudo().browse(inventory_adj_id)
             for vals in vals_list:

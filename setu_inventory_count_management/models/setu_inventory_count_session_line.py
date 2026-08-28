@@ -24,13 +24,13 @@ class InventoryCountSessionLine(models.Model):
     state = fields.Selection([('Pending Review', 'Pendiente de revisión'), ('Approve', 'Aprobar'), ('Reject', 'Rechazar')],
                              default="Pending Review", string="Estado")
 
-    inventory_count_id = fields.Many2one(comodel_name="setu.stock.inventory.count", string="Conteo de inventario")
-    product_id = fields.Many2one(comodel_name="product.product", string="Producto")
-    session_id = fields.Many2one(comodel_name="setu.inventory.count.session", string="Sesión")
+    inventory_count_id = fields.Many2one(comodel_name="setu.stock.inventory.count", string="Conteo de inventario", index=True)
+    product_id = fields.Many2one(comodel_name="product.product", string="Producto", index=True)
+    session_id = fields.Many2one(comodel_name="setu.inventory.count.session", string="Sesión", index=True)
     inventory_count_line_id = fields.Many2one(comodel_name="setu.stock.inventory.count.line",
                                               string="Línea de conteo de inventario")
-    location_id = fields.Many2one(comodel_name="stock.location", string="Ubicación")
-    lot_id = fields.Many2one(comodel_name="stock.lot", string="Lote")
+    location_id = fields.Many2one(comodel_name="stock.location", string="Ubicación", index=True)
+    lot_id = fields.Many2one(comodel_name="stock.lot", string="Lote", index=True)
 
     serial_number_ids = fields.Many2many(comodel_name="stock.lot", string="Números de serie")
     not_found_serial_number_ids = fields.Many2many('stock.lot', 'session_not_found_stock_lot_rel', 'session_line_id',
@@ -43,26 +43,59 @@ class InventoryCountSessionLine(models.Model):
                                   readonly=True, digits="Product Unit of Measure", search="_search_difference_qty",store=True)
     discrepancy_value = fields.Float(string='Valor de discrepancia', compute='_compute_discrepancy_value', store=True)
 
+    def init(self):
+        self.env.cr.execute(f"""
+            CREATE INDEX IF NOT EXISTS
+                setu_inv_session_line_count_product_location_lot_idx
+            ON {self._table}
+                (inventory_count_id, product_id, location_id, lot_id)
+        """)
+        self.env.cr.execute(f"""
+            CREATE INDEX IF NOT EXISTS
+                setu_inv_session_line_session_product_location_lot_idx
+            ON {self._table}
+                (session_id, product_id, location_id, lot_id)
+        """)
+        self.env.cr.execute(f"""
+            CREATE INDEX IF NOT EXISTS
+                setu_inv_session_line_scanned_count_idx
+            ON {self._table}
+                (inventory_count_id, product_scanned)
+        """)
+
     @api.model_create_multi
     def create(self, vals_list):
+        session_ids = {
+            vals.get('session_id')
+            for vals in vals_list
+            if vals.get('session_id')
+        }
+        sessions = self.env['setu.inventory.count.session'].browse(session_ids).exists()
+        count_by_session = {
+            session.id: session.inventory_count_id.id
+            for session in sessions
+        }
         for vals in vals_list:
-            inventory_count = self.env['setu.stock.inventory.count'].search(
-                [('session_ids', 'in', vals.get('session_id'))])
-            vals.update({'inventory_count_id': inventory_count.id})
+            session_id = vals.get('session_id')
+            if session_id and not vals.get('inventory_count_id'):
+                vals['inventory_count_id'] = count_by_session.get(session_id)
             if vals.get('scanned_qty', 0) > 0:
-                vals.update({'user_ids': [(4, self.env.user.id)]})
+                vals['user_ids'] = [(4, self.env.user.id)]
+
         records = super(InventoryCountSessionLine, self).create(vals_list)
-        records._sync_persistent_count_snapshot()
+        if not self.env.context.get('setu_bulk_count'):
+            records._sync_persistent_count_snapshot()
         return records
 
     def write(self, vals):
         watched = {
             'scanned_qty', 'product_scanned', 'product_id', 'lot_id',
             'location_id', 'session_id', 'inventory_count_id',
+            'serial_number_ids', 'not_found_serial_number_ids',
         }
         before_counts = self.mapped('inventory_count_id')
         result = super().write(vals)
-        if watched.intersection(vals):
+        if watched.intersection(vals) and not self.env.context.get('setu_bulk_count'):
             self._sync_persistent_count_snapshot(extra_counts=before_counts)
         return result
 
@@ -76,47 +109,167 @@ class InventoryCountSessionLine(models.Model):
 
     def _persistent_snapshot_lines(self):
         Snapshot = self.env['setu.inventory.count.snapshot.line'].sudo()
-        snapshots = Snapshot
-        for line in self:
-            if not line.inventory_count_id or not line.product_id or not line.location_id:
-                continue
-            domain = [
-                ('count_id', '=', line.inventory_count_id.id),
-                ('product_id', '=', line.product_id.id),
-                ('location_id', '=', line.location_id.id),
-            ]
+        valid = self.filtered(
+            lambda line: line.inventory_count_id and line.product_id and line.location_id
+        )
+        if not valid:
+            return Snapshot
+
+        candidates = Snapshot.search([
+            ('count_id', 'in', valid.inventory_count_id.ids),
+            ('product_id', 'in', valid.product_id.ids),
+            ('location_id', 'in', valid.location_id.ids),
+        ])
+        wanted = set()
+        for line in valid:
+            base = (
+                line.inventory_count_id.id,
+                line.product_id.id,
+                line.location_id.id,
+            )
             if line.product_id.tracking == 'serial':
                 serials = line.serial_number_ids | line.not_found_serial_number_ids
-                if serials:
-                    snapshots |= Snapshot.search(domain + [('lot_id', 'in', serials.ids)])
+                wanted.update((*base, serial.id) for serial in serials)
             else:
-                snapshots |= Snapshot.search(
-                    domain + [('lot_id', '=', line.lot_id.id if line.lot_id else False)]
-                )
-        return snapshots
+                wanted.add((*base, line.lot_id.id if line.lot_id else False))
 
-    def _sync_persistent_count_snapshot(self, extra_counts=None):
+        return candidates.filtered(
+            lambda snap: (
+                snap.count_id.id,
+                snap.product_id.id,
+                snap.location_id.id,
+                snap.lot_id.id if snap.lot_id else False,
+            ) in wanted
+        )
+
+    def _ensure_snapshot_lines_bulk(self):
+        Snapshot = self.env['setu.inventory.count.snapshot.line'].sudo()
+        valid = self.filtered(
+            lambda line: line.inventory_count_id and line.product_id and line.location_id
+        )
+        if not valid:
+            return Snapshot
+
+        counts = valid.inventory_count_id
+        headers = {}
+        for count in counts:
+            header = count._get_snapshot_header(create=True)
+            if not header.ready:
+                header.write({
+                    'ready': True,
+                    'snapshot_date': fields.Datetime.now(),
+                })
+            headers[count.id] = header
+
+        existing = Snapshot.search([
+            ('count_id', 'in', counts.ids),
+            ('product_id', 'in', valid.product_id.ids),
+            ('location_id', 'in', valid.location_id.ids),
+        ])
+        snapshot_map = {
+            (
+                snap.count_id.id,
+                snap.product_id.id,
+                snap.location_id.id,
+                snap.lot_id.id if snap.lot_id else False,
+            ): snap
+            for snap in existing
+        }
+
+        wanted_keys = set()
+        vals_by_key = {}
+        for line in valid:
+            count = line.inventory_count_id
+            header = headers[count.id]
+            product = line.product_id
+            base = (count.id, product.id, line.location_id.id)
+
+            if product.tracking == 'serial':
+                for serial in line.serial_number_ids:
+                    key = (*base, serial.id)
+                    wanted_keys.add(key)
+                    if key not in snapshot_map and key not in vals_by_key:
+                        vals_by_key[key] = {
+                            'snapshot_id': header.id,
+                            'product_id': product.id,
+                            'lot_id': serial.id,
+                            'location_id': line.location_id.id,
+                            'expected_qty': 0.0,
+                            'unit_cost': product.with_company(count.company_id).standard_price,
+                            'unexpected': True,
+                            'status': 'unexpected',
+                        }
+            else:
+                lot_id = line.lot_id.id if line.lot_id else False
+                key = (*base, lot_id)
+                wanted_keys.add(key)
+                if key not in snapshot_map and key not in vals_by_key:
+                    vals_by_key[key] = {
+                        'snapshot_id': header.id,
+                        'product_id': product.id,
+                        'lot_id': lot_id,
+                        'location_id': line.location_id.id,
+                        'expected_qty': 0.0,
+                        'unit_cost': product.with_company(count.company_id).standard_price,
+                        'unexpected': True,
+                        'status': 'unexpected',
+                    }
+
+        if vals_by_key:
+            created = Snapshot.create(list(vals_by_key.values()))
+            for snap in created:
+                key = (
+                    snap.count_id.id,
+                    snap.product_id.id,
+                    snap.location_id.id,
+                    snap.lot_id.id if snap.lot_id else False,
+                )
+                snapshot_map[key] = snap
+
+        return Snapshot.browse([
+            snapshot_map[key].id
+            for key in wanted_keys
+            if key in snapshot_map
+        ])
+
+    def _sync_persistent_count_snapshot(self, extra_counts=None, bulk=None):
+        counts = (
+            extra_counts or self.env['setu.stock.inventory.count']
+        ) | self.mapped('inventory_count_id')
+
+        if bulk is None:
+            bulk = bool(
+                self.env.context.get('setu_bulk_count')
+                or len(self) >= 50
+            )
+
+        if bulk:
+            affected = self._ensure_snapshot_lines_bulk()
+            affected._refresh_from_session_lines_bulk()
+            counts._refresh_persistent_kpis()
+            return True
+
         Snapshot = self.env['setu.inventory.count.snapshot.line'].sudo()
         affected = Snapshot
-        counts = (extra_counts or self.env['setu.stock.inventory.count']) | self.mapped('inventory_count_id')
         for line in self:
             count = line.inventory_count_id
             if not count or not line.product_id or not line.location_id:
                 continue
             if not count.snapshot_ready:
-                # Compatibilidad con conteos antiguos: si ya existen lecturas
-                # no inventamos el esperado con el stock actual. Se crea solo
-                # la cabecera persistente y la lectura queda como No previsto.
                 header = count._get_snapshot_header(create=True)
                 if not header.ready:
                     header.write({
                         'ready': True,
                         'snapshot_date': fields.Datetime.now(),
                     })
-            snapshots = count._ensure_snapshot_lines_for_session_line(line)
-            affected |= snapshots
+            affected |= count._ensure_snapshot_lines_for_session_line(line)
+
         affected._refresh_from_session_lines()
-        counts._refresh_persistent_kpis()
+        return True
+
+    def action_sync_count_snapshot_bulk(self):
+        self._sync_persistent_count_snapshot(bulk=True)
+        return True
 
     @api.constrains('scanned_qty')
     def constrains_scanned_aty(self):

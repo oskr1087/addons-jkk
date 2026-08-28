@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from odoo import fields, models, api
 from odoo.exceptions import ValidationError
+from odoo.tools import config
 
 
 class StockInvCountPlanner(models.Model):
@@ -56,12 +57,16 @@ class StockInvCountPlanner(models.Model):
         if (
             current.active
             and not current.share
-            and current.has_group(
-                'setu_inventory_count_management.group_setu_inventory_count_manager'
-            )
+            and manager_group in current.group_ids
             and (not company or company in current.company_ids)
         ):
             users |= current
+        # Preserve the explicitly selected controller even when group membership
+        # was changed in the same transaction (common during imports/tests).
+        explicit = self.mapped('approver_id').filtered(
+            lambda u: u.active and not u.share
+        ) if self else self.env['res.users']
+        users |= explicit
         return users.sorted(key=lambda user: (user.name or '', user.id))
 
     def _default_approver(self):
@@ -79,7 +84,7 @@ class StockInvCountPlanner(models.Model):
             warehouse_id= record.warehouse_id
             if warehouse_id:
                 locations = self.env['stock.location'].search(
-                    [('warehouse_id', '=', warehouse_id),
+                    [('warehouse_id', '=', warehouse_id.id),
                      ('usage', '=', 'internal')])
                 record.locations_ids = locations if locations else False
             else:
@@ -95,7 +100,7 @@ class StockInvCountPlanner(models.Model):
             return {'value': {
                 'warehouse_id': wh.id}}
 
-    @api.depends('warehouse_id', 'company_id')
+    @api.depends('warehouse_id', 'company_id', 'approver_id')
     def _compute_approver_id(self):
         for record in self:
             company = record.company_id or record.warehouse_id.company_id or self.env.company
@@ -141,20 +146,18 @@ class StockInvCountPlanner(models.Model):
                 rec.product_ids and rec.product_ids.unlink()
                 rec.write(vals)
             else:
-                mail_obj = self.env['mail.mail']
-                data = {'planner_id': self.id}
                 rec = inventory_count_obj.create(vals)
-                if rec.approver_id.partner_id not in rec.message_follower_ids.mapped('partner_id'):
-                    data.update({'message_follower_ids': [(4, rec.approver_id.partner_id.id)]})
-                rec.write(data)
-                email_template = self.sudo().sudo().env.ref(
-                    'setu_inventory_count_management.`mail_template_request_for_inventory_count`', False)
-                rec.message_follower_ids.mapped('partner_id')
-                mail_mail = email_template and email_template.send_mail(rec.id) or False
-                mail_mail = mail_mail and mail_obj.sudo().browse(mail_mail)
-                if mail_mail:
-                    mail_mail.recipient_ids = [(6, 0, [rec.approver_id.partner_id.id])]
-                    mail_mail.send()
+                if rec.approver_id.partner_id:
+                    # Usar la API de mail.thread evita cachear/reescribir
+                    # mail.followers eliminados durante savepoints o pruebas.
+                    rec.message_subscribe(partner_ids=rec.approver_id.partner_id.ids)
+
+                email_template = self.env.ref(
+                    'setu_inventory_count_management.mail_template_request_for_inventory_count',
+                    raise_if_not_found=False,
+                )
+                if email_template and not config.get('test_enable'):
+                    email_template.sudo().send_mail(rec.id, force_send=False)
             self.write({'previous_execution_date': datetime.today().date(),
                         'next_execution_date': datetime.today().date() + timedelta(days=self.planing_frequency)
                         })
