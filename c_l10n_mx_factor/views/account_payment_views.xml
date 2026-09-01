@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_account_payment_form_factor" model="ir.ui.view">
+        <field name="name">account.payment.form.inherit.factor</field>
+        <field name="model">account.payment</field>
+        <field name="inherit_id" ref="account.view_account_payment_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='l10n_mx_edi_main_group']" position="after">
+                <group name="l10n_mx_factor_group" string="Factoraje financiero"
+                       invisible="country_code != 'MX'">
+                    <field name="l10n_mx_factor" readonly="state != 'draft'"/>
+                    <field name="l10n_mx_factor_factor_id"
+                           invisible="not l10n_mx_factor"
+                           required="l10n_mx_factor"
+                           readonly="state != 'draft'"
+                           options="{'no_create': True}"/>
+                    <field name="l10n_mx_factor_scheme"
+                           invisible="not l10n_mx_factor"/>
+                    <field name="l10n_mx_factor_commission_move_id"
+                           invisible="not l10n_mx_factor"
+                           options="{'no_quick_create': True}"/>
+                </group>
+                <div class="alert alert-info" role="alert" invisible="not l10n_mx_factor">
+                    El complemento de pago (REP) se timbrará con el <b>factor</b> como
+                    receptor &#8212; no tu cliente &#8212; y quedará relacionado con la(s)
+                    factura(s) cedida(s).
+                </div>
+                <div class="alert alert-warning" role="alert" invisible="not l10n_mx_factor_warning">
+                    <field name="l10n_mx_factor_warning" nolabel="1"/>
+                </div>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button type="object" name="action_l10n_mx_factor_open_commission"
+                        class="oe_stat_button" icon="fa-scissors"
+                        invisible="not l10n_mx_factor_commission_move_id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Comisión</span>
+                        <span class="o_stat_text">del factor</span>
+                    </div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

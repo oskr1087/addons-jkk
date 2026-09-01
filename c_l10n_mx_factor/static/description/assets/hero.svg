@@ -1,0 +1,36 @@
+<svg width="440" height="300" viewBox="0 0 440 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- factura (cedente) -->
+  <rect x="20" y="70" width="120" height="150" rx="10" fill="#0F1A33" stroke="#3A5A9E" stroke-width="2"/>
+  <rect x="36" y="90" width="70" height="9" rx="4" fill="#9DC0FF"/>
+  <rect x="36" y="110" width="88" height="7" rx="3" fill="#33507F"/>
+  <rect x="36" y="126" width="88" height="7" rx="3" fill="#33507F"/>
+  <rect x="36" y="142" width="60" height="7" rx="3" fill="#33507F"/>
+  <rect x="36" y="182" width="88" height="20" rx="5" fill="#0B6EFF"/>
+  <text x="80" y="196" font-family="Segoe UI,Arial,sans-serif" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">Factura</text>
+
+  <!-- flecha 1 -->
+  <path d="M148 145 H196" stroke="#6C86C9" stroke-width="3" stroke-linecap="round"/>
+  <path d="M190 138 L200 145 L190 152" stroke="#6C86C9" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- factor (banco) -->
+  <rect x="208" y="86" width="120" height="128" rx="10" fill="#0F1A33" stroke="#3A5A9E" stroke-width="2"/>
+  <path d="M268 100 L318 122 H218 Z" fill="#9DC0FF"/>
+  <rect x="224" y="128" width="10" height="56" fill="#33507F"/>
+  <rect x="248" y="128" width="10" height="56" fill="#33507F"/>
+  <rect x="272" y="128" width="10" height="56" fill="#33507F"/>
+  <rect x="296" y="128" width="10" height="56" fill="#33507F"/>
+  <rect x="218" y="190" width="100" height="10" rx="3" fill="#9DC0FF"/>
+  <text x="268" y="76" font-family="Segoe UI,Arial,sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">Factor</text>
+
+  <!-- flecha 2 (pago) -->
+  <path d="M336 150 H384" stroke="#6C86C9" stroke-width="3" stroke-linecap="round"/>
+  <path d="M378 143 L388 150 L378 157" stroke="#6C86C9" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- pago ($) -->
+  <circle cx="410" cy="150" r="26" fill="#0B6EFF"/>
+  <text x="410" y="159" font-family="Segoe UI,Arial,sans-serif" font-size="26" font-weight="800" fill="#ffffff" text-anchor="middle">$</text>
+
+  <!-- etiqueta REP -->
+  <rect x="150" y="238" width="150" height="30" rx="15" fill="#132542" stroke="#0B6EFF" stroke-width="1.5"/>
+  <text x="225" y="258" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#9DC0FF" text-anchor="middle">REP &#8594; receptor: Factor</text>
+</svg>

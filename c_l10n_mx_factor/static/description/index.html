@@ -1,0 +1,321 @@
+<div style="max-width:1100px;margin:0 auto;background-color:#FFFFFF;color:#3C455A;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.6;font-size:16px;">
+
+  <!-- ============ BRAND BAR ============ -->
+  <div style="border-bottom:1px solid #E3E8F3;font-size:0;text-align:center;padding:14px 18px;">
+    <div style="display:inline-block;width:60%;min-width:160px;vertical-align:middle;text-align:left;">
+      <img src="assets/logo/logo.png" alt="Codfy" style="height:38px;width:auto;vertical-align:middle;">
+    </div>
+    <div style="display:inline-block;width:38%;min-width:160px;vertical-align:middle;text-align:right;padding:6px 0;">
+      <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#0B6EFF;background-color:#EEF3FF;padding:6px 12px;border-radius:999px;">Factoraje &#183; Odoo Enterprise</span>
+    </div>
+  </div>
+
+  <!-- ============ HERO ============ -->
+  <div style="background-color:#080B16;background-image:linear-gradient(120deg,#0A1024 0%,#080B16 60%);color:#ffffff;padding:50px 28px 54px;">
+    <div style="font-size:0;">
+      <div style="display:inline-block;width:57%;min-width:300px;vertical-align:middle;text-align:left;">
+        <div style="font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#9DC0FF;margin-bottom:14px;">Factoraje financiero en el CFDI de pagos</div>
+        <h1 style="color:#ffffff;font-size:38px;font-weight:800;margin:0;line-height:1.12;">Factoraje financiero &#183; CFDI de pagos</h1>
+        <p style="color:#C3CBDD;font-size:18px;margin:18px 0 0;">Cediste tus facturas a una entidad de factoraje y esa entidad te paga. El SAT exige que el complemento para recepci&#243;n de pagos (REP) se emita con el <b style="color:#ffffff;">factor como receptor</b>, no con tu cliente. Este m&#243;dulo lo hace sobre el <b style="color:#ffffff;">CFDI nativo de Odoo</b> (l10n_mx_edi).</p>
+        <div style="margin-top:22px;">
+          <span style="display:inline-block;font-size:13px;font-weight:700;color:#ffffff;background-color:#0B6EFF;padding:8px 14px;border-radius:8px;margin:0 8px 8px 0;">Receptor = factor</span>
+          <span style="display:inline-block;font-size:13px;font-weight:700;color:#DCE6FB;border:1px solid rgba(255,255,255,.18);padding:8px 14px;border-radius:8px;margin:0 8px 8px 0;">Complemento de pagos (REP)</span>
+          <span style="display:inline-block;font-size:13px;font-weight:700;color:#DCE6FB;border:1px solid rgba(255,255,255,.18);padding:8px 14px;border-radius:8px;margin:0 8px 8px 0;">Sobre l10n_mx_edi</span>
+        </div>
+      </div>
+      <div style="display:inline-block;width:41%;min-width:240px;vertical-align:middle;text-align:center;padding-top:10px;">
+        <img src="assets/hero.svg" alt="Flujo de factoraje: factura, factor y pago" style="width:100%;max-width:420px;height:auto;">
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ NAVBAR (pestanas) ============ -->
+  <div style="background-color:#F7F9FE;border-bottom:1px solid #E3E8F3;padding:12px 10px;text-align:center;">
+    <ul class="nav nav-pills justify-content-center" role="tablist" style="display:inline-block;list-style:none;margin:0;padding:0;font-size:0;">
+      <li class="nav-item" role="presentation" style="display:inline-block;list-style:none;margin:5px;">
+        <a class="nav-link active" id="tab-funciones" data-bs-toggle="pill" data-bs-target="#funciones" href="#funciones" role="tab" aria-controls="funciones" aria-selected="true" style="display:inline-block;font-size:14px;font-weight:700;padding:11px 24px;border-radius:8px;text-decoration:none;border:1px solid #0B6EFF;background-color:#0B6EFF;color:#ffffff;">Funciones y alcance</a>
+      </li>
+      <li class="nav-item" role="presentation" style="display:inline-block;list-style:none;margin:5px;">
+        <a class="nav-link" id="tab-manual" data-bs-toggle="pill" data-bs-target="#manual" href="#manual" role="tab" aria-controls="manual" aria-selected="false" style="display:inline-block;font-size:14px;font-weight:700;padding:11px 24px;border-radius:8px;text-decoration:none;border:1px solid #0B6EFF;background-color:#ffffff;color:#0B6EFF;">Manual de usuario</a>
+      </li>
+    </ul>
+  </div>
+
+  <div class="tab-content">
+
+  <!-- ===================================================================== -->
+  <!-- ============ PESTANA A: FUNCIONES Y ALCANCE ========================= -->
+  <!-- ===================================================================== -->
+  <div class="tab-pane fade show active" id="funciones" role="tabpanel" aria-labelledby="tab-funciones">
+
+    <!-- QUE RESUELVE -->
+    <div style="padding:44px 28px 6px;">
+      <h2 style="font-size:28px;font-weight:700;color:#080B16;margin:0 0 8px;">&#191;Qu&#233; resuelve?</h2>
+      <p style="font-size:16.5px;max-width:880px;margin:0;">El CFDI de pagos nativo de Odoo siempre pone como receptor al <b>cliente de la factura</b>. Pero en una operaci&#243;n de <b>factoraje financiero</b> quien te paga (y a quien debe ir dirigido el REP) es la <b>entidad de factoraje</b>. Este addon te deja marcar el pago como factoraje y timbrar el complemento con el <b>factor como receptor</b>, relacionado con la factura cedida &#8212; tal como lo exige la Gu&#237;a de llenado del SAT.</p>
+    </div>
+
+    <!-- GRID DE FUNCIONES -->
+    <div style="padding:24px 28px 10px;">
+      <div style="font-size:0;text-align:center;">
+
+        <div style="display:inline-block;width:33%;min-width:250px;max-width:340px;vertical-align:top;text-align:left;">
+          <div style="margin:8px;background-color:#ffffff;border:1px solid #E3E8F3;border-radius:14px;padding:22px 20px;">
+            <div style="font-size:26px;margin-bottom:8px;">&#127974;</div>
+            <h3 style="font-size:17.5px;margin:0 0 6px;color:#080B16;">Receptor correcto</h3>
+            <p style="font-size:14.5px;color:#3C455A;margin:0;">El REP se timbra con el <b>factor</b> como receptor (su RFC, r&#233;gimen y domicilio fiscal), no con el deudor de la factura.</p>
+          </div>
+        </div>
+
+        <div style="display:inline-block;width:33%;min-width:250px;max-width:340px;vertical-align:top;text-align:left;">
+          <div style="margin:8px;background-color:#ffffff;border:1px solid #E3E8F3;border-radius:14px;padding:22px 20px;">
+            <div style="font-size:26px;margin-bottom:8px;">&#128279;</div>
+            <h3 style="font-size:17.5px;margin:0 0 6px;color:#080B16;">Sobre el CFDI nativo</h3>
+            <p style="font-size:14.5px;color:#3C455A;margin:0;">Trabaja sobre <b>l10n_mx_edi</b> de Odoo. Registras el pago como siempre; solo activas una casilla y eliges al factor. No cambia tu flujo ni tu PAC.</p>
+          </div>
+        </div>
+
+        <div style="display:inline-block;width:33%;min-width:250px;max-width:340px;vertical-align:top;text-align:left;">
+          <div style="margin:8px;background-color:#ffffff;border:1px solid #E3E8F3;border-radius:14px;padding:22px 20px;">
+            <div style="font-size:26px;margin-bottom:8px;">&#128221;</div>
+            <h3 style="font-size:17.5px;margin:0 0 6px;color:#080B16;">Tres esquemas</h3>
+            <p style="font-size:14.5px;color:#3C455A;margin:0;">Cobranza directa, cobranza delegada y plataforma electr&#243;nica. La emisi&#243;n del CFDI es la misma; el esquema queda registrado para tu trazabilidad.</p>
+          </div>
+        </div>
+
+        <div style="display:inline-block;width:33%;min-width:250px;max-width:340px;vertical-align:top;text-align:left;">
+          <div style="margin:8px;background-color:#ffffff;border:1px solid #E3E8F3;border-radius:14px;padding:22px 20px;">
+            <div style="font-size:26px;margin-bottom:8px;">&#9989;</div>
+            <h3 style="font-size:17.5px;margin:0 0 6px;color:#080B16;">Validaci&#243;n previa</h3>
+            <p style="font-size:14.5px;color:#3C455A;margin:0;">Si al factor le falta RFC, r&#233;gimen o c&#243;digo postal, el m&#243;dulo <b>no timbra</b> y te avisa con un mensaje claro, en vez de generar un CFDI inv&#225;lido.</p>
+          </div>
+        </div>
+
+        <div style="display:inline-block;width:33%;min-width:250px;max-width:340px;vertical-align:top;text-align:left;">
+          <div style="margin:8px;background-color:#ffffff;border:1px solid #E3E8F3;border-radius:14px;padding:22px 20px;">
+            <div style="font-size:26px;margin-bottom:8px;">&#128260;</div>
+            <h3 style="font-size:17.5px;margin:0 0 6px;color:#080B16;">Parcialidades y multimoneda</h3>
+            <p style="font-size:14.5px;color:#3C455A;margin:0;">Hereda todo lo del REP nativo: pagos parciales, multimoneda, relaci&#243;n con la factura y cancelaci&#243;n. Solo cambia el receptor.</p>
+          </div>
+        </div>
+
+        <div style="display:inline-block;width:33%;min-width:250px;max-width:340px;vertical-align:top;text-align:left;">
+          <div style="margin:8px;background-color:#ffffff;border:1px solid #E3E8F3;border-radius:14px;padding:22px 20px;">
+            <div style="font-size:26px;margin-bottom:8px;">&#129534;</div>
+            <h3 style="font-size:17.5px;margin:0 0 6px;color:#080B16;">Comisi&#243;n del factor</h3>
+            <p style="font-size:14.5px;color:#3C455A;margin:0;">Enlaza el CFDI de comisi&#243;n que te emite el factor para cerrar el ciclo completo: factura cedida &#8594; REP &#8594; comisi&#243;n.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- LOS TRES ESQUEMAS (resumen) -->
+    <div style="padding:34px 28px 10px;">
+      <h2 style="font-size:26px;font-weight:700;color:#080B16;margin:0 0 6px;">Los tres esquemas de factoraje</h2>
+      <p style="font-size:15.5px;max-width:880px;">Seg&#250;n el SAT existen tres esquemas. En los tres, <b>t&#250; (el cedente) emites el REP con el factor como receptor</b>; lo &#250;nico que cambia es qui&#233;n le cobra f&#237;sicamente al deudor. El detalle completo est&#225; en el <b>Manual de usuario</b>.</p>
+      <table style="width:100%;border-collapse:collapse;font-size:15px;margin-top:14px;">
+        <tr style="background-color:#F7F9FE;"><td style="padding:10px;border-bottom:1px solid #E3E8F3;width:26%;"><b>Esquema</b></td><td style="padding:10px;border-bottom:1px solid #E3E8F3;"><b>Qui&#233;n cobra al deudor</b></td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #E3E8F3;"><b>Cobranza directa</b></td><td style="padding:10px;border-bottom:1px solid #E3E8F3;">El <b>factor</b> cobra directamente al deudor al vencimiento.</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #E3E8F3;"><b>Cobranza delegada</b></td><td style="padding:10px;border-bottom:1px solid #E3E8F3;">T&#250; (el <b>cedente</b>) cobras al deudor y transfieres los fondos al factor.</td></tr>
+        <tr><td style="padding:10px;"><b>Plataforma electr&#243;nica</b></td><td style="padding:10px;">La cesi&#243;n y el pago se operan a trav&#233;s de una plataforma electr&#243;nica de factoraje.</td></tr>
+      </table>
+    </div>
+
+    <!-- IDEAL PARA -->
+    <div style="padding:30px 28px 6px;">
+      <h2 style="font-size:22px;font-weight:700;color:#080B16;margin:0 0 14px;">Ideal para</h2>
+      <div style="font-size:0;">
+        <span style="display:inline-block;font-size:14px;font-weight:600;color:#0B3C8A;background-color:#EEF3FF;border:1px solid #D5E2FF;padding:9px 16px;border-radius:999px;margin:0 8px 10px 0;">Empresas que ceden sus facturas</span>
+        <span style="display:inline-block;font-size:14px;font-weight:600;color:#0B3C8A;background-color:#EEF3FF;border:1px solid #D5E2FF;padding:9px 16px;border-radius:999px;margin:0 8px 10px 0;">Proveedores de cadenas productivas</span>
+        <span style="display:inline-block;font-size:14px;font-weight:600;color:#0B3C8A;background-color:#EEF3FF;border:1px solid #D5E2FF;padding:9px 16px;border-radius:999px;margin:0 8px 10px 0;">Flujo de efectivo con anticipos</span>
+        <span style="display:inline-block;font-size:14px;font-weight:600;color:#0B3C8A;background-color:#EEF3FF;border:1px solid #D5E2FF;padding:9px 16px;border-radius:999px;margin:0 8px 10px 0;">Factoraje recurrente</span>
+      </div>
+      <p style="font-size:14.5px;color:#6B7488;margin:12px 0 0;">&#191;Quieres ver c&#243;mo se usa, pantalla por pantalla? Abre la pesta&#241;a <b>Manual de usuario</b> arriba.</p>
+    </div>
+
+    <!-- COMPATIBILIDAD -->
+    <div style="background-color:#F7F9FE;border-top:1px solid #E3E8F3;border-bottom:1px solid #E3E8F3;padding:48px 28px;margin-top:24px;">
+      <div style="margin-bottom:16px;">
+        <span style="display:inline-block;width:10px;height:22px;background-color:#0B6EFF;border-radius:2px;vertical-align:middle;margin-right:12px;"></span>
+        <span style="display:inline-block;vertical-align:middle;">
+          <span style="display:block;font-size:30px;font-weight:700;color:#080B16;">Compatibilidad</span>
+          <span style="display:block;color:#6B7488;font-size:15px;">Hecho para Odoo Enterprise 19, sobre la localizaci&#243;n mexicana nativa.</span>
+        </span>
+      </div>
+      <p style="color:#3C455A;font-size:15.5px;margin:0;max-width:860px;">Requiere Odoo <strong>Enterprise</strong> con la localizaci&#243;n mexicana de facturaci&#243;n electr&#243;nica (<strong>l10n_mx_edi</strong>) instalada y tu <strong>PAC</strong> configurado. El factoraje se timbra con el <strong>mismo PAC y certificado (CSD)</strong> que usas para tus facturas; no necesitas nada extra. Licencia <strong>OPL-1</strong>.</p>
+    </div>
+
+  </div><!-- /pestana funciones -->
+
+  <!-- ===================================================================== -->
+  <!-- ============ PESTANA B: MANUAL DE USUARIO =========================== -->
+  <!-- ===================================================================== -->
+  <div class="tab-pane fade" id="manual" role="tabpanel" aria-labelledby="tab-manual">
+
+    <!-- TOC -->
+    <div style="background-color:#F7F9FE;border-bottom:1px solid #E3E8F3;padding:30px 28px;">
+      <h2 style="font-size:20px;color:#080B16;margin:0 0 14px;">Contenido del manual</h2>
+      <div style="font-size:0;">
+        <div style="display:inline-block;width:50%;min-width:260px;vertical-align:top;font-size:15px;">
+          <p style="margin:4px 0;">1. Qu&#233; hace y conceptos clave</p>
+          <p style="margin:4px 0;">2. Requisitos e instalaci&#243;n</p>
+          <p style="margin:4px 0;">3. Los tres esquemas de factoraje (detallado)</p>
+          <p style="margin:4px 0;">4. Paso 1: el factor como contacto</p>
+        </div>
+        <div style="display:inline-block;width:50%;min-width:260px;vertical-align:top;font-size:15px;">
+          <p style="margin:4px 0;">5. Paso 2: registrar el pago con factoraje</p>
+          <p style="margin:4px 0;">6. Paso 3: timbrar el REP (receptor = factor)</p>
+          <p style="margin:4px 0;">7. Paso 4: la comisi&#243;n del factor</p>
+          <p style="margin:4px 0;">8. Preguntas frecuentes</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1. CONCEPTOS -->
+    <div style="padding:44px 28px 10px;">
+      <h2 style="font-size:28px;font-weight:700;color:#080B16;margin:0 0 6px;">1. Qu&#233; hace y conceptos clave</h2>
+      <p style="font-size:15.5px;">Cuando vendes (cedes) una factura a una entidad de factoraje, esa entidad te paga un anticipo. El SAT establece que <b>quien recibe el pago emite el REP</b>: como el factor te paga a ti, t&#250; emites el complemento de pago <b>con el factor como receptor</b> (no con el cliente original de la factura), relacionado con el CFDI de la operaci&#243;n. Este m&#243;dulo hace exactamente eso sobre el CFDI nativo de Odoo.</p>
+      <table style="width:100%;border-collapse:collapse;font-size:15px;margin-top:14px;">
+        <tr><td style="padding:10px;border-bottom:1px solid #E3E8F3;width:30%;"><b>Factorado / cedente</b></td><td style="padding:10px;border-bottom:1px solid #E3E8F3;">T&#250;: quien emiti&#243; la factura original y cede su cobro al factor.</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #E3E8F3;"><b>Factor / factorante</b></td><td style="padding:10px;border-bottom:1px solid #E3E8F3;">La entidad de factoraje que te compra la factura y te paga.</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #E3E8F3;"><b>Deudor</b></td><td style="padding:10px;border-bottom:1px solid #E3E8F3;">El cliente original de la factura cedida.</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #E3E8F3;"><b>REP</b></td><td style="padding:10px;border-bottom:1px solid #E3E8F3;">Complemento para recepci&#243;n de pagos (CFDI de tipo Pago). Aqu&#237; se emite con el factor como receptor.</td></tr>
+        <tr><td style="padding:10px;"><b>CFDI de comisi&#243;n</b></td><td style="padding:10px;">Factura que el factor te emite por su comisi&#243;n e intereses. Va aparte (no dentro del REP).</td></tr>
+      </table>
+    </div>
+
+    <!-- 2. INSTALACION -->
+    <div style="padding:34px 28px 10px;">
+      <h2 style="font-size:28px;font-weight:700;color:#080B16;margin:0 0 6px;">2. Requisitos e instalaci&#243;n</h2>
+      <p style="font-size:15.5px;">Necesitas Odoo <b>Enterprise</b> con <b>l10n_mx_edi</b> (localizaci&#243;n mexicana de facturaci&#243;n) y tu <b>PAC</b> ya configurado. Entra a <b>Aplicaciones</b>, busca <b>Factoraje financiero CFDI</b> e instala. No agrega men&#250;s nuevos: el factoraje aparece dentro del <b>registro de pagos</b> y en la <b>ficha del pago</b>.</p>
+      <p style="font-size:15.5px;background-color:#EEF3FF;border-radius:10px;padding:14px 16px;">El m&#243;dulo se apoya en el timbrado nativo de <b>l10n_mx_edi</b>: usa el mismo certificado (CSD) y PAC de tus facturas. No requiere configuraci&#243;n adicional.</p>
+    </div>
+
+    <!-- 3. LOS TRES ESQUEMAS (DETALLADO) -->
+    <div style="padding:34px 28px 10px;">
+      <h2 style="font-size:28px;font-weight:700;color:#080B16;margin:0 0 6px;">3. Los tres esquemas de factoraje</h2>
+      <p style="font-size:15.5px;">La Gu&#237;a de llenado del complemento de pagos del SAT describe tres esquemas de factoraje. Lo esencial: <b>en los tres, la emisi&#243;n del CFDI es id&#233;ntica</b> &#8212; t&#250; (cedente) emites el REP con el factor como receptor. Lo &#250;nico que cambia es la operaci&#243;n de cobranza al deudor. En el m&#243;dulo eliges el esquema solo para dejarlo registrado; no altera el XML.</p>
+
+      <h3 style="font-size:20px;color:#080B16;margin:24px 0 8px;">a) Cobranza directa (esquema tradicional)</h3>
+      <p style="font-size:15.5px;">Cedes la factura al factor y recibes tu anticipo. Cuando llega el vencimiento, <b>el factor cobra directamente al deudor</b>. T&#250; ya no intervienes en ese cobro. Es el esquema m&#225;s com&#250;n: el deudor termina pagando a la entidad de factoraje.</p>
+
+      <h3 style="font-size:20px;color:#080B16;margin:22px 0 8px;">b) Cobranza delegada</h3>
+      <p style="font-size:15.5px;">Tambi&#233;n cedes la factura y recibes el anticipo, pero la <b>cobranza la sigues haciendo t&#250;</b>: el deudor te paga a ti y ese mismo d&#237;a transfieres los fondos al factor. El factor te &#8220;delega&#8221; la cobranza. Para el deudor no cambia nada; para ti implica un paso extra de traspaso al factor.</p>
+
+      <h3 style="font-size:20px;color:#080B16;margin:22px 0 8px;">c) Plataforma electr&#243;nica</h3>
+      <p style="font-size:15.5px;">La operaci&#243;n de factoraje se realiza a trav&#233;s de una <b>plataforma electr&#243;nica</b> (por ejemplo, mercados de factoraje o cadenas productivas), donde la cesi&#243;n de los derechos de cobro y la dispersi&#243;n de los pagos se gestionan de forma digital entre proveedor, factor y deudor.</p>
+
+      <p style="font-size:15px;background-color:#FFF6E9;border:1px solid #F5D9A8;border-radius:10px;padding:14px 16px;margin-top:16px;"><b>En la pr&#225;ctica, para tu contabilidad:</b> elige el esquema que corresponda a tu contrato en el campo <b>Esquema de factoraje</b> del pago. El REP saldr&#225; igual en los tres (receptor = factor); el campo queda como referencia y trazabilidad de la operaci&#243;n.</p>
+    </div>
+
+    <!-- 4. PASO 1: FACTOR CONTACTO -->
+    <div style="padding:34px 28px 10px;">
+      <h2 style="font-size:28px;font-weight:700;color:#080B16;margin:0 0 6px;">4. Paso 1: da de alta al factor como contacto</h2>
+      <p style="font-size:15.5px;">El factor debe existir como <b>contacto</b> con sus datos fiscales completos, porque ser&#225; el <b>receptor</b> del CFDI. En <b>Contactos</b>, crea (o edita) la entidad de factoraje y captura:</p>
+      <ul style="font-size:15.5px;padding-left:22px;">
+        <li style="margin-bottom:5px;"><b>RFC</b> (campo NIF/Identificaci&#243;n fiscal).</li>
+        <li style="margin-bottom:5px;"><b>R&#233;gimen fiscal</b> (pesta&#241;a de facturaci&#243;n / datos fiscales MX).</li>
+        <li style="margin-bottom:5px;"><b>C&#243;digo postal</b> del domicilio fiscal.</li>
+      </ul>
+      <p style="margin:16px 0 0;"><img src="assets/images/manual/10_factor_contacto.png" alt="Contacto del factor con RFC, r&#233;gimen y c&#243;digo postal" style="display:block;width:100%;height:auto;border-radius:12px;border:1px solid #E3E8F3;"></p>
+      <p style="font-size:14px;color:#6B7488;margin-top:10px;">Si falta alguno de estos datos, el m&#243;dulo te avisar&#225; al intentar timbrar y no generar&#225; un CFDI inv&#225;lido.</p>
+    </div>
+
+    <!-- 5. PASO 2: REGISTRAR PAGO -->
+    <div style="padding:34px 28px 10px;">
+      <h2 style="font-size:28px;font-weight:700;color:#080B16;margin:0 0 6px;">5. Paso 2: registra el pago del factor con factoraje</h2>
+      <p style="font-size:15.5px;">Cuando el factor te paga, registra ese pago sobre la factura cedida como lo haces normalmente. Abre la <b>factura</b> y pulsa <b>Pagar</b>. En el asistente ver&#225;s la secci&#243;n de factoraje:</p>
+      <ol style="font-size:15.5px;padding-left:22px;">
+        <li style="margin-bottom:6px;">Activa la casilla <b>Pago por factoraje</b>.</li>
+        <li style="margin-bottom:6px;">Elige el <b>Factor</b> (el contacto del paso 1).</li>
+        <li style="margin-bottom:6px;">Selecciona el <b>Esquema de factoraje</b> (directa, delegada o plataforma).</li>
+      </ol>
+      <p style="font-size:15.5px;">Al activarlo aparece un aviso confirmando que <b>el complemento de pago se timbrar&#225; con el factor como receptor</b>, no con tu cliente. Pulsa <b>Crear pago</b>.</p>
+      <p style="margin:16px 0 0;"><img src="assets/images/manual/20_register_payment.png" alt="Asistente de pago con la opci&#243;n de factoraje activada" style="display:block;width:100%;height:auto;border-radius:12px;border:1px solid #E3E8F3;"></p>
+    </div>
+
+    <!-- 6. PASO 3: REP -->
+    <div style="padding:34px 28px 10px;">
+      <h2 style="font-size:28px;font-weight:700;color:#080B16;margin:0 0 6px;">6. Paso 3: timbra el REP con el factor como receptor</h2>
+      <p style="font-size:15.5px;">El pago creado muestra la secci&#243;n <b>Factoraje financiero</b> con el factor, el esquema y el aviso del receptor. Al generar el complemento de pago (igual que un REP normal), el CFDI se timbra con el <b>factor como receptor</b> &#8212; con su RFC, nombre y r&#233;gimen &#8212; y queda relacionado con la factura cedida.</p>
+      <p style="margin:16px 0 0;"><img src="assets/images/manual/30_payment_factor.png" alt="Ficha del pago con la secci&#243;n de factoraje" style="display:block;width:100%;height:auto;border-radius:12px;border:1px solid #E3E8F3;"></p>
+      <p style="font-size:14px;color:#6B7488;margin-top:10px;">Todo lo dem&#225;s del REP (montos, parcialidad, moneda, documento relacionado) lo calcula el CFDI nativo de Odoo; el m&#243;dulo solo sustituye el receptor por el factor.</p>
+    </div>
+
+    <!-- 7. PASO 4: COMISION -->
+    <div style="padding:34px 28px 10px;">
+      <h2 style="font-size:28px;font-weight:700;color:#080B16;margin:0 0 6px;">7. Paso 4: enlaza la comisi&#243;n del factor</h2>
+      <p style="font-size:15.5px;">El factor te emite por separado un <b>CFDI de Ingreso</b> por su comisi&#243;n e intereses (el SAT lo documenta fuera del REP). El flujo es:</p>
+      <ol style="font-size:15.5px;padding-left:22px;">
+        <li style="margin-bottom:6px;">Registra ese CFDI como una <b>factura de proveedor</b> normal, con el <b>factor</b> como proveedor.</li>
+        <li style="margin-bottom:6px;">Abre la ficha del <b>pago</b> de factoraje y, en el campo <b>CFDI de comisi&#243;n del factor</b>, selecciona esa factura de proveedor.</li>
+        <li style="margin-bottom:6px;">Aparece el bot&#243;n inteligente <b>Comisi&#243;n del factor</b> en la parte superior, que abre la factura de la comisi&#243;n con un clic.</li>
+      </ol>
+      <p style="font-size:15.5px;">As&#237; queda completo el ciclo: <b>factura cedida &#8594; REP (receptor = factor) &#8594; comisi&#243;n</b>, todo enlazado desde el pago.</p>
+      <p style="margin:16px 0 0;"><img src="assets/images/manual/40_commission.png" alt="Pago con la comisi&#243;n del factor enlazada y el bot&#243;n de comisi&#243;n" style="display:block;width:100%;height:auto;border-radius:12px;border:1px solid #E3E8F3;"></p>
+    </div>
+
+    <!-- 8. FAQ -->
+    <div style="padding:34px 28px 48px;">
+      <h2 style="font-size:28px;font-weight:700;color:#080B16;margin:0 0 10px;">8. Preguntas frecuentes</h2>
+      <p style="font-size:15.5px;margin:0 0 12px;"><b>&#191;Cambia mi forma de facturar?</b><br>No. Facturas y timbras igual; el factoraje solo aparece al registrar el pago que te hace el factor.</p>
+      <p style="font-size:15.5px;margin:0 0 12px;"><b>&#191;La comisi&#243;n del factor va dentro del REP?</b><br>No. El SAT la documenta con un CFDI de Ingreso aparte que el factor te emite; t&#250; lo registras como gasto y lo enlazas al pago.</p>
+      <p style="font-size:15.5px;margin:0 0 12px;"><b>&#191;Sirve para pagos parciales o en otra moneda?</b><br>S&#237;. El m&#243;dulo hereda el complemento de pagos nativo; parcialidades, multimoneda y cancelaci&#243;n funcionan igual. Solo cambia el receptor.</p>
+      <p style="font-size:15.5px;margin:0 0 12px;"><b>&#191;Necesito Enterprise?</b><br>S&#237;. Se apoya en l10n_mx_edi (Enterprise). Usa tu mismo PAC y certificado.</p>
+      <p style="font-size:15.5px;margin:0;"><b>&#191;Qu&#233; pasa si al factor le faltan datos fiscales?</b><br>El m&#243;dulo no timbra y te muestra qu&#233; dato falta (RFC, r&#233;gimen o c&#243;digo postal), para que lo completes antes.</p>
+    </div>
+
+  </div><!-- /pestana manual -->
+
+  </div><!-- /tab-content -->
+
+  <!-- ============ SERVICIOS CODFY (compartido) ============ -->
+  <div style="background-color:#EEF3FF;border-top:1px solid #E3E8F3;border-bottom:1px solid #E3E8F3;padding:48px 28px;">
+    <div style="margin-bottom:26px;">
+      <span style="display:inline-block;width:10px;height:22px;background-color:#0B6EFF;border-radius:2px;vertical-align:middle;margin-right:12px;"></span>
+      <span style="display:inline-block;vertical-align:middle;">
+        <span style="display:block;font-size:30px;font-weight:700;color:#080B16;">Servicios Codfy</span>
+        <span style="display:block;color:#6B7488;font-size:15px;">Te acompa&#241;amos en todo el ciclo de vida de tu Odoo.</span>
+      </span>
+    </div>
+    <div style="font-size:0;text-align:center;">
+      <div style="display:inline-block;width:25%;min-width:200px;max-width:260px;vertical-align:top;text-align:left;">
+        <div style="margin:0 6px 12px;background-color:#ffffff;border:1px solid #E3E8F3;border-top:3px solid #0B6EFF;border-radius:14px;padding:24px 22px;">
+          <div style="font-size:24px;margin-bottom:10px;">&#128640;</div>
+          <h3 style="font-size:16.5px;margin:0 0 7px;color:#080B16;">Implementaci&#243;n</h3>
+          <p style="font-size:14px;color:#6B7488;margin:0;">Puesta en marcha de Odoo a la medida de tu operaci&#243;n, de la configuraci&#243;n al arranque.</p>
+        </div>
+      </div><div style="display:inline-block;width:25%;min-width:200px;max-width:260px;vertical-align:top;text-align:left;">
+        <div style="margin:0 6px 12px;background-color:#ffffff;border:1px solid #E3E8F3;border-top:3px solid #0B6EFF;border-radius:14px;padding:24px 22px;">
+          <div style="font-size:24px;margin-bottom:10px;">&#9881;</div>
+          <h3 style="font-size:16.5px;margin:0 0 7px;color:#080B16;">Desarrollo Odoo</h3>
+          <p style="font-size:14px;color:#6B7488;margin:0;">M&#243;dulos y personalizaciones espec&#237;ficas para automatizar lo que tu negocio necesita.</p>
+        </div>
+      </div><div style="display:inline-block;width:25%;min-width:200px;max-width:260px;vertical-align:top;text-align:left;">
+        <div style="margin:0 6px 12px;background-color:#ffffff;border:1px solid #E3E8F3;border-top:3px solid #0B6EFF;border-radius:14px;padding:24px 22px;">
+          <div style="font-size:24px;margin-bottom:10px;">&#128202;</div>
+          <h3 style="font-size:16.5px;margin:0 0 7px;color:#080B16;">Consultor&#237;a contable Odoo</h3>
+          <p style="font-size:14px;color:#6B7488;margin:0;">Configuraci&#243;n fiscal y contable alineada a la normativa mexicana (CFDI, SAT y conciliaci&#243;n).</p>
+        </div>
+      </div><div style="display:inline-block;width:25%;min-width:200px;max-width:260px;vertical-align:top;text-align:left;">
+        <div style="margin:0 6px 12px;background-color:#ffffff;border:1px solid #E3E8F3;border-top:3px solid #0B6EFF;border-radius:14px;padding:24px 22px;">
+          <div style="font-size:24px;margin-bottom:10px;">&#127891;</div>
+          <h3 style="font-size:16.5px;margin:0 0 7px;color:#080B16;">Capacitaci&#243;n</h3>
+          <p style="font-size:14px;color:#6B7488;margin:0;">Formamos a tu equipo para que aproveche Odoo al m&#225;ximo desde el primer d&#237;a.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CTA / FOOTER (compartido) ============ -->
+  <div style="background-color:#080B16;background-image:radial-gradient(circle at 50% -20%,rgba(11,110,255,.38),transparent 60%);color:#ffffff;padding:50px 28px;text-align:center;">
+    <h2 style="color:#ffffff;font-size:28px;margin:0;">Te ayudamos a implementarlo</h2>
+    <p style="color:#C3CBDD;margin:12px 0 0;font-size:16px;">Implementaci&#243;n, desarrollo y consultor&#237;a Odoo en M&#233;xico.</p>
+    <div style="margin-top:24px;">
+      <a href="mailto:contacto@codfy.mx" style="display:inline-block;padding:13px 22px;border-radius:10px;font-weight:700;font-size:15px;background-color:#0B6EFF;color:#ffffff;text-decoration:none;margin:0 6px 10px;">contacto@codfy.mx</a>
+    </div>
+    <div style="margin-top:16px;color:#C3CBDD;font-size:15px;font-weight:600;">www.codfy.mx &#183; WhatsApp 434 120 3120</div>
+    <div style="margin-top:22px;font-size:13px;color:#7E879B;">(c) Codfy &#183; www.codfy.mx</div>
+  </div>
+
+</div>
