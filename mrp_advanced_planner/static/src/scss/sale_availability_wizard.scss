@@ -1,0 +1,206 @@
+
+.o_aps_availability_modal .o_form_sheet {
+    max-width: 1080px;
+}
+
+.o_aps_availability_header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1.5rem;
+    padding: .25rem 0 1rem;
+}
+
+.o_aps_availability_identity {
+    min-width: 0;
+}
+
+.o_aps_availability_eyebrow {
+    margin-bottom: .25rem;
+    color: #6c757d;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+}
+
+.o_aps_availability_meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem 1.25rem;
+    margin-top: .4rem;
+    color: #5f6368;
+}
+
+.o_aps_availability_status {
+    min-width: 150px;
+    text-align: right;
+}
+
+.o_aps_availability_status .badge {
+    font-size: .85rem;
+    padding: .45rem .65rem;
+}
+
+.o_aps_coverage_caption {
+    margin-top: .4rem;
+    color: #6c757d;
+    font-size: .76rem;
+}
+
+.o_aps_availability_kpis {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: .65rem;
+    margin-bottom: 1rem;
+}
+
+.o_aps_kpi_card {
+    min-width: 0;
+    padding: .75rem .85rem;
+    border: 1px solid #e1e3e5;
+    border-radius: .55rem;
+    background: #fff;
+}
+
+.o_aps_kpi_card strong {
+    display: block;
+    margin-top: .18rem;
+    font-size: 1.25rem;
+}
+
+.o_aps_kpi_label {
+    color: #6c757d;
+    font-size: .75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.o_aps_kpi_pending {
+    border-top: 3px solid #f0ad4e;
+}
+
+.o_aps_kpi_coverage {
+    border-top: 3px solid #28a745;
+}
+
+.o_aps_kpi_shortage {
+    border-top: 3px solid #dc3545;
+}
+
+.o_aps_availability_columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .85rem;
+    margin-top: .4rem;
+}
+
+.o_aps_availability_card {
+    padding: .9rem;
+    border: 1px solid #e1e3e5;
+    border-radius: .6rem;
+    background: #fff;
+}
+
+.o_aps_card_header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: baseline;
+    padding-bottom: .65rem;
+    border-bottom: 1px solid #eceef0;
+}
+
+.o_aps_card_header small {
+    color: #8a8d91;
+}
+
+.o_aps_metric_grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: .5rem;
+    margin-top: .75rem;
+}
+
+.o_aps_metric {
+    padding: .55rem .65rem;
+    border-radius: .45rem;
+    background: #f7f8f9;
+}
+
+.o_aps_metric span,
+.o_aps_supply_row span {
+    color: #5f6368;
+    font-size: .78rem;
+}
+
+.o_aps_metric strong {
+    display: block;
+    margin-top: .15rem;
+    font-size: 1.05rem;
+}
+
+.o_aps_forecast_total,
+.o_aps_supply_total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: .7rem;
+    padding: .65rem .75rem;
+    border-radius: .45rem;
+    background: #eef7f8;
+}
+
+.o_aps_forecast_total strong,
+.o_aps_supply_total strong {
+    font-size: 1.15rem;
+}
+
+.o_aps_supply_rows {
+    margin-top: .65rem;
+}
+
+.o_aps_supply_row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .55rem .1rem;
+    border-bottom: 1px solid #f0f1f2;
+}
+
+.o_aps_supply_row:last-child {
+    border-bottom: 0;
+}
+
+.o_aps_supply_row strong {
+    font-size: .95rem;
+}
+
+.o_aps_availability_help {
+    margin-top: .8rem;
+    margin-bottom: 0;
+}
+
+.o_aps_documents_intro {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: .35rem 0 .75rem;
+}
+
+@media (max-width: 900px) {
+    .o_aps_availability_header {
+        flex-direction: column;
+    }
+
+    .o_aps_availability_status {
+        text-align: left;
+    }
+
+    .o_aps_availability_kpis {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .o_aps_availability_columns {
+        grid-template-columns: 1fr;
+    }
+}

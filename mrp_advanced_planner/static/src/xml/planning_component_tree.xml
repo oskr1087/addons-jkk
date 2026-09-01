@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="mrp_advanced_planner.PlanningComponentTreeField">
+        <div class="aps-component-tree">
+            <div class="aps-tree-toolbar">
+                <button type="button" class="btn btn-outline-secondary btn-sm" t-on-click="expandAll">
+                    <i class="fa fa-sitemap me-1"/> Expandir todo
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" t-on-click="collapseAll">
+                    <i class="fa fa-bars me-1"/> Contraer todo
+                </button>
+                <div class="aps-tree-search">
+                    <i class="fa fa-search"/>
+                    <input type="text"
+                           placeholder="Buscar componente..."
+                           t-model="state.query"/>
+                </div>
+            </div>
+
+            <t t-if="state.loading">
+                <div class="aps-tree-empty">Cargando árbol de componentes…</div>
+            </t>
+            <t t-elif="!state.roots.length">
+                <div class="aps-tree-empty">
+                    No hay productos a fabricar con componentes cargados.
+                </div>
+            </t>
+            <t t-else="">
+                <div class="aps-tree-header">
+                    <div class="aps-col-component">Producto / Componente</div>
+                    <div>Cant. planificada</div>
+                    <div>UdM</div>
+                    <div>Disponibilidad</div>
+                    <div>Necesidad neta</div>
+                    <div>Resolución</div>
+                    <div>Pendiente</div>
+                    <div class="aps-col-actions">Acciones</div>
+                </div>
+
+                <t t-foreach="state.roots" t-as="root" t-key="root.key">
+                    <div class="aps-tree-root">
+                        <div class="aps-tree-row aps-root-row">
+                            <div class="aps-tree-name aps-col-component">
+                                <button type="button"
+                                        class="aps-expand-btn"
+                                        t-on-click="() => this.toggle(root.key)">
+                                    <i t-att-class="state.expanded[root.key] ? 'fa fa-chevron-down' : 'fa fa-chevron-right'"/>
+                                </button>
+                                <i class="fa fa-industry aps-root-icon"/>
+                                <strong t-esc="root.productName"/>
+                            </div>
+                            <div class="aps-tree-qty"><strong t-esc="formatQty(root.qty)"/></div>
+                            <div t-esc="root.uom"/>
+                            <div><span class="aps-root-label">Producto terminado</span></div>
+                            <div>—</div>
+                            <div><span class="aps-supply aps-supply-muted">Producto terminado</span></div>
+                            <div>—</div>
+                            <div class="aps-row-actions">
+                                <button t-if="!root.locked"
+                                        type="button"
+                                        class="btn btn-link btn-sm"
+                                        title="Agregar componente"
+                                        t-on-click="() => this.addComponent(root)">
+                                    <i class="fa fa-plus-circle"/>
+                                </button>
+                                <span t-if="root.locked"
+                                      class="aps-supply aps-supply-muted">
+                                    <i class="fa fa-lock me-1"/> Ingeniería bloqueada
+                                </span>
+                            </div>
+                        </div>
+
+                        <t t-if="state.expanded[root.key]">
+                            <t t-call="mrp_advanced_planner.PlanningComponentTreeRows">
+                                <t t-set="rows" t-value="root.children"/>
+                                <t t-set="depth" t-value="1"/>
+                            </t>
+                        </t>
+                    </div>
+                </t>
+            </t>
+        </div>
+    </t>
+
+    <t t-name="mrp_advanced_planner.PlanningComponentTreeRows">
+        <t t-foreach="rows" t-as="row" t-key="row.key">
+            <t t-if="matches(row) || hasVisibleChildren(row)">
+                <div t-att-class="'aps-tree-row ' + (!row.include_in_mo ? 'aps-row-omitted' : '')">
+                    <div class="aps-tree-name aps-col-component"
+                         t-att-style="'padding-left:' + (depth * 24) + 'px'">
+                        <button t-if="row.children.length"
+                                type="button"
+                                class="aps-expand-btn"
+                                t-on-click="() => this.toggle(row.key)">
+                            <i t-att-class="state.expanded[row.key] ? 'fa fa-chevron-down' : 'fa fa-chevron-right'"/>
+                        </button>
+                        <span t-else="" class="aps-tree-leaf-spacer"/>
+                        <span class="aps-tree-connector">↳</span>
+                        <button type="button"
+                                class="aps-component-link"
+                                title="Editar o sustituir componente"
+                                t-on-click="() => this.editComponent(row)">
+                            <t t-esc="row.productName"/>
+                        </button>
+                        <span t-if="row.is_subcontracted"
+                              class="aps-subcontract-badge"
+                              title="Este componente se abastece mediante subcontratación">
+                            Subcontratación
+                        </span>
+                    </div>
+
+                    <div class="aps-tree-qty">
+                        <input type="number"
+                               min="0"
+                               step="any"
+                               class="form-control form-control-sm"
+                               t-att-value="row.planned_qty"
+                               t-att-disabled="row.engineering_locked ? true : undefined"
+                               t-on-change="(ev) => this.saveQty(row, ev)"/>
+                    </div>
+                    <div t-esc="row.uom"/>
+
+                    <div>
+                        <button type="button"
+                                t-att-class="getStatusClass(row.availability_status)"
+                                t-on-click="() => this.openAvailability(row)"
+                                title="Ver disponibilidad por bodega">
+                            <span class="aps-status-dot"/>
+                            <t t-esc="getStatusText(row)"/>
+                        </button>
+                    </div>
+
+                    <div t-att-class="row.availability_need_qty &gt; 0 ? 'aps-need-danger' : 'aps-need-ok'">
+                        <t t-esc="formatQty(row.availability_need_qty)"/>
+                    </div>
+
+                    <div>
+                        <span t-att-class="getSupplyClass(row.supply_resolution)"
+                              t-esc="getSupplyText(row)"/>
+                    </div>
+
+                    <div t-att-class="getPendingQty(row) &gt; 0 ? 'aps-need-danger' : 'aps-need-ok'">
+                        <t t-esc="formatQty(getPendingQty(row))"/>
+                    </div>
+
+                    <div class="aps-row-actions">
+                        <span t-att-class="getChangeClass(row.change_type)"
+                              t-esc="getChangeText(row.change_type)"
+                              class="me-1"/>
+                        <button type="button"
+                                class="btn btn-link btn-sm"
+                                title="Ver bodegas"
+                                t-on-click="() => this.openAvailability(row)">
+                            <i class="fa fa-cubes"/>
+                        </button>
+                        <button t-if="!row.engineering_locked"
+                                type="button"
+                                class="btn btn-link btn-sm"
+                                title="Agregar subcomponente"
+                                t-on-click="() => this.addChildComponent(row)">
+                            <i class="fa fa-plus-circle"/>
+                        </button>
+                        <button type="button"
+                                class="btn btn-link btn-sm"
+                                t-att-title="row.engineering_locked ? 'Consultar componente' : 'Editar / sustituir'"
+                                t-on-click="() => this.editComponent(row)">
+                            <i t-att-class="row.engineering_locked ? 'fa fa-eye' : 'fa fa-pencil'"/>
+                        </button>
+                        <button t-if="!row.engineering_locked"
+                                type="button"
+                                class="btn btn-link btn-sm"
+                                t-att-title="row.include_in_mo ? 'Omitir componente' : 'Activar componente'"
+                                t-on-click="() => this.toggleActive(row)">
+                            <i t-att-class="row.include_in_mo ? 'fa fa-eye-slash' : 'fa fa-eye'"/>
+                        </button>
+                        <button t-if="!row.engineering_locked"
+                                type="button"
+                                class="btn btn-link btn-sm text-danger"
+                                title="Eliminar línea"
+                                t-on-click="() => this.deleteComponent(row)">
+                            <i class="fa fa-trash"/>
+                        </button>
+                    </div>
+                </div>
+
+                <t t-if="row.children.length &amp;&amp; state.expanded[row.key]">
+                    <t t-call="mrp_advanced_planner.PlanningComponentTreeRows">
+                        <t t-set="rows" t-value="row.children"/>
+                        <t t-set="depth" t-value="depth + 1"/>
+                    </t>
+                </t>
+            </t>
+        </t>
+    </t>
+</templates>

@@ -2,21 +2,7 @@
     <record id="view_planning_conflict_tree" model="ir.ui.view">
         <field name="name">mrp.planning.conflict.tree</field>
         <field name="model">mrp.planning.conflict</field>
-        <field name="arch" type="xml">
-            <list>
-                <field name="severity"/>
-                <field name="conflict_type"/>
-                <field name="plan_id"/>
-                <field name="workcenter_id"/>
-                <field name="operation_id"/>
-                <field name="resolved"/>
-                <field name="message"/>
-            </list>
-        </field>
+        <field name="arch" type="xml"><list><field name="severity"/><field name="conflict_type"/><field name="plan_id"/><field name="workcenter_id"/><field name="operation_id"/><field name="resolved"/><field name="message"/></list></field>
     </record>
-    <record id="action_planning_conflicts" model="ir.actions.act_window">
-        <field name="name">Conflictos de planificación</field>
-        <field name="res_model">mrp.planning.conflict</field>
-        <field name="view_mode">list,form</field>
-    </record>
+    <record id="action_planning_conflicts" model="ir.actions.act_window"><field name="name">Conflictos de planificación</field><field name="res_model">mrp.planning.conflict</field><field name="view_mode">list,form</field></record>
 </odoo>

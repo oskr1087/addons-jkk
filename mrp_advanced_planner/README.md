@@ -29,3 +29,57 @@ La línea del planner mantiene trazabilidad con pedido, cliente, línea de venta
 - Dashboard de órdenes de fabricación con estado y progreso.
 - Seguimiento de centros de trabajo y producto actualmente en fabricación.
 - Planificación de origen visible y navegable desde mrp.production.
+
+
+## Snapshot de ingeniería APS y optimización de componentes
+
+- La explosión de Listas de Materiales precarga el grafo por niveles y realiza la recursión en memoria.
+- La jerarquía se conserva mediante `parent_line_id`.
+- Las planificaciones de fabricación congelan un snapshot editable de componentes.
+- Solo las OF creadas por APS usan ese snapshot; las OF estándar conservan el comportamiento nativo.
+- Los componentes pueden quedar como originales, modificados, sustituidos, agregados manualmente u omitidos.
+- La consulta detallada por almacén usa modelos `TransientModel` y solo ubicaciones internas de la compañía.
+- Compras calcula disponibilidad con stock libre (`On Hand - Reservado`) más PO confirmadas pendientes dentro del horizonte.
+
+
+## Ajustes 19.0.20.0.0
+
+- Las líneas de venta se filtran estrictamente por `planning_delivery_date <= date_end`.
+- El árbol de componentes permite sustituir, cambiar cantidades, agregar hijos y eliminar nodos completos antes de generar OF.
+- Cada cambio de ingeniería refresca la resolución de abastecimiento.
+- Los componentes con una LdM de tipo `subcontract` se identifican como Subcontratación y su faltante entra al Plan de Compras.
+- Los hijos de un componente subcontratado permanecen visibles para ingeniería, pero no se compran de forma separada desde APS.
+
+
+## Trazabilidad bidireccional 19.0.21.0.0
+
+La trazabilidad APS se mantiene mediante relaciones reales entre documentos:
+
+`SO / línea SO → línea APS → Planificador → OF / PO / traslado`
+
+y en sentido inverso:
+
+`OF / PO / línea PO / traslado → línea APS → línea SO → SO`.
+
+Las columnas de trazabilidad en listas son opcionales (`optional="hide"`) para
+no sobrecargar la interfaz. Las SO, OF y PO disponen además de navegación
+directa mediante smart buttons cuando existen documentos relacionados.
+
+Las necesidades de compra provenientes de componentes de fabricación heredan
+las líneas de venta del producto terminado, por lo que una PO de materia prima
+puede rastrearse hasta las SO originales.
+
+
+## Componentes APS modificados - 19.0.27.0.0
+
+El snapshot APS es la fuente de ingeniería de las OF generadas por el
+planificador.
+
+- Línea original sin cambios: conserva `bom_line_id`.
+- Cantidad modificada: movimiento manual APS sin `bom_line_id`.
+- Producto sustituido: movimiento manual APS sin `bom_line_id`.
+- Componente agregado manualmente: movimiento manual APS sin `bom_line_id`.
+- Línea omitida: no se genera en la OF.
+
+Esto evita que Odoo vuelva a comparar una modificación intencional del
+planificador contra la cantidad de la LdM original al validar/finalizar la OF.

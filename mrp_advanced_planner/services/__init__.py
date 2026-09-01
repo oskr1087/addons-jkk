@@ -11,3 +11,11 @@ from . import conflict_resolution_engine
 from . import replanning_engine
 from . import odoo19_compat
 from . import run_cache
+
+from . import recursive_purchase_demand
+
+from . import bom_batch
+from . import manufacturing_snapshot
+from . import internal_stock
+
+from . import component_sourcing

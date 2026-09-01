@@ -440,3 +440,5 @@
     .o_planning_forecast_formula, .o_planning_stock_warehouse_formula { gap:.2rem; }
     .o_planning_forecast_metric span, .o_planning_stock_warehouse_formula small { font-size:.6rem; }
 }
+
+.o_planning_stock_warehouse_open_mo { display:flex; align-items:center; gap:.35rem; margin-top:.35rem; padding:.3rem .45rem; border-radius:5px; background:rgba(113,75,103,.06); color:#714B67; font-size:.72rem; }

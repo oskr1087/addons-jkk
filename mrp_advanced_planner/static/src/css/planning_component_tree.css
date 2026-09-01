@@ -1,0 +1,207 @@
+
+.aps-component-tree {
+    border: 1px solid var(--border-color, #dee2e6);
+    border-radius: .35rem;
+    overflow: hidden;
+    background: var(--body-bg, #fff);
+}
+.aps-tree-toolbar {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    padding: .65rem .75rem;
+    border-bottom: 1px solid #dee2e6;
+    background: #f8f9fa;
+}
+.aps-tree-search {
+    margin-left: auto;
+    position: relative;
+    min-width: 280px;
+}
+.aps-tree-search i {
+    position: absolute;
+    left: .7rem;
+    top: .62rem;
+    color: #6c757d;
+}
+.aps-tree-search input {
+    width: 100%;
+    padding: .38rem .65rem .38rem 2rem;
+    border: 1px solid #ced4da;
+    border-radius: .3rem;
+    background: var(--body-bg, #fff);
+}
+.aps-tree-header,
+.aps-tree-row {
+    display: grid;
+    grid-template-columns: minmax(400px, 2.4fr) 125px 75px 175px 110px 155px 105px 150px;
+    align-items: center;
+    min-height: 42px;
+}
+.aps-tree-header {
+    font-weight: 600;
+    color: #495057;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 0 .65rem;
+}
+.aps-tree-row {
+    padding: 0 .65rem;
+    border-bottom: 1px solid #e9ecef;
+}
+.aps-tree-row:hover {
+    background: rgba(113, 75, 103, .045);
+}
+.aps-root-row {
+    background: #f3f0f3;
+    border-top: 1px solid #d8ced5;
+    font-weight: 600;
+}
+.aps-root-icon {
+    margin-right: .45rem;
+    color: #714b67;
+}
+.aps-tree-name {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+.aps-expand-btn {
+    width: 24px;
+    border: 0;
+    background: transparent;
+    color: #495057;
+    padding: 0;
+}
+.aps-tree-leaf-spacer {
+    width: 24px;
+    display: inline-block;
+}
+.aps-tree-connector {
+    color: #9aa0a6;
+    margin-right: .35rem;
+}
+.aps-component-link {
+    border: 0;
+    background: transparent;
+    color: #212529;
+    text-align: left;
+    padding: .2rem 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.aps-component-link:hover {
+    color: #017e84;
+    text-decoration: underline;
+}
+.aps-tree-qty input {
+    max-width: 105px;
+    text-align: right;
+}
+.aps-status {
+    border: 0;
+    border-radius: 999px;
+    padding: .22rem .55rem;
+    font-size: .78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.aps-status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: .35rem;
+    background: currentColor;
+}
+.aps-status-success {
+    background: #e7f6ec;
+    color: #16853b;
+}
+.aps-status-warning {
+    background: #fff3cd;
+    color: #9a6700;
+}
+.aps-status-danger {
+    background: #fde8e8;
+    color: #c92a2a;
+}
+.aps-need-danger {
+    color: #d63939;
+    font-weight: 700;
+}
+.aps-need-ok {
+    color: #16853b;
+    font-weight: 600;
+}
+.aps-change {
+    display: inline-block;
+    border-radius: .25rem;
+    padding: .14rem .4rem;
+    font-size: .76rem;
+    font-weight: 600;
+}
+.aps-change-original { background: #eef7ef; color: #397847; }
+.aps-change-modified { background: #fff4e5; color: #a15c00; }
+.aps-change-replaced { background: #e8f2ff; color: #2166a5; }
+.aps-change-manual { background: #f2e9ff; color: #7a42b6; }
+.aps-change-omitted { background: #ededed; color: #6c757d; }
+.aps-row-omitted {
+    opacity: .55;
+    text-decoration: line-through;
+}
+.aps-row-actions {
+    white-space: nowrap;
+    text-align: right;
+}
+.aps-root-label {
+    color: #714b67;
+    font-size: .78rem;
+}
+.aps-tree-empty {
+    padding: 1.5rem;
+    text-align: center;
+    color: #6c757d;
+}
+@media (max-width: 1400px) {
+    .aps-component-tree {
+        overflow-x: auto;
+    }
+    .aps-tree-header,
+    .aps-tree-row {
+        min-width: 1250px;
+    }
+}
+
+.aps-supply {
+    display: inline-block;
+    border-radius: 999px;
+    padding: .18rem .5rem;
+    font-size: .76rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.aps-supply-available { background: #e7f6ec; color: #16853b; }
+.aps-supply-move { background: #e7f2ff; color: #1264a3; }
+.aps-supply-manufacture { background: #eee7f3; color: #714b67; }
+.aps-supply-purchase { background: #fff1dc; color: #a45c00; }
+.aps-supply-mixed { background: #fff3cd; color: #8a6200; }
+.aps-supply-muted { background: #ededed; color: #6c757d; }
+.aps-supply-review { background: #fde8e8; color: #c92a2a; }
+
+.aps-supply-subcontract {
+    background: #e9f0ff;
+    color: #365fa0;
+}
+.aps-subcontract-badge {
+    display: inline-block;
+    margin-left: .45rem;
+    padding: .12rem .42rem;
+    border-radius: 999px;
+    background: #e9f0ff;
+    color: #365fa0;
+    font-size: .72rem;
+    font-weight: 700;
+    white-space: nowrap;
+}

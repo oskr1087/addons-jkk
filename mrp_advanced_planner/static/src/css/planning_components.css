@@ -1,0 +1,13 @@
+
+.o_form_view .o_field_x2many .o_list_table td[data-name="hierarchy_label"] {
+    font-weight: 600;
+    white-space: nowrap;
+}
+.o_form_view .o_field_x2many .o_list_table td[data-name="availability_need_qty"] {
+    font-weight: 700;
+}
+.o_aps_availability_wizard .o_list_table .text-bg-success,
+.o_aps_availability_wizard .o_list_table .text-bg-warning,
+.o_aps_availability_wizard .o_list_table .text-bg-danger {
+    font-weight: 700;
+}

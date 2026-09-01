@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mrp_planning_sale_availability_wizard_form" model="ir.ui.view">
+        <field name="name">mrp.planning.sale.availability.wizard.form</field>
+        <field name="model">mrp.planning.sale.availability.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Disponibilidad y abastecimiento"
+                  class="o_aps_availability_modal">
+                <sheet>
+                    <!-- HEADER -->
+                    <div class="o_aps_availability_header">
+                        <div class="o_aps_availability_identity">
+                            <div class="o_aps_availability_eyebrow">
+                                CONTROL DE DISPONIBILIDAD
+                            </div>
+                            <h2 class="mb-1">
+                                <field name="product_id"
+                                       readonly="1"
+                                       options="{'no_open': True}"/>
+                            </h2>
+                            <div class="o_aps_availability_meta">
+                                <span>
+                                    <i class="fa fa-file-text-o me-1" title="Pedido de venta"/>
+                                    <field name="sale_order_id" readonly="1"/>
+                                </span>
+                                <span>
+                                    <i class="fa fa-building-o me-1" title="Almacén"/>
+                                    <field name="warehouse_id"
+                                           readonly="1"
+                                           options="{'no_open': True}"/>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="o_aps_availability_status">
+                            <field name="status_key"
+                                   widget="badge"
+                                   readonly="1"
+                                   decoration-success="status_key in ('available', 'covered')"
+                                   decoration-info="status_key in ('manufacturing', 'transfer')"
+                                   decoration-warning="status_key in ('purchase', 'mixed', 'partial')"
+                                   decoration-danger="status_key == 'uncovered'"/>
+                            <div class="o_aps_coverage_caption">
+                                <field name="coverage_percent"
+                                       widget="percentage"
+                                       readonly="1"/>
+                                de cobertura
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KPI ROW -->
+                    <div class="o_aps_availability_kpis">
+                        <div class="o_aps_kpi_card">
+                            <span class="o_aps_kpi_label">Pedido</span>
+                            <strong><field name="requested_qty" readonly="1"/></strong>
+                        </div>
+                        <div class="o_aps_kpi_card">
+                            <span class="o_aps_kpi_label">Entregado</span>
+                            <strong><field name="delivered_qty" readonly="1"/></strong>
+                        </div>
+                        <div class="o_aps_kpi_card o_aps_kpi_pending">
+                            <span class="o_aps_kpi_label">Pendiente</span>
+                            <strong><field name="pending_qty" readonly="1"/></strong>
+                        </div>
+                        <div class="o_aps_kpi_card o_aps_kpi_coverage">
+                            <span class="o_aps_kpi_label">Cobertura</span>
+                            <strong><field name="coverage_qty" readonly="1"/></strong>
+                        </div>
+                        <div class="o_aps_kpi_card o_aps_kpi_shortage">
+                            <span class="o_aps_kpi_label">Faltante</span>
+                            <strong><field name="shortage_qty" readonly="1"/></strong>
+                        </div>
+                    </div>
+
+                    <notebook>
+                        <page string="Resumen" name="availability">
+                            <div class="o_aps_availability_columns">
+                                <!-- INVENTORY CARD -->
+                                <div class="o_aps_availability_card">
+                                    <div class="o_aps_card_header">
+                                        <div>
+                                            <i class="fa fa-cubes me-2" title="Inventario"/>
+                                            <strong>Inventario y pronóstico</strong>
+                                        </div>
+                                        <small>Disponibilidad actual del almacén</small>
+                                    </div>
+
+                                    <div class="o_aps_metric_grid">
+                                        <div class="o_aps_metric">
+                                            <span>A mano</span>
+                                            <strong><field name="on_hand_qty" readonly="1"/></strong>
+                                        </div>
+                                        <div class="o_aps_metric">
+                                            <span>Libre</span>
+                                            <strong><field name="free_qty" readonly="1"/></strong>
+                                        </div>
+                                        <div class="o_aps_metric">
+                                            <span>Entrante</span>
+                                            <strong><field name="incoming_qty" readonly="1"/></strong>
+                                        </div>
+                                        <div class="o_aps_metric">
+                                            <span>Saliente</span>
+                                            <strong><field name="outgoing_qty" readonly="1"/></strong>
+                                        </div>
+                                    </div>
+
+                                    <div class="o_aps_forecast_total">
+                                        <span>Pronosticado</span>
+                                        <strong><field name="forecast_qty" readonly="1"/></strong>
+                                    </div>
+                                </div>
+
+                                <!-- SUPPLY CARD -->
+                                <div class="o_aps_availability_card">
+                                    <div class="o_aps_card_header">
+                                        <div>
+                                            <i class="fa fa-random me-2" title="Abastecimiento"/>
+                                            <strong>Abastecimiento</strong>
+                                        </div>
+                                        <small>Cómo se está cubriendo la necesidad</small>
+                                    </div>
+
+                                    <div class="o_aps_supply_rows">
+                                        <div class="o_aps_supply_row">
+                                            <span>
+                                                <i class="fa fa-industry me-2" title="Fabricación"/>
+                                                En fabricación
+                                            </span>
+                                            <strong><field name="manufacturing_qty" readonly="1"/></strong>
+                                        </div>
+                                        <div class="o_aps_supply_row">
+                                            <span>
+                                                <i class="fa fa-shopping-cart me-2" title="Compras"/>
+                                                En compra
+                                            </span>
+                                            <strong><field name="purchase_qty" readonly="1"/></strong>
+                                        </div>
+                                        <div class="o_aps_supply_row">
+                                            <span>
+                                                <i class="fa fa-exchange me-2" title="Traslados"/>
+                                                En traslado APS
+                                            </span>
+                                            <strong><field name="transfer_qty" readonly="1"/></strong>
+                                        </div>
+                                        <div class="o_aps_supply_row">
+                                            <span>
+                                                <i class="fa fa-sitemap me-2" title="Planificación APS"/>
+                                                Planificado APS
+                                            </span>
+                                            <strong><field name="planned_qty" readonly="1"/></strong>
+                                        </div>
+                                    </div>
+
+                                    <div class="o_aps_supply_total">
+                                        <span>Abastecimiento identificado</span>
+                                        <strong><field name="supply_total_qty" readonly="1"/></strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-info o_aps_availability_help"
+                                 role="alert">
+                                <i class="fa fa-info-circle me-2" title="Información"/>
+                                La cobertura combina inventario pronosticado, órdenes de fabricación,
+                                compras pendientes, traslados y planificación APS vinculada a esta línea.
+                            </div>
+                        </page>
+
+                        <page string="Documentos relacionados"
+                              name="documents">
+                            <div class="o_aps_documents_intro">
+                                <div>
+                                    <strong>Trazabilidad del abastecimiento</strong>
+                                    <div class="text-muted">
+                                        Documentos que explican cómo se cubrirá esta línea de venta.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <field name="document_line_ids"
+                                   nolabel="1"
+                                   readonly="1">
+                                <list create="0"
+                                      delete="0"
+                                     
+                                      decoration-success="document_type == 'mo'"
+                                      decoration-info="document_type == 'plan'"
+                                      decoration-warning="document_type == 'po'">
+                                    <field name="document_type"
+                                           string="Origen"
+                                           widget="badge"/>
+                                    <field name="name" string="Documento"/>
+                                    <field name="quantity"
+                                           string="Cantidad"
+                                           sum="Total"/>
+                                    <field name="state_label"
+                                           string="Estado"/>
+                                    <button name="action_open_document"
+                                            type="object"
+                                            string="Abrir"
+                                            icon="fa-external-link"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+
+                <footer>
+                    <button string="Cerrar"
+                            special="cancel"
+                            class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

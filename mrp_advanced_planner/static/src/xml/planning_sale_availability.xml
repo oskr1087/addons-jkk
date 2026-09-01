@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="mrp_advanced_planner.PlanningSaleAvailabilityField">
+        <button type="button"
+                t-att-class="badgeClass"
+                title="Ver disponibilidad y abastecimiento"
+                t-on-click="openAvailability">
+            <i class="fa fa-search me-1"/>
+            <t t-esc="label"/>
+        </button>
+    </t>
+</templates>

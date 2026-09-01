@@ -4,5 +4,10 @@
         <field name="name">Panel de planificación</field>
         <field name="tag">mrp_advanced_planner.dashboard</field>
     </record>
-    <menuitem id="menu_mrp_advanced_planner_dashboard" name="Panel de planificación" parent="menu_mrp_advanced_planner_root" action="action_planning_dashboard" sequence="1" groups="mrp_advanced_planner.group_planner_manufacturing_user,mrp_advanced_planner.group_planner_purchase_user"/>
+    <menuitem id="menu_mrp_advanced_planner_dashboard"
+              name="Panel de planificación"
+              parent="menu_mrp_advanced_planner_root"
+              action="action_planning_dashboard"
+              sequence="1"
+              groups="mrp_advanced_planner.group_planner_manufacturing_user,mrp_advanced_planner.group_planner_purchase_user"/>
 </odoo>

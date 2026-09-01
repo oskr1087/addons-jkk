@@ -1,14 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_mrp_advanced_planner_manufacturing_root" name="Fabricación" parent="menu_mrp_advanced_planner_root" sequence="10" groups="mrp_advanced_planner.group_planner_manufacturing_user"/>
+    <menuitem id="menu_mrp_advanced_planner_manufacturing_root"
+              name="Fabricación"
+              parent="menu_mrp_advanced_planner_root"
+              sequence="10"
+              groups="mrp_advanced_planner.group_planner_manufacturing_user"/>
 
-    <menuitem id="menu_mrp_advanced_planner_manufacturing" name="Planificar fabricación" parent="menu_mrp_advanced_planner_manufacturing_root" action="action_mrp_planning_plan_manufacturing" sequence="10" groups="mrp_advanced_planner.group_planner_manufacturing_user"/>
+    <menuitem id="menu_mrp_advanced_planner_manufacturing"
+              name="Planificar fabricación"
+              parent="menu_mrp_advanced_planner_manufacturing_root"
+              action="action_mrp_planning_plan_manufacturing"
+              sequence="10"
+              groups="mrp_advanced_planner.group_planner_manufacturing_user"/>
 
-    <menuitem id="menu_mrp_advanced_planner_manufacturing_lines" name="Líneas de fabricación" parent="menu_mrp_advanced_planner_manufacturing_root" action="action_mrp_planning_plan_lines_manufacturing" sequence="20" groups="mrp_advanced_planner.group_planner_manufacturing_user"/>
+    <menuitem id="menu_mrp_advanced_planner_manufacturing_lines"
+              name="Líneas de fabricación"
+              parent="menu_mrp_advanced_planner_manufacturing_root"
+              action="action_mrp_planning_plan_lines_manufacturing"
+              sequence="20"
+              groups="mrp_advanced_planner.group_planner_manufacturing_user"/>
 
-    <menuitem id="menu_mrp_advanced_planner_purchase_root" name="Compras" parent="menu_mrp_advanced_planner_root" sequence="20" groups="mrp_advanced_planner.group_planner_purchase_user"/>
+    <menuitem id="menu_mrp_advanced_planner_purchase_root"
+              name="Compras"
+              parent="menu_mrp_advanced_planner_root"
+              sequence="20"
+              groups="mrp_advanced_planner.group_planner_purchase_user"/>
 
-    <menuitem id="menu_mrp_advanced_planner_purchase" name="Planificar compras" parent="menu_mrp_advanced_planner_purchase_root" action="action_mrp_planning_plan_purchase" sequence="10" groups="mrp_advanced_planner.group_planner_purchase_user"/>
+    <menuitem id="menu_mrp_advanced_planner_purchase"
+              name="Planificar compras"
+              parent="menu_mrp_advanced_planner_purchase_root"
+              action="action_mrp_planning_plan_purchase"
+              sequence="10"
+              groups="mrp_advanced_planner.group_planner_purchase_user"/>
 
-    <menuitem id="menu_mrp_advanced_planner_purchase_lines" name="Líneas de compras" parent="menu_mrp_advanced_planner_purchase_root" action="action_mrp_planning_plan_lines_purchase" sequence="20" groups="mrp_advanced_planner.group_planner_purchase_user"/>
+    <menuitem id="menu_mrp_advanced_planner_purchase_lines"
+              name="Líneas de compras"
+              parent="menu_mrp_advanced_planner_purchase_root"
+              action="action_mrp_planning_plan_lines_purchase"
+              sequence="20"
+              groups="mrp_advanced_planner.group_planner_purchase_user"/>
 </odoo>

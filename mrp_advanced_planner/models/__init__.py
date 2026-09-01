@@ -9,3 +9,7 @@ from . import planning_proposals
 from . import planning_operations
 from . import planning_snapshot
 from . import planning_dashboard
+
+from . import stock_availability_wizard
+
+from . import sale_availability_wizard

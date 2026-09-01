@@ -110,4 +110,25 @@
         <field name="domain_force">[('plan_id.company_id', 'in', company_ids)]</field>
         <field name="global" eval="True"/>
     </record>
+    <record id="rule_external_move_company" model="ir.rule">
+        <field name="name">Disponibilidad otros almacenes: compañía permitida</field>
+        <field name="model_id" ref="model_mrp_planning_external_warehouse_move"/>
+        <field name="domain_force">[('plan_id.company_id', 'in', company_ids)]</field>
+        <field name="global" eval="True"/>
+    </record>
+
+    <record id="rule_external_move_manufacturing" model="ir.rule">
+        <field name="name">Disponibilidad otros almacenes: fabricación</field>
+        <field name="model_id" ref="model_mrp_planning_external_warehouse_move"/>
+        <field name="domain_force">[('plan_id.plan_type', '=', 'manufacturing')]</field>
+        <field name="groups" eval="[(4, ref('group_planner_manufacturing_user'))]"/>
+    </record>
+
+    <record id="rule_external_move_purchase" model="ir.rule">
+        <field name="name">Disponibilidad otros almacenes: compras</field>
+        <field name="model_id" ref="model_mrp_planning_external_warehouse_move"/>
+        <field name="domain_force">[('plan_id.plan_type', '=', 'purchase')]</field>
+        <field name="groups" eval="[(4, ref('group_planner_purchase_user'))]"/>
+    </record>
+
 </odoo>

@@ -7,12 +7,30 @@
         <field name="arch" type="xml">
             <!-- Visible directly in the normal sale order lines. -->
             <xpath expr="//field[@name='order_line']/list/field[@name='product_uom_qty']" position="after">
-                <field name="planning_delivery_date" string="Fecha entrega" optional="show" readonly="0"/>
+                <field name="planning_delivery_date"
+                       string="Fecha entrega"
+                       optional="show"
+                       readonly="0"/>
+                <field name="aps_stock_warehouse_tooltip" column_invisible="1"/>
+                <field name="aps_forecast_qty" column_invisible="1"/>
+                <field name="aps_open_mo_qty" column_invisible="1"/>
+                <field name="aps_forecast_status"
+                       string="Disponibilidad"
+                       widget="planning_sale_availability"
+                       readonly="1"
+                       optional="show"/>
             </xpath>
 
             <!-- Also visible when opening a sale line form. -->
             <xpath expr="//field[@name='order_line']/form//field[@name='customer_lead']" position="after">
                 <field name="planning_delivery_date" string="Fecha de entrega planificación" readonly="0"/>
+                <field name="aps_stock_warehouse_tooltip" invisible="1"/>
+                <field name="aps_forecast_qty" invisible="1"/>
+                <field name="aps_open_mo_qty" invisible="1"/>
+                <field name="aps_forecast_status"
+                       string="Disponibilidad y abastecimiento"
+                       widget="planning_sale_availability"
+                       readonly="1"/>
             </xpath>
 
             <!-- Dedicated editor remains available even if the commercial order is locked. -->
@@ -28,8 +46,15 @@
                             <field name="product_id" string="Producto" readonly="1"/>
                             <field name="product_uom_qty" string="Pedido" readonly="1"/>
                             <field name="qty_delivered" string="Entregado" readonly="1"/>
-                            <field name="planning_delivery_date" string="Fecha de entrega" readonly="0" invisible="display_type"/>
-                            <button name="action_reset_planning_delivery_date" type="object" icon="fa-undo" title="Restablecer fecha del pedido" invisible="display_type"/>
+                            <field name="planning_delivery_date"
+                                   string="Fecha de entrega"
+                                   readonly="0"
+                                   invisible="display_type"/>
+                            <button name="action_reset_planning_delivery_date"
+                                    type="object"
+                                    icon="fa-undo"
+                                    title="Restablecer fecha del pedido"
+                                    invisible="display_type"/>
                         </list>
                     </field>
                 </page>

@@ -51,8 +51,9 @@
 
                         <t t-if="totals.hasAdjustments">
                             <div class="o_planning_forecast_adjustments">
-                                <span t-if="Number(totals.rfq) !== 0">RFQ pendientes: <strong t-esc="totals.rfq"/></span>
-                                <span t-if="Number(totals.otherPlan) !== 0">Otros planes: <strong t-esc="totals.otherPlan"/></span>
+                                <span t-if="totals.rfq != 0">RFQ pendientes: <strong t-esc="totals.rfq"/></span>
+                                <span t-if="totals.otherPlan != 0">Otros planes: <strong t-esc="totals.otherPlan"/></span>
+                                <span t-if="totals.hasOpenMo">OF confirmadas/en proceso: <strong t-esc="totals.openMo"/></span>
                             </div>
                         </t>
 
@@ -63,6 +64,10 @@
                                     <div class="o_planning_stock_warehouse_name">
                                         <i class="fa fa-building-o"/>
                                         <strong t-esc="row.warehouse"/>
+                                    </div>
+                                    <div class="o_planning_stock_warehouse_open_mo" t-if="row.openMo &gt; 0">
+                                        <i class="fa fa-industry"/>
+                                        <span>Fabricando / OF abiertas: <strong t-esc="formatQty(row.openMo)"/></span>
                                     </div>
                                     <div class="o_planning_stock_warehouse_formula">
                                         <span><small>A mano</small><b t-esc="formatQty(row.onHand)"/></span>

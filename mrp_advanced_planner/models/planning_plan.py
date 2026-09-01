@@ -41,6 +41,24 @@ class PlanningPlan(models.Model):
     approved_at = fields.Datetime(readonly=True)
 
     line_ids = fields.One2many('mrp.planning.plan.line', 'plan_id', string='Productos planificados')
+    production_component_ids = fields.One2many(
+        'mrp.planning.production.component', 'plan_id',
+        string='Componentes congelados de fabricación', copy=True,
+    )
+    external_move_ids = fields.One2many('mrp.planning.external.warehouse.move', 'plan_id', string='Disponibilidad en otros almacenes', copy=False)
+    needs_recalculation = fields.Boolean(string='Requiere recalcular', readonly=True, tracking=True, help='Se activa después de crear una transferencia desde otro almacén. Recalcule antes de fabricar o comprar.')
+
+    generated_purchase_plan_id = fields.Many2one(
+        'mrp.planning.plan', string='Plan de compras de componentes',
+        readonly=True, copy=False, ondelete='set null', tracking=True,
+    )
+    source_manufacturing_plan_id = fields.Many2one(
+        'mrp.planning.plan', string='Plan de fabricación origen',
+        readonly=True, copy=False, ondelete='set null', index=True,
+    )
+    generated_component_mo_count = fields.Integer(
+        string='OF de subcomponentes', compute='_compute_component_document_counts'
+    )
 
     # Legacy technical relations kept so database upgrades from previous versions do not break.
     demand_ids = fields.One2many('mrp.planning.demand', 'plan_id')
@@ -124,7 +142,8 @@ class PlanningPlan(models.Model):
     def create(self, vals_list):
         for vals in vals_list:
             plan_type = vals.get('plan_type') or self.env.context.get('default_plan_type', 'manufacturing')
-            self._check_plan_type_permission(plan_type)
+            if not self.env.context.get('aps_internal_create'):
+                self._check_plan_type_permission(plan_type)
             if not vals.get('name') or vals.get('name') == 'New':
                 vals['name'] = self.env['ir.sequence'].next_by_code('mrp.planning.plan') or 'New'
             wh_commands = vals.get('warehouse_ids')
@@ -173,6 +192,13 @@ class PlanningPlan(models.Model):
             plan.created_mo_count = Production.search_count([('advanced_plan_id', '=', plan.id)])
             plan.created_po_count = Purchase.search_count([('advanced_plan_id', '=', plan.id)]) if 'advanced_plan_id' in Purchase._fields else 0
             plan.created_transfer_count = Picking.search_count([('advanced_plan_id', '=', plan.id)]) if 'advanced_plan_id' in Picking._fields else 0
+
+    @api.depends('production_component_ids.generated_production_id')
+    def _compute_component_document_counts(self):
+        for plan in self:
+            plan.generated_component_mo_count = len(
+                plan.production_component_ids.mapped('generated_production_id')
+            )
 
     @api.depends(
         'state',
@@ -238,12 +264,46 @@ class PlanningPlan(models.Model):
     def action_calculate(self):
         self.ensure_one()
         self._check_plan_type_permission()
+        if self.source_manufacturing_plan_id and self.plan_type == 'purchase':
+            origin = self.source_manufacturing_plan_id
+            origin._refresh_component_sourcing()
+            origin._sync_component_purchase_plan()
+            return True
         if self.state not in ('draft', 'calculated'):
             raise UserError(_('Solo puede calcular o recalcular un plan en borrador o calculado.'))
         self._ensure_warehouse_ids()
         from ..services.simple_planning_engine import SimplePlanningEngine
-        SimplePlanningEngine(self).run()
-        self.write({'state': 'calculated', 'calculated_at': fields.Datetime.now()})
+        result_count = SimplePlanningEngine(self).run()
+
+        # A search with no demand/results must remain reusable.  Moving the
+        # plan to Calculated here used to lock date_end/warehouses in the form,
+        # forcing the user to create a new plan just to try another horizon.
+        if not result_count or not self.line_ids:
+            self.write({
+                'state': 'draft',
+                'calculated_at': False,
+                'needs_recalculation': False,
+            })
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _('Sin resultados'),
+                    'message': _(
+                        'No se encontraron necesidades para los almacenes y '
+                        'la fecha seleccionados. El plan permanece en Borrador; '
+                        'puede cambiar "Planificar hasta" y calcular nuevamente.'
+                    ),
+                    'type': 'warning',
+                    'sticky': False,
+                },
+            }
+
+        self.write({
+            'state': 'calculated',
+            'calculated_at': fields.Datetime.now(),
+            'needs_recalculation': False,
+        })
         return True
 
     def action_reset(self):
@@ -267,25 +327,79 @@ class PlanningPlan(models.Model):
         ]).filtered(lambda sl: sl.product_uom_qty - sl.qty_delivered > 0)
 
     def _validate_sale_lines_still_pending(self):
-        """Block execution when demand changed after calculation."""
+        """Validate demand freshness without confusing traceability with demand.
+
+        ``sale_line_ids`` has two meanings in APS:
+        - for direct Sale demand it is the quantity source;
+        - for recursive MRP/component purchase lines it is traceability back to
+          the finished-product SO only.
+
+        Component purchase lines therefore must NOT compare the pending qty of
+        the finished product against the component's ``direct_sale_demand_qty``.
+        """
         self.ensure_one()
+
+        # A purchase planner generated from manufacturing inherits SO lines only
+        # for traceability. The manufacturing origin is the authoritative demand
+        # snapshot, so validate that plan once and do not reinterpret its SO
+        # quantities as component demand.
+        if (
+            self.plan_type == 'purchase'
+            and self.source_manufacturing_plan_id
+        ):
+            self.source_manufacturing_plan_id._validate_sale_lines_still_pending()
+
         current = self._current_source_sale_lines()
         current_ids = set(current.ids)
+
         for line in self.line_ids:
             source_lines = line.sale_line_ids or line.sale_line_id
+            if not source_lines:
+                continue
+
+            # MRP/component lines carry SOs for traceability only. Their
+            # quantities come from the exploded engineering requirement.
+            if line.source_type == 'mrp':
+                continue
+
+            # Mixed lines may contain both direct sales demand and component
+            # demand. Validate only the direct sales portion.
+            direct_qty = (
+                line.direct_sale_demand_qty
+                if 'direct_sale_demand_qty' in line._fields
+                else line.sales_qty
+            )
+            if direct_qty <= 1e-6:
+                continue
+
             if any(sl.id not in current_ids for sl in source_lines):
                 raise UserError(_(
-                    'Una o más ventas origen del producto %s ya no están pendientes o cambiaron de fecha/almacén. '
-                    'Debe recalcular la planificación.'
+                    'Una o más ventas origen del producto %s ya no están '
+                    'pendientes o cambiaron de fecha/almacén. Recalcule la '
+                    'planificación antes de ejecutar documentos.'
                 ) % line.product_id.display_name)
+
+            # Only direct SO lines for this same product are a quantity source.
+            product_sale_lines = source_lines.filtered(
+                lambda sl: sl.product_id == line.product_id
+            )
             current_qty = 0.0
-            for sl in source_lines:
+            for sl in product_sale_lines:
                 pending = max(sl.product_uom_qty - sl.qty_delivered, 0.0)
-                current_qty += sl.product_uom_id._compute_quantity(pending, sl.product_id.uom_id)
-            if abs(current_qty - line.sales_qty) > 1e-6:
+                current_qty += sl.product_uom_id._compute_quantity(
+                    pending, sl.product_id.uom_id
+                )
+
+            if abs(current_qty - direct_qty) > 1e-6:
                 raise UserError(_(
-                    'La cantidad pendiente del producto %s cambió. Debe recalcular la planificación.'
-                ) % line.product_id.display_name)
+                    'La demanda pendiente de %s cambió desde el último cálculo '
+                    '(planificado: %.2f, actual: %.2f). Recalcule la '
+                    'planificación antes de continuar.'
+                ) % (
+                    line.product_id.display_name,
+                    direct_qty,
+                    current_qty,
+                ))
         return True
 
     def _validate_selected_lines(self, action_field):
@@ -298,6 +412,8 @@ class PlanningPlan(models.Model):
             raise UserError(_('La acción seleccionada no corresponde al tipo de esta planificación.'))
         if self.state != 'calculated':
             raise UserError(_('Solo puede generar documentos mientras la planificación está en estado Calculado.'))
+        if self.needs_recalculation:
+            raise UserError(_('Se generó una transferencia desde otro almacén después del último cálculo. Recalcule la planificación antes de fabricar o comprar para evitar sobreplanificación.'))
         self._validate_sale_lines_still_pending()
         lines = self.line_ids.filtered(lambda l: l[action_field] and l.planner_production_qty > 0)
         if not lines:
@@ -309,6 +425,8 @@ class PlanningPlan(models.Model):
         for plan in self:
             if plan.state != 'calculated':
                 raise UserError(_('Solo puede finalizar una planificación calculada.'))
+            if plan.needs_recalculation:
+                raise UserError(_('Debe recalcular la planificación después de las transferencias internas generadas.'))
 
             relevant = plan.line_ids.filtered(lambda line: line.planner_production_qty > 0)
             undecided = relevant.filtered(
@@ -355,16 +473,272 @@ class PlanningPlan(models.Model):
             ))
         return True
 
+    def _refresh_component_sourcing(self):
+        self.ensure_one()
+        if self.plan_type != 'manufacturing':
+            return self.env['mrp.planning.production.component']
+        from ..services.component_sourcing import ComponentSourcingEngine
+        return ComponentSourcingEngine(self).run()
+
+    def _sync_component_purchase_plan(self):
+        """Create/update the purchase planner generated by this MFG plan."""
+        self.ensure_one()
+        if self.plan_type != 'manufacturing':
+            return False
+
+        components = self.production_component_ids.filtered(
+            lambda c: c.include_in_mo and c.to_purchase_qty > 1e-6
+        )
+        purchase_plan = self.generated_purchase_plan_id.sudo()
+
+        if not components and not purchase_plan:
+            self.message_post(body=_(
+                'APS: todos los componentes están cubiertos; no fue necesario '
+                'generar un plan de compras.'
+            ))
+            return False
+
+        # Do not rewrite an already executed linked purchase plan.
+        if purchase_plan and (
+            purchase_plan.created_po_count
+            or purchase_plan.state in ('approved', 'cancelled')
+        ):
+            return purchase_plan
+
+        Plan = self.env['mrp.planning.plan'].sudo().with_context(
+            aps_internal_create=True
+        )
+        if not purchase_plan:
+            purchase_plan = Plan.create({
+                'plan_type': 'purchase',
+                'company_id': self.company_id.id,
+                'user_id': self.user_id.id,
+                'date_start': fields.Datetime.now(),
+                'date_end': self.date_end,
+                'priority': self.priority,
+                'warehouse_ids': [(6, 0, self.warehouse_ids.ids)],
+                'source_manufacturing_plan_id': self.id,
+                'state': 'calculated',
+                'calculated_at': fields.Datetime.now(),
+            })
+            self.sudo().write({'generated_purchase_plan_id': purchase_plan.id})
+        else:
+            purchase_plan.line_ids.unlink()
+            purchase_plan.write({
+                'date_end': self.date_end,
+                'warehouse_ids': [(6, 0, self.warehouse_ids.ids)],
+                'state': 'calculated',
+                'calculated_at': fields.Datetime.now(),
+            })
+
+        # No components to buy: keep traceability plan but empty.
+        if not components:
+            self.message_post(body=_(
+                'APS: no existen componentes pendientes de compra después '
+                'del análisis de abastecimiento.'
+            ))
+            return purchase_plan
+
+        grouped = {}
+        for component in components:
+            warehouse = (
+                component.planning_line_id.target_warehouse_id
+                or self.warehouse_ids[:1]
+            )
+            key = (component.product_id.id, warehouse.id)
+            row = grouped.setdefault(key, {
+                'product': component.product_id,
+                'warehouse': warehouse,
+                'qty': 0.0,
+                'demand': 0.0,
+                'local': 0.0,
+                'components': self.env['mrp.planning.production.component'],
+                'sale_lines': self.env['sale.order.line'],
+                'date_required': component.planning_line_id.date_required or self.date_end,
+            })
+            row['qty'] += component.to_purchase_qty
+            row['demand'] += component.effective_required_qty
+            row['local'] += component.local_supply_qty
+            row['components'] |= component
+            row['sale_lines'] |= (
+                component.planning_line_id.sale_line_ids
+                or component.planning_line_id.sale_line_id
+            )
+            date = component.planning_line_id.date_required or self.date_end
+            if date and date < row['date_required']:
+                row['date_required'] = date
+
+        Line = self.env['mrp.planning.plan.line'].sudo()
+        for row in grouped.values():
+            product = row['product']
+            sellers = product.with_company(self.company_id).seller_ids.filtered(
+                lambda seller: not seller.company_id
+                or seller.company_id == self.company_id
+            ).sorted(key=lambda seller: (seller.sequence, seller.id))
+            vendor = sellers[:1].partner_id if sellers else False
+            line = Line.create({
+                'plan_id': purchase_plan.id,
+                'sale_line_id': row['sale_lines'][:1].id,
+                'sale_line_ids': [(6, 0, row['sale_lines'].ids)],
+                'product_id': product.id,
+                'target_warehouse_id': row['warehouse'].id,
+                'demand_qty': row['demand'],
+                'sales_qty': row['demand'],
+                'direct_sale_demand_qty': 0.0,
+                'mrp_component_demand_qty': row['demand'],
+                'stock_qty': row['local'],
+                'net_requirement_qty': row['qty'],
+                'planner_production_qty': row['qty'],
+                'planned_purchase_qty': row['qty'],
+                'action_purchase': True,
+                'purchase_vendor_id': vendor.id if vendor else False,
+                'date_required': row['date_required'],
+                'source_type': 'mrp',
+                'source_reference': self.name,
+                'bom_origin_detail': '\n'.join(
+                    row['components'].mapped('path')
+                ),
+                'state': 'planned',
+            })
+            row['components'].sudo().write({
+                'generated_purchase_plan_line_id': line.id
+            })
+
+        purchase_plan.message_post(body=_(
+            'Plan de compras generado automáticamente desde %s con %s '
+            'producto(s) de componentes.'
+        ) % (self.name, len(purchase_plan.line_ids)))
+        self.message_post(body=_(
+            'Se generó/actualizó el plan de compras %s con los componentes '
+            'pendientes de compra.'
+        ) % purchase_plan.name)
+        return purchase_plan
+
+    def _create_component_manufacturing_orders(self):
+        """Create sub-MOs for fabricable components not covered by supply."""
+        self.ensure_one()
+        components = self.production_component_ids.filtered(
+            lambda c: c.include_in_mo
+            and c.to_manufacture_qty > 1e-6
+            and not c.generated_production_id
+        )
+        if not components:
+            return self.env['mrp.production']
+
+        from ..services.odoo19_compat import find_bom
+        Production = self.env['mrp.production']
+        created = Production
+
+        # Deepest components first so dependencies are visible in a logical order.
+        for component in components.sorted(
+            key=lambda c: (-c.level, c.planning_line_id.id, c.sequence, c.id)
+        ):
+            bom = find_bom(
+                self.env,
+                component.product_id,
+                company_id=self.company_id.id,
+            )
+            if not bom:
+                raise UserError(_(
+                    'El componente %s está clasificado para Fabricar pero no '
+                    'se encontró una Lista de Materiales.'
+                ) % component.product_id.display_name)
+
+            warehouse = (
+                component.planning_line_id.target_warehouse_id
+                or self.warehouse_ids[:1]
+            )
+            vals = {
+                'origin': '%s / %s' % (self.name, component.product_id.display_name),
+                'product_id': component.product_id.id,
+                'product_qty': component.to_manufacture_qty,
+                'product_uom_id': component.product_uom_id.id,
+                'bom_id': bom.id,
+                'company_id': self.company_id.id,
+                'advanced_plan_id': self.id,
+                'planning_plan_line_id': component.planning_line_id.id,
+                'aps_component_snapshot': True,
+                'aps_planning_component_id': component.id,
+            }
+            if warehouse and warehouse.manu_type_id:
+                vals['picking_type_id'] = warehouse.manu_type_id.id
+            if 'date_deadline' in Production._fields:
+                vals['date_deadline'] = (
+                    component.planning_line_id.date_required or self.date_end
+                )
+            mo = Production.with_context(
+                skip_compute_move_raw_ids=True
+            ).create(vals)
+            mo.action_confirm()
+            component.sudo().write({'generated_production_id': mo.id})
+            created |= mo
+        return created
+
+    def action_open_component_productions(self):
+        self.ensure_one()
+        ids = self.production_component_ids.mapped('generated_production_id').ids
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('OF de subcomponentes'),
+            'res_model': 'mrp.production',
+            'view_mode': 'list,form',
+            'views': [(False, 'list'), (False, 'form')],
+            'domain': [('id', 'in', ids)],
+            'target': 'current',
+        }
+
+    def action_open_generated_purchase_plan(self):
+        self.ensure_one()
+        if not self.generated_purchase_plan_id:
+            return False
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Plan de compras de componentes'),
+            'res_model': 'mrp.planning.plan',
+            'res_id': self.generated_purchase_plan_id.id,
+            'view_mode': 'form',
+            'views': [(False, 'form')],
+            'target': 'current',
+        }
+
     def action_create_manufacturing(self):
         self.ensure_one()
         self._check_plan_type_permission('manufacturing')
         if self.plan_type != 'manufacturing':
-            raise UserError(_('Esta acción solo está disponible en una planificación de fabricación.'))
+            raise UserError(_(
+                'Esta acción solo está disponible en una planificación de fabricación.'
+            ))
+
         lines = self._validate_selected_lines('action_manufacture')
         missing_bom = lines.filtered(lambda l: not l.bom_id)
         if missing_bom:
-            raise UserError(_('No se puede fabricar sin LdM:\n- %s') % '\n- '.join(missing_bom.mapped('product_id.display_name')))
+            raise UserError(_('No se puede fabricar sin LdM:\n- %s') % '\n- '.join(
+                missing_bom.mapped('product_id.display_name')
+            ))
 
+        # Re-evaluate the edited snapshot immediately before execution.
+        self._refresh_component_sourcing()
+
+        # Transfers have priority. A positive move_qty means the user has not
+        # yet decided whether to use the stock found in another warehouse.
+        pending_moves = self.external_move_ids.filtered(
+            lambda move: move.state == 'pending' and move.move_qty > 1e-6
+        )
+        if pending_moves:
+            raise UserError(_(
+                'Existen %s traslado(s) sugerido(s) pendientes. Para evitar '
+                'comprar o fabricar cantidades que existen en otra bodega, '
+                'ejecute esos traslados primero o coloque Cantidad a transferir '
+                'en 0 para indicar que no desea utilizarlos.'
+            ) % len(pending_moves))
+
+        # Create/update procurement plan first, then sub-MOs and finished MOs.
+        self._sync_component_purchase_plan()
+
+        # APS does NOT create manufacturing orders for fabricable components.
+        # The finished-product MO keeps those components in its raw material
+        # snapshot and Odoo's standard MRP/replenishment flow resolves their
+        # manufacturing supply.
         productions = self.env['mrp.production']
         for line in lines:
             if line.created_production_id:
@@ -380,16 +754,25 @@ class PlanningPlan(models.Model):
                 'company_id': self.company_id.id,
                 'advanced_plan_id': self.id,
                 'planning_plan_line_id': line.id,
+                'aps_component_snapshot': True,
             }
             if warehouse and warehouse.manu_type_id:
                 vals['picking_type_id'] = warehouse.manu_type_id.id
             if 'date_deadline' in self.env['mrp.production']._fields:
                 vals['date_deadline'] = line.date_required or self.date_end
-            mo = self.env['mrp.production'].create(vals)
+            mo = self.env['mrp.production'].with_context(
+                skip_compute_move_raw_ids=True
+            ).create(vals)
             mo.action_confirm()
-            line.write({'created_production_id': mo.id, 'state': 'applied', 'planned_production_qty': line.planner_production_qty})
+            line.write({
+                'created_production_id': mo.id,
+                'state': 'applied',
+                'planned_production_qty': line.planner_production_qty,
+            })
             productions |= mo
+
         return self.action_open_created_productions()
+
 
     def _ensure_product_purchase_vendor(self, line, vendor, purchase_line=False):
         """Remember a manually selected vendor on the product for future APS runs.

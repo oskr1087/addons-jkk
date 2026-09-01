@@ -1,0 +1,23 @@
+.o_aps_supply_badge {
+    border: 0;
+    border-radius: 999px;
+    padding: .25rem .55rem;
+    font-size: .78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.o_aps_supply_ok {
+    background: #dff3e4;
+    color: #207a3b;
+}
+
+.o_aps_supply_partial {
+    background: #fff3cd;
+    color: #7b5a00;
+}
+
+.o_aps_supply_danger {
+    background: #f8d7da;
+    color: #a12632;
+}

@@ -35,7 +35,8 @@ export class PlanningStockTooltipField extends Component {
     }
 
     get warehouseRows() {
-        const raw = this.props.record.data.stock_warehouse_tooltip || "";
+        const tooltipField = this.props.options?.tooltipField || "stock_warehouse_tooltip";
+        const raw = this.props.record.data[tooltipField] || "";
         return raw
             .split("\n")
             .map((line) => line.trim())
@@ -50,6 +51,7 @@ export class PlanningStockTooltipField extends Component {
                     rfq: Number(parts[4] || 0),
                     otherPlan: Number(parts[5] || 0),
                     forecast: Number(parts[6] || 0),
+                    openMo: Number(parts[7] || 0),
                 };
             });
     }
@@ -64,7 +66,9 @@ export class PlanningStockTooltipField extends Component {
             rfq: this.formatQty(sum("rfq")),
             otherPlan: this.formatQty(sum("otherPlan")),
             forecast: this.value,
-            hasAdjustments: Math.abs(sum("rfq")) > 1e-6 || Math.abs(sum("otherPlan")) > 1e-6,
+            openMo: this.formatQty(sum("openMo")),
+            hasOpenMo: Math.abs(sum("openMo")) > 1e-6,
+            hasAdjustments: Math.abs(sum("rfq")) > 1e-6 || Math.abs(sum("otherPlan")) > 1e-6 || Math.abs(sum("openMo")) > 1e-6,
         };
     }
 

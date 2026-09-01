@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ==========================================================
+         SALES: from SO / SO line to APS -> MO / PO / Transfers
+         ========================================================== -->
+    <record id="view_sale_order_form_aps_traceability" model="ir.ui.view">
+        <field name="name">sale.order.form.aps.traceability</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_aps_plans"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-sitemap"
+                        invisible="aps_plan_count == 0">
+                    <field name="aps_plan_count" widget="statinfo" string="Planes APS"/>
+                </button>
+                <button name="action_open_aps_productions"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-industry"
+                        invisible="aps_mo_count == 0">
+                    <field name="aps_mo_count" widget="statinfo" string="OF APS"/>
+                </button>
+                <button name="action_open_aps_purchases"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-shopping-cart"
+                        invisible="aps_po_count == 0">
+                    <field name="aps_po_count" widget="statinfo" string="PO APS"/>
+                </button>
+                <button name="action_open_aps_pickings"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-exchange"
+                        invisible="aps_picking_count == 0">
+                    <field name="aps_picking_count" widget="statinfo" string="Traslados APS"/>
+                </button>
+            </xpath>
+
+            <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="after">
+                <field name="aps_plan_ids"
+                       string="Planificaciones APS"
+                       widget="many2many_tags"
+                       optional="hide"
+                       readonly="1"/>
+                <field name="aps_production_ids"
+                       string="OF APS"
+                       widget="many2many_tags"
+                       optional="hide"
+                       readonly="1"/>
+                <field name="aps_purchase_order_ids"
+                       string="PO APS"
+                       widget="many2many_tags"
+                       optional="hide"
+                       readonly="1"/>
+                <field name="aps_picking_ids"
+                       string="Traslados APS"
+                       widget="many2many_tags"
+                       optional="hide"
+                       readonly="1"/>
+            </xpath>
+
+            <xpath expr="//field[@name='order_line']/form//field[@name='product_id']" position="after">
+                <field name="aps_plan_ids"
+                       string="Planificaciones APS"
+                       widget="many2many_tags"
+                       readonly="1"/>
+                <field name="aps_production_ids"
+                       string="OF APS"
+                       widget="many2many_tags"
+                       readonly="1"/>
+                <field name="aps_purchase_order_ids"
+                       string="PO APS"
+                       widget="many2many_tags"
+                       readonly="1"/>
+                <field name="aps_picking_ids"
+                       string="Traslados APS"
+                       widget="many2many_tags"
+                       readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ==========================================================
+         MANUFACTURING: MO -> APS -> sales origin
+         ========================================================== -->
+    <record id="view_mrp_production_form_aps_full_traceability" model="ir.ui.view">
+        <field name="name">mrp.production.form.aps.full.traceability</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_planning_sale_orders"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-file-text-o"
+                        invisible="planning_sale_order_count == 0">
+                    <field name="planning_sale_order_count"
+                           widget="statinfo"
+                           string="Ventas origen"/>
+                </button>
+            </xpath>
+
+        </field>
+    </record>
+
+    <!-- ==========================================================
+         PURCHASE: PO / PO line -> APS -> sales origin
+         ========================================================== -->
+    <record id="view_purchase_order_form_aps_traceability" model="ir.ui.view">
+        <field name="name">purchase.order.form.aps.traceability</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_planning_sale_orders"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-file-text-o"
+                        invisible="planning_sale_order_count == 0">
+                    <field name="planning_sale_order_count"
+                           widget="statinfo"
+                           string="Ventas origen"/>
+                </button>
+            </xpath>
+
+            <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="after">
+                <field name="planning_plan_id"
+                       string="Planificación APS"
+                       optional="hide"
+                       readonly="1"/>
+                <field name="source_manufacturing_plan_id"
+                       string="Plan fabricación origen"
+                       optional="hide"
+                       readonly="1"/>
+                <field name="planning_sale_order_ids"
+                       string="Pedidos venta origen"
+                       widget="many2many_tags"
+                       optional="hide"
+                       readonly="1"/>
+                <field name="planning_sale_line_ids"
+                       string="Líneas venta origen"
+                       widget="many2many_tags"
+                       optional="hide"
+                       readonly="1"/>
+            </xpath>
+
+            <xpath expr="//notebook" position="inside">
+                <page string="Trazabilidad APS"
+                      name="aps_traceability"
+                      invisible="not advanced_plan_id and not planning_plan_line_ids">
+                    <group>
+                        <group>
+                            <field name="advanced_plan_id"
+                                   string="Planificación APS"
+                                   readonly="1"/>
+                            <field name="source_manufacturing_plan_id"
+                                   string="Plan fabricación origen"
+                                   readonly="1"
+                                   invisible="not source_manufacturing_plan_id"/>
+                            <field name="planning_plan_line_ids"
+                                   string="Líneas de planificación"
+                                   widget="many2many_tags"
+                                   readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="planning_sale_order_ids"
+                                   string="Pedidos de venta origen"
+                                   widget="many2many_tags"
+                                   readonly="1"/>
+                            <field name="planning_sale_line_ids"
+                                   string="Líneas de venta origen"
+                                   widget="many2many_tags"
+                                   readonly="1"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ==========================================================
+         INTERNAL TRANSFERS: Picking -> APS -> sales origin
+         ========================================================== -->
+    <record id="view_stock_picking_form_aps_traceability" model="ir.ui.view">
+        <field name="name">stock.picking.form.aps.traceability</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Trazabilidad APS"
+                      name="aps_traceability"
+                      invisible="not advanced_plan_id and not planning_plan_line_ids">
+                    <group>
+                        <group>
+                            <field name="advanced_plan_id"
+                                   string="Planificación APS"
+                                   readonly="1"/>
+                            <field name="planning_plan_line_ids"
+                                   string="Líneas de planificación"
+                                   widget="many2many_tags"
+                                   readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="planning_sale_order_ids"
+                                   string="Pedidos de venta origen"
+                                   widget="many2many_tags"
+                                   readonly="1"/>
+                            <field name="planning_sale_line_ids"
+                                   string="Líneas de venta origen"
+                                   widget="many2many_tags"
+                                   readonly="1"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
