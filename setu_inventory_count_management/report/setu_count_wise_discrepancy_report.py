@@ -30,6 +30,7 @@ class SetuCountWiseDiscrepancyReport(models.Model):
                 FROM setu_stock_inventory_count c
                 JOIN setu_stock_inventory_count_line l ON l.inventory_count_id = c.id
                 WHERE c.state NOT IN ('Rejected','Cancel')
+                  AND c.count_id IS NULL
                   AND l.state != 'Reject'
                 GROUP BY c.id, c.company_id
             )

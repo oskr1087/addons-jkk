@@ -1,6 +1,6 @@
 {
     "name": "Conteo de Inventario Multiusuario - Móvil/PDA",
-    "version": "19.0.7.4.5",
+    "version": "19.0.7.7.19",
     "category": "Inventario",
     "license": "OPL-1",
     "author": "Oscar Morocho",
@@ -26,6 +26,7 @@
         "views/setu_inventory_count_session_views.xml",
         "views/setu_inventory_session_details_views.xml",
         "views/setu_stock_inventory_views.xml",
+        "views/inventory_count_snapshot_views.xml",
         "views/inventory_count_enhancement_views.xml",
         "views/pda_counting_views.xml",
         "views/stock_location_views.xml",
@@ -39,6 +40,7 @@
         "wizard_views/setu_inventory_warning_message_wizard_views.xml",
         "wizard_views/setu_extra_lot_found_wizard_views.xml",
         "report_views/setu_inventory_count_report_views.xml",
+        "report_views/inventory_count_executive_report.xml",
         "report_views/setu_inventory_adjustment_report_views.xml",
         "report_views/setu_inventory_session_user_report_views.xml",
         "report_views/setu_count_wise_discrepancy_report_views.xml",
@@ -46,9 +48,9 @@
         "report_views/setu_location_wise_discrepancy_report_views.xml",
         "report_views/setu_inventory_session_performance_report_views.xml",
         "views/ux_kanban_views.xml",
+        "views/inventory_count_layout_finalizer.xml",
         "data/inventory_count_snapshot_backfill.xml",
         "data/warehouse_count_lock_backfill.xml",
-        "views/inventory_count_snapshot_views.xml",
     ],
     "assets": {
         "web.assets_backend": [

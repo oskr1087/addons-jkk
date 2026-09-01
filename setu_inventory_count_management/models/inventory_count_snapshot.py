@@ -496,6 +496,28 @@ class StockInventoryCountPersistentSnapshot(models.Model):
         readonly=True,
     )
 
+    snapshot_pending_line_ids = fields.One2many(
+        "setu.inventory.count.snapshot.line",
+        "count_id",
+        string="Pendientes",
+        readonly=True,
+        domain=[
+            ("status", "=", "pending"),
+            ("scan_count", "=", 0),
+            ("closed_as_zero", "=", False),
+        ],
+        help="Posiciones esperadas que todavía no registran ninguna lectura o escaneo.",
+    )
+    snapshot_to_resolve_line_ids = fields.One2many(
+        "setu.inventory.count.snapshot.line",
+        "count_id",
+        string="Por resolver",
+        readonly=True,
+        domain=[
+            ("status", "in", ("difference", "zero", "unexpected", "duplicate")),
+        ],
+    )
+
     snapshot_ready = fields.Boolean(
         string="Información preparada", compute="_compute_snapshot_metrics"
     )

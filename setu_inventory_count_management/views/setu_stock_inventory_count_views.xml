@@ -37,6 +37,11 @@
                             <button name="action_open_counts" type="object" class="oe_stat_button" groups="setu_inventory_count_management.group_setu_inventory_count_manager" icon="fa-rotate-left" invisible="re_count_ids == 0">
                                 <field name="re_count_ids" widget="statinfo" string="Reconteo"/>
                             </button>
+                            <button name="action_open_parent_count" type="object"
+                                    class="oe_stat_button" icon="fa-level-up"
+                                    invisible="not count_id">
+                                <span class="o_stat_text">Conteo origen</span>
+                            </button>
                             <button name="action_open_inventory_adj" type="object" string="Ajuste de inventario" groups="setu_inventory_count_management.group_setu_inventory_count_manager" class="oe_stat_button" icon="fa-exchange" invisible="not inventory_adj_ids">
                             </button>
                         </div>
@@ -47,7 +52,10 @@
                         </div>
                         <group>
                             <group>
-                                <field name="count_id" string="Conteo principal" invisible="not count_id"/>
+                                <field name="count_id" string="Conteo origen" invisible="not count_id"/>
+                                <field name="root_count_id" string="Conteo principal" invisible="not count_id" readonly="1"/>
+                                <field name="is_recount" invisible="1"/>
+                                <field name="recount_level" invisible="1"/>
                                 <field name="approver_id" required="1" readonly="state != 'Draft'" options="{'no_create': True, 'no_open':True}" domain="[('id','in',approver_ids)]"/>
                                 <field name="approver_ids" invisible="1"/>
                                 <field name="planner_id" invisible="not planner_id"/>
@@ -208,6 +216,7 @@
             <field name="type">ir.actions.act_window</field>
             <field name="res_model">setu.stock.inventory.count</field>
             <field name="view_mode">list,form</field>
+            <field name="domain">[('count_id', '=', False)]</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face" style="margin-top:250px;">
                     Cree un conteo para definir almacén, ubicación, productos, aprobador y sesiones. Luego los bodegueros podrán ejecutar el conteo desde la interfaz móvil/PDA.
@@ -220,6 +229,7 @@
             <field name="type">ir.actions.act_window</field>
             <field name="res_model">setu.stock.inventory.count</field>
             <field name="view_mode">list,form</field>
+            <field name="domain">[('count_id', '=', False)]</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face" style="margin-top:250px;">
                     No existen conteos de inventario todavía. Cree uno para iniciar el flujo de sesiones, conteo, revisión y ajuste.

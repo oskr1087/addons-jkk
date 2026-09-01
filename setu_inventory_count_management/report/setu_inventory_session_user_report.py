@@ -49,12 +49,14 @@ class SetuInventorySessionUserReport(models.Model):
         
             FROM setu_inventory_count_session_line line
             INNER JOIN setu_inventory_count_session sess ON sess.id = line.session_id
+            INNER JOIN setu_stock_inventory_count count_doc ON count_doc.id = sess.inventory_count_id
             INNER JOIN res_users_setu_inventory_count_session_line_rel line_user_rel 
                 ON line_user_rel.setu_inventory_count_session_line_id = line.id
             LEFT JOIN setu_inventory_session_details details
                 ON details.session_id = sess.id
             WHERE sess.state IN ('Submitted','Done')
             AND sess.session_id is NULL
+            AND count_doc.count_id IS NULL
             GROUP BY line_user_rel.res_users_id, sess.company_id
             )
         """)

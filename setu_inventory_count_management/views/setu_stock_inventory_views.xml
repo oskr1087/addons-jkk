@@ -12,6 +12,18 @@
                         <button name="action_validate" type="object" string="Validar" class="oe_highlight" confirm="¿Está seguro de validar este ajuste de inventario?" invisible="state != 'confirm'"/>
                     </header>
                     <sheet>
+                        <div class="oe_button_box" name="button_box">
+                            <button name="action_open_account_moves"
+                                    type="object"
+                                    class="oe_stat_button"
+                                    icon="fa-book"
+                                    invisible="account_move_count == 0">
+                                <field name="account_move_count"
+                                       widget="statinfo"
+                                       string="Asientos contables"/>
+                            </button>
+                        </div>
+                        <field name="account_move_count" invisible="1"/>
                         <div class="oe_title">
                             <label for="name" readonly="1"/>
                             <h1>
@@ -52,7 +64,20 @@
                                         <field name="location_id" options="{'no_create': True, 'no_open':True}"/>
                                         <field name="location_dest_id" options="{'no_create': True, 'no_open':True}"/>
                                         <field name="product_uom_qty"/>
+                                        <field name="account_move_id" string="Asiento contable" optional="show"/>
                                         <field name="state"/>
+                                    </list>
+                                </field>
+                            </page>
+                            <page string="Contabilidad" invisible="account_move_count == 0">
+                                <field name="account_move_ids" readonly="1">
+                                    <list create="0" delete="0">
+                                        <field name="name"/>
+                                        <field name="date"/>
+                                        <field name="journal_id"/>
+                                        <field name="ref"/>
+                                        <field name="state"/>
+                                        <field name="amount_total_signed"/>
                                     </list>
                                 </field>
                             </page>

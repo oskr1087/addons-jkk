@@ -1,3 +1,165 @@
+19.0.7.7.19
+- Corregido NameError: ValidationError no estaba importado en setu_stock_inventory.py.
+- Añadida validación estática de imports críticos del archivo.
+- Añadido test de regresión para garantizar que la validación contable lance odoo.exceptions.ValidationError.
+
+19.0.7.7.18
+- Adaptada la trazabilidad contable al modelo real de Odoo 19.
+- Eliminada dependencia funcional de stock.valuation.layer.
+- Los asientos se obtienen directamente desde stock.move.account_move_id.
+- Antes de validar un ajuste con valoración perpetua se verifica valuation_account_id en la ubicación Inventory Loss.
+- Si falta la cuenta, el ajuste no queda falsamente Validado: se muestra una instrucción clara de configuración.
+- La pestaña Movimientos de stock muestra directamente el asiento contable generado por cada movimiento.
+
+19.0.7.7.17
+- Agregada dependencia explícita stock_account para trazabilidad contable del ajuste.
+- Corregido KeyError stock.valuation.layer al abrir setu.stock.inventory.
+- _compute_account_move_ids ahora verifica defensivamente la existencia de modelos contables.
+- Si el registry está en actualización parcial, el formulario abre con 0 asientos en vez de fallar.
+- Se mantiene la trazabilidad estándar stock.move -> stock.valuation.layer -> account.move.
+
+19.0.7.7.16
+- Corregido ParseError de inventory_count_snapshot_views.xml.
+- Eliminados los xpath nuevos que buscaban páginas heredadas por product_ids/stock_move_line_ids/line_ids.
+- La vista finalizadora ya no depende de páginas que pueden no existir en el padre directo.
+- Se mantiene el orden ejecutivo usando únicamente los bloques y pestañas propios del snapshot.
+
+19.0.7.7.15
+- Corregida definitivamente la cadena de herencia del formulario de conteo.
+- Snapshot se carga antes de Enhancement; Configuración hereda del snapshot y ya no compite como vista hermana.
+- Nueva vista finalizadora priority=200 para forzar el orden visual después de todas las extensiones.
+- Datos de ubicación/almacén/sesiones/aprobador/tipo/modo/fecha/compañía quedan antes de los KPI.
+- Pestañas finales: Todos, Pendientes de conteo, Por resolver, Configuración.
+- Eliminada la pestaña Sesiones del notebook; la sesión continúa accesible por smart button.
+- Ocultadas páginas técnicas heredadas del formulario ejecutivo.
+
+19.0.7.7.14
+- Corregido el orden visual real del formulario de conteo.
+- Información de ubicación/almacén/sesiones/aprobador/tipo/fecha/compañía queda antes de los KPI.
+- Los indicadores se insertan inmediatamente antes del notebook.
+- Eliminada la pestaña Sesiones; la sesión sigue accesible mediante smart button y resumen superior.
+- Pestañas operativas finales: Todos, Pendientes de conteo, Por resolver, Configuración.
+- Configuración se fuerza inmediatamente después de Por resolver.
+- Ocultadas las pestañas heredadas Productos incluidos y Movimientos relacionados en este formulario ejecutivo.
+
+19.0.7.7.13
+- Aclarada semántica de Pendientes: son posiciones esperadas sin ninguna lectura.
+- Pendientes filtra status=pending, scan_count=0 y closed_as_zero=False.
+- Agregada explicación visible en la pestaña Pendientes.
+- Se muestra Cantidad esperada y número de Lecturas para facilitar validación.
+- Cantidad cero, diferencias y no previstos permanecen fuera de Pendientes.
+
+19.0.7.7.12
+- Reorganizada la navegación del formulario de conteo.
+- Sesiones pasa a ser la primera pestaña operativa.
+- Después se muestran los indicadores/detalles: Todos, Pendientes y Por resolver.
+- Configuración queda forzada al final del notebook para separar parametrización del trabajo operativo.
+
+19.0.7.7.11
+- Corregido filtrado de pestañas Pendientes y Por resolver.
+- Pendientes usa un x2many propio con dominio ORM status=pending.
+- Por resolver usa un x2many propio con estados difference/zero/unexpected/duplicate.
+- Todos continúa mostrando snapshot_line_ids completo.
+- Se evita reutilizar el mismo x2many con dominios distintos en varias pestañas.
+
+19.0.7.7.10
+- Trazabilidad contable visible desde el ajuste de inventario.
+- Smart button Asientos contables en setu.stock.inventory.
+- Relación calculada desde movimientos de stock y capas de valoración hacia account.move.
+- Pestaña Contabilidad con fecha, diario, referencia, estado e importe del asiento.
+- Si no existe asiento, la acción informa que debe revisarse valoración automática/configuración contable.
+
+19.0.7.7.9
+- Corregida validación del ajuste: Validar siempre ejecuta stock.quant.action_apply_inventory.
+- Ya no es posible marcar un ajuste Done sin aplicar realmente el inventario.
+- La opción de ajuste automático controla únicamente si se valida automáticamente al crearse.
+- Aplicación de quants agrupada para generar movimientos de inventario estándar de Odoo.
+- Mejor manejo de lotes, series encontradas y series faltantes.
+- Los movimientos generados conservan vínculo con ajuste y conteo mediante adj_context.
+- Nuevos tests para validar que el ajuste manual genera movimientos de stock.
+
+19.0.7.7.8
+- El snapshot persistente pasa a ser la única fuente de verdad para decidir si existen diferencias pendientes.
+- Pending Review legacy ya no bloquea un conteo cuyo snapshot muestra 0 diferencias.
+- Aprobación sin diferencias normaliza automáticamente líneas legacy residuales.
+- approve_inventory_count deja de usar Pending Review legacy como condición primaria de bloqueo.
+- Agregada prueba exacta: 0 diferencias KPI + Pending Review legacy -> aprobación correcta sin ajuste.
+
+19.0.7.7.7
+- Centralizada la decisión «Aceptar diferencias y aprobar» dentro de approve_inventory_count.
+- La aprobación recibe contexto explícito setu_accept_all_differences.
+- Cualquier Pending Review residual se normaliza inmediatamente antes de la validación final.
+- Se evita que caché/orden de materialización vuelva a mostrar el mensaje de diferencias ya aceptadas.
+- Nueva prueba de regresión para Pending Review creado justo antes de aprobar.
+
+19.0.7.7.6
+- QWeb del Informe Ejecutivo simplificado: ya no formatea fechas ni porcentajes.
+- Fecha de emisión, avance y tasa de coincidencia llegan preformateados desde Python.
+- Eliminada dependencia de format_datetime en el contexto QWeb.
+- Agregadas validaciones de expresiones t-field y llamadas globales t-esc.
+
+19.0.7.7.5
+- Corregido QWeb del Informe Ejecutivo: t-field no puede usarse con valores de diccionario.
+- La fecha de emisión calculada ahora usa format_datetime con t-esc.
+- Añadida validación de todas las expresiones t-field del informe.
+
+19.0.7.7.4
+- Rediseño completo del Informe Ejecutivo Final.
+- Cabecera propia sin external_layout para evitar superposición con logos/direcciones corporativas.
+- Primera página ejecutiva: resultado final, KPI, impacto económico, trazabilidad y principales diferencias.
+- Detalle consolidado movido a página independiente con encabezado de columnas repetible.
+- Diferencia explícita entre cierre con ajuste y cierre sin ajuste.
+- Etiqueta KPI aclarada a 'Posiciones con diferencia'.
+- Fecha de emisión y nota de trazabilidad histórica.
+
+19.0.7.7.3
+- Informe Ejecutivo disponible en ambos cierres: Aprobado sin ajuste e Inventario ajustado.
+- Identificación explícita del tipo de cierre en el PDF.
+- Corregido el porcentaje de coincidencias (resolution_rate) usando str.format().
+- Revisión de expresiones de porcentaje del QWeb.
+
+19.0.7.7.2
+- Eliminado completamente el operador %% del formato del KPI de avance en QWeb.
+- El porcentaje ahora usa str.format(), evitando ValueError: incomplete format.
+- Verificación literal del XML empaquetado para asegurar que no quede la expresión antigua.
+
+19.0.7.7.1
+- Corregido error QWeb ValueError: incomplete format en el Informe Ejecutivo.
+- El porcentaje de avance usa ahora %% escapado correctamente en el formato Python.
+- Revisión estática del resto de expresiones de formato del reporte.
+
+19.0.7.7.0
+- Nuevo Informe Ejecutivo Final de Conteo de Inventario en PDF.
+- Disponible exclusivamente cuando el conteo está en Inventario ajustado.
+- Resumen gerencial de avance, productos, coincidencias, divergencias e impacto económico.
+- Consolidación ejecutiva por producto con cantidades teóricas, físicas, diferencias e impacto.
+- Top de diferencias por impacto económico.
+- Trazabilidad de participantes, sesiones, reconteos y ajuste final.
+- Reporte basado en el snapshot/costos congelados del conteo para conservar el histórico.
+- Botón Informe ejecutivo visible únicamente en el último estado del conteo.
+
+19.0.7.6.1
+- Corregida la acción «Aceptar diferencias y aprobar».
+- La acción ahora cierra también líneas legacy residuales en Pending Review.
+- Se resuelven líneas de conteo y sesión antes de ejecutar la aprobación.
+- Se bloquea la aceptación directa si existen líneas ya enviadas a reconteo.
+- Validación final explícita antes de aprobar para evitar mensajes contradictorios.
+- Agregada prueba de regresión de aprobación en un solo clic.
+
+19.0.7.5.0
+- Reconteos ocultos de vistas operativas generales de conteos y sesiones.
+- Reconteos excluidos de reportes gerenciales.
+- Trazabilidad entre conteo origen, conteo principal y nivel de reconteo.
+- Chatter bidireccional al crear/aprobar reconteos.
+- Un reconteo no puede generar otro reconteo.
+- El reconteo termina en Aprobado y nunca crea ajuste de inventario.
+- Al aprobar un reconteo, sus resultados se consolidan en el conteo principal.
+- Finalizar una sesión la valida automáticamente: se elimina la aprobación redundante de sesión.
+- Al terminar todas las sesiones, el conteo pasa a Por aprobar si no hay pendientes/duplicados.
+- Pendientes = 0 puede llevar automáticamente a Por aprobar.
+- Acción Aceptar y aprobar combina decisión, aprobación y creación del ajuste.
+- Ocultos botones redundantes de aprobación/rechazo/validación de sesión.
+
 19.0.7.4.4
 - Corregido KPI de esperados/contados/avance para snapshots históricos con unexpected=NULL.
 - PostgreSQL ahora trata NULL como False mediante COALESCE en la agregación gerencial.

@@ -49,6 +49,8 @@ class SetuInventorySessionPerformanceReport(models.Model):
                         ELSE 0 END as accuracy_ratio
 
                 FROM setu_inventory_count_session sess
+                JOIN setu_stock_inventory_count count_doc
+                    ON count_doc.id = sess.inventory_count_id
                 LEFT JOIN setu_inventory_session_details details 
                     ON details.session_id = sess.id
                 LEFT JOIN setu_inventory_count_session_line line 
@@ -57,6 +59,7 @@ class SetuInventorySessionPerformanceReport(models.Model):
                     ON user_rel.session_id = sess.id
 
                 WHERE sess.state IN ('Submitted','Done')
+                  AND count_doc.count_id IS NULL
 
                 GROUP BY sess.id, sess.company_id
             )

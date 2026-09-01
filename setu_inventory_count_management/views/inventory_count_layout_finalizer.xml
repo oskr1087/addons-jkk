@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="setu_stock_inventory_count_form_layout_finalizer" model="ir.ui.view">
+        <field name="name">setu.stock.inventory.count.form.layout.finalizer</field>
+        <field name="model">setu.stock.inventory.count</field>
+        <field name="inherit_id" ref="setu_inventory_count_management.setu_stock_inventory_count_form_enhanced"/>
+        <field name="priority">200</field>
+        <field name="arch" type="xml">
+
+            <!--
+                ORDEN SUPERIOR DEFINITIVO:
+                1. Identidad del conteo
+                2. Datos operativos: ubicación/almacén/sesiones/etc.
+                3. KPI e impacto económico
+                4. Notebook
+            -->
+            <xpath expr="//div[hasclass('o_setu_count_control')]" position="before">
+                <xpath expr="//div[hasclass('o_setu_count_identity')]" position="move"/>
+                <xpath expr="//div[hasclass('o_setu_count_summary')]" position="move"/>
+            </xpath>
+
+            <!--
+                ORDEN DEFINITIVO DE PESTAÑAS:
+                Todos -> Pendientes de conteo -> Por resolver -> Configuración
+            -->
+            <xpath expr="//page[@name='snapshot_pending']" position="before">
+                <xpath expr="//page[@name='snapshot_all']" position="move"/>
+            </xpath>
+
+            <xpath expr="//page[@name='snapshot_to_resolve']" position="before">
+                <xpath expr="//page[@name='snapshot_pending']" position="move"/>
+            </xpath>
+
+            <xpath expr="//page[@name='snapshot_to_resolve']" position="after">
+                <xpath expr="//page[@name='count_settings']" position="move"/>
+            </xpath>
+
+            <!-- Páginas heredadas que no pertenecen al flujo ejecutivo. -->
+</field>
+    </record>
+</odoo>

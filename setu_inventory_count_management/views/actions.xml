@@ -11,7 +11,7 @@
             <field name="res_model">setu.stock.inventory.count</field>
             <field name="context">{'create':0}</field>
             <field name="view_mode">list,form</field>
-            <field name="domain">[('state','in',('Draft','In Progress'))]</field>
+            <field name="domain">[('state','in',('Draft','In Progress')), ('count_id','=',False)]</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face" style="margin-top:250px;">
                     No hay conteos pendientes. Los nuevos conteos aparecerán aquí hasta completar sus sesiones.
@@ -31,7 +31,7 @@
             <field name="res_model">setu.stock.inventory.count</field>
             <field name="context">{'create':0}</field>
             <field name="view_mode">list,form</field>
-            <field name="domain">[('state','=','To Be Approved')]</field>
+            <field name="domain">[('state','=','To Be Approved'), ('count_id','=',False)]</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face" style="margin-top:250px;">
                     No hay conteos pendientes de aprobación. Los conteos completados aparecerán aquí para revisión del supervisor.

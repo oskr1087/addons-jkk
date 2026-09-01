@@ -119,6 +119,7 @@ class SetuInvCountReport(models.TransientModel):
             ) nfsl_data ON nfsl_data.line_id = count_line.id
 
             WHERE cou.state IN ('Inventory Adjusted', 'Approved')
+              AND cou.count_id IS NULL
               AND count_line.is_discrepancy_found = TRUE
               AND cou.inventory_count_date::date >= '{start_date}'
               AND cou.inventory_count_date::date <= '{end_date}'

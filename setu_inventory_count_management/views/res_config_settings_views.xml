@@ -14,7 +14,9 @@
                                 <field name="auto_inventory_adjustment"/>
                                 <label for="auto_inventory_adjustment"/>
                                 <div class="text-muted">
-                                    Al validar el inventario, las existencias se actualizarán automáticamente mediante el flujo de ajuste.
+                                    Si está activo, al aprobar un conteo con diferencias el ajuste se aplicará inmediatamente.
+                                    Si está inactivo, el ajuste quedará En progreso para revisión; al pulsar Validar
+                                    siempre se aplicarán las existencias y se generarán los movimientos de stock correspondientes.
                                 </div>
                             </setting>
                             <setting id="inventory_count_high_impact_threshold_setting"

@@ -40,7 +40,33 @@ class StockInvCount(models.Model):
     approver_id = fields.Many2one(comodel_name="res.users", string="Controlador", default=lambda self: self._default_approver())
     user_id = fields.Many2one(comodel_name="res.users", default=lambda self: self.env.user.id, string="Usuario")
     planner_id = fields.Many2one(comodel_name="setu.stock.inventory.count.planner", string='Planificador', readonly=True)
-    count_id = fields.Many2one(comodel_name="setu.stock.inventory.count", readonly=True, copy=False, string="Conteo")
+    count_id = fields.Many2one(
+        comodel_name="setu.stock.inventory.count",
+        readonly=True,
+        copy=False,
+        string="Conteo origen",
+        index=True,
+    )
+    is_recount = fields.Boolean(
+        string="Es reconteo",
+        compute="_compute_recount_traceability",
+        store=True,
+        index=True,
+    )
+    root_count_id = fields.Many2one(
+        comodel_name="setu.stock.inventory.count",
+        string="Conteo principal",
+        compute="_compute_recount_traceability",
+        store=True,
+        readonly=True,
+        index=True,
+    )
+    recount_level = fields.Integer(
+        string="Nivel de reconteo",
+        compute="_compute_recount_traceability",
+        store=True,
+        readonly=True,
+    )
 
 
     line_ids = fields.One2many('setu.stock.inventory.count.line', 'inventory_count_id', string="Líneas de conteo de inventario")
@@ -55,6 +81,30 @@ class StockInvCount(models.Model):
     approver_ids = fields.Many2many(comodel_name="res.users", compute='_compute_approver_id', string="Controladores")
     company_id = fields.Many2one(comodel_name="res.company", related="warehouse_id.company_id", string="Compañía",
                                  store=True)
+
+    @api.depends("count_id", "count_id.root_count_id", "count_id.recount_level")
+    def _compute_recount_traceability(self):
+        for rec in self:
+            rec.is_recount = bool(rec.count_id)
+            if not rec.count_id:
+                rec.root_count_id = rec
+                rec.recount_level = 0
+            else:
+                rec.root_count_id = rec.count_id.root_count_id or rec.count_id
+                rec.recount_level = rec.count_id.recount_level + 1
+
+    def action_open_parent_count(self):
+        self.ensure_one()
+        if not self.count_id:
+            return {"type": "ir.actions.act_window_close"}
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Conteo origen"),
+            "res_model": "setu.stock.inventory.count",
+            "res_id": self.count_id.id,
+            "view_mode": "form",
+            "target": "current",
+        }
 
     def _get_approver_candidates(self, company=None):
         """Return active inventory controllers visible for the count company.
@@ -206,6 +256,10 @@ class StockInvCount(models.Model):
 
     def open_new_count(self, users):
         self.ensure_one()
+        if self.count_id:
+            raise ValidationError(
+                _("Un reconteo no puede generar otro reconteo. Regrese al conteo principal.")
+            )
         rejected_lines = self.line_ids.filtered(lambda line: line.state == 'Reject')
         if not rejected_lines:
             raise ValidationError(_("No existen líneas rechazadas para crear un reconteo."))
@@ -322,8 +376,15 @@ class StockInvCount(models.Model):
 
         self.message_post(
             body=_(
-                "Se creó el reconteo %s con %s producto(s)/lote(s)/serie(s) únicos."
-            ) % (new_count.display_name,len(vals_list))
+                "Se creó el reconteo %(recount)s con %(items)s posiciones. "
+                "El reconteo no aparecerá en las vistas operativas generales."
+            ) % {"recount": new_count.display_name, "items": len(vals_list)}
+        )
+        new_count.message_post(
+            body=_(
+                "Reconteo creado desde %(origin)s. Al aprobarlo, sus resultados regresarán "
+                "al conteo principal y este documento no generará ajuste de inventario."
+            ) % {"origin": self.display_name}
         )
         return {
             'type':'ir.actions.act_window',
@@ -549,31 +610,77 @@ class StockInvCount(models.Model):
         return action
 
     def approve_inventory_count(self):
-        session_ids = self.session_ids.filtered(lambda s: s.state != 'Cancel')
-        session_states = session_ids.mapped('state')
-        if any(state in session_states for state in ('Draft', 'In Progress', 'Submitted')):
+        self.ensure_one()
+        sessions = self.session_ids.filtered(lambda s: s.state != 'Cancel')
+        if sessions.filtered(lambda s: s.state != 'Done'):
             raise ValidationError(
-                _("Valide todas las sesiones antes de aprobar el conteo.")
+                _("Aún existen sesiones abiertas. Finalice las sesiones antes de aprobar.")
             )
 
-        # Check count lines for pending review or rejection
+        if self.count_id:
+            self._consolidate_recount_into_parent()
+            self.state = 'Approved'
+            self.message_post(
+                body=_("Reconteo aprobado. Los resultados fueron consolidados en %s.") % self.count_id.display_name
+            )
+            return True
+
         rejected_lines = self.line_ids.filtered(lambda p: p.state == 'Reject')
-        pending_lines = self.line_ids.filtered(lambda p: p.state == 'Pending Review')
-        if pending_lines:
-            raise ValidationError(
-                _('Existen líneas pendientes de revisión. Apruebe las diferencias o envíelas a reconteo antes de continuar.'))
         if rejected_lines:
-            return {
-                'name': 'Líneas rechazadas encontradas',
-                'view_mode': 'form',
-                'view_id': self.sudo().env.ref(
-                    'setu_inventory_count_management.setu_inventory_session_reject_recount_validate_form_view').id,
-                'res_model': 'setu.inventory.session.validate.wizard',
-                'type': 'ir.actions.act_window',
-                'target': 'new'
-            }
+            raise ValidationError(
+                _("Existen líneas enviadas a reconteo. Apruebe primero el reconteo correspondiente.")
+            )
+
+        # El snapshot persistente es la fuente de verdad del flujo moderno.
+        # Las líneas legacy se conservan para compatibilidad y para generar el
+        # ajuste, pero NO deben decidir por sí solas si el conteo está bloqueado.
+        self._refresh_persistent_kpis()
+        snapshot_pending_decision = self.snapshot_line_ids.filtered(
+            lambda line: line.status in ("difference", "zero", "unexpected")
+        )
+
+        accept_all = self.env.context.get("setu_accept_all_differences")
+
+        # Si el usuario aceptó explícitamente las diferencias, o si el snapshot
+        # ya no tiene ninguna diferencia por decidir, cualquier Pending Review
+        # legacy es residual y debe normalizarse automáticamente.
+        if accept_all or not snapshot_pending_decision:
+            pending_lines = self.line_ids.filtered(
+                lambda line: line.state == 'Pending Review'
+            )
+            if pending_lines:
+                pending_lines.write({"state": "Approve"})
+
+            pending_session_lines = self.session_ids.mapped(
+                "session_line_ids"
+            ).filtered(
+                lambda line: line.state == 'Pending Review'
+            )
+            if pending_session_lines:
+                pending_session_lines.write({"state": "Approve"})
+
+            self.flush_recordset()
+            self.line_ids.flush_recordset(["state"])
+            self.invalidate_recordset()
+            self.line_ids.invalidate_recordset(["state"])
+
+        # Solo el snapshot puede bloquear por diferencias pendientes.
+        if snapshot_pending_decision and not accept_all:
+            raise ValidationError(
+                _("Existen diferencias pendientes de decisión. Use «Aceptar diferencias y aprobar» o «Recontar diferencias».")
+            )
+
+        # Protección adicional: si después de normalizar quedara una línea
+        # legacy pendiente pero el snapshot está limpio, se corrige en silencio.
+        stale_pending = self.line_ids.filtered(
+            lambda line: line.state == 'Pending Review'
+        )
+        if stale_pending and not snapshot_pending_decision:
+            stale_pending.write({"state": "Approve"})
+
         self.state = 'Approved'
         self.create_inventory_adj()
+        return True
 
     def unlink(self):
         for count in self:
@@ -583,11 +690,86 @@ class StockInvCount(models.Model):
             self.session_ids.with_context(from_count=True).unlink()
         return super(StockInvCount, self).unlink()
 
+    def _consolidate_recount_into_parent(self):
+        self.ensure_one()
+        parent = self.count_id
+        if not parent:
+            return True
+
+        Snapshot = self.env["setu.inventory.count.snapshot.line"].sudo()
+        updated = 0
+        unresolved = 0
+
+        for child in self.snapshot_line_ids:
+            parent_line = Snapshot.search([
+                ("count_id", "=", parent.id),
+                ("product_id", "=", child.product_id.id),
+                ("location_id", "=", child.location_id.id),
+                ("lot_id", "=", child.lot_id.id if child.lot_id else False),
+            ], limit=1)
+            if not parent_line:
+                continue
+
+            parent_line.write({
+                "counted_qty": child.counted_qty,
+                "difference_qty": child.counted_qty - parent_line.expected_qty,
+                "scan_count": max(child.scan_count, 1 if child.status != "pending" else 0),
+                "status": child.status,
+                "duplicate": child.duplicate,
+                "recount_required": False,
+            })
+            updated += 1
+
+            count_line = parent._find_count_line_for_snapshot(parent_line)
+            if child.status == "matched":
+                if count_line:
+                    count_line.write({
+                        "counted_qty": child.counted_qty,
+                        "state": "Approve",
+                    })
+            elif child.status in ("difference", "zero", "unexpected"):
+                count_line = parent._ensure_count_line_for_snapshot_adjustment(parent_line)
+                count_line.write({"state": "Pending Review"})
+                unresolved += 1
+
+        parent._refresh_persistent_kpis()
+        parent.message_post(
+            body=_(
+                "Reconteo %(recount)s aprobado: %(updated)s posiciones consolidadas; "
+                "%(unresolved)s continúan con divergencia."
+            ) % {
+                "recount": self.display_name,
+                "updated": updated,
+                "unresolved": unresolved,
+            }
+        )
+        return True
+
     def create_inventory_adj(self):
-        if self.type == 'Single Session':
-            lines_to_adjust = self.line_ids.filtered(lambda l: l.is_discrepancy_found)
-        else:
-            lines_to_adjust = self.line_ids.filtered(lambda l: l.is_discrepancy_found and l.state == 'Approve')
+        self.ensure_one()
+
+        # El snapshot persistente es la fuente de verdad. Materializamos antes
+        # cualquier divergencia aceptada que aún no tenga línea de control.
+        snapshot_candidates = self.snapshot_line_ids.filtered(
+            lambda line: line.status in ("difference", "zero", "unexpected")
+        )
+        for snapshot_line in snapshot_candidates:
+            self._ensure_count_line_for_snapshot_adjustment(snapshot_line)
+
+        # Solo diferencias aprobadas; nunca líneas rechazadas para reconteo.
+        lines_to_adjust = self.line_ids.filtered(
+            lambda line: (
+                line.state == 'Approve'
+                and (
+                    line.is_discrepancy_found
+                    or line.counted_qty != line.qty_in_stock
+                    or (
+                        line.product_id.tracking == 'serial'
+                        and (line.serial_number_ids or line.not_found_serial_number_ids)
+                    )
+                )
+            )
+        )
         if lines_to_adjust:
             self._create_inventory_adj(lines_to_adjust)
             try:
@@ -675,6 +857,12 @@ class StockInvCount(models.Model):
             adj.inventory_count_id = self
             adj.action_start()
             adj.product_ids = count_lines.mapped('product_id')
+
+            auto_apply = self.env['ir.config_parameter'].sudo().get_param(
+                'setu_inventory_count_management.auto_inventory_adjustment'
+            )
+            if str(auto_apply).lower() in ('true', '1', 'yes'):
+                adj.action_validate()
 
     def _create_inventory_adj_old(self, count_lines):
         if count_lines:

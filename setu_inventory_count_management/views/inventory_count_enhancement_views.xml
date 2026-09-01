@@ -3,9 +3,10 @@
     <record id="setu_stock_inventory_count_form_enhanced" model="ir.ui.view">
         <field name="name">setu.stock.inventory.count.form.enhanced</field>
         <field name="model">setu.stock.inventory.count</field>
-        <field name="inherit_id" ref="setu_inventory_count_management.setu_stock_inventory_count_form_view"/>
+        <field name="inherit_id" ref="setu_inventory_count_management.setu_stock_inventory_count_snapshot_form_extension"/>
+        <field name="priority">120</field>
         <field name="arch" type="xml">
-            <xpath expr="//notebook" position="inside">
+            <xpath expr="//notebook/page[@name='snapshot_to_resolve']" position="after">
                 <page string="Configuración" name="count_settings" groups="setu_inventory_count_management.group_setu_inventory_count_manager">
                     <group>
                         <group string="Política de revisión">

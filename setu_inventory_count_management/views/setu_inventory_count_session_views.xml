@@ -39,11 +39,11 @@
                         <button name="action_open_mobile_count" type="object" string="Conteo móvil / PDA" class="btn-primary" icon="fa-mobile" invisible="state in ['Submitted', 'Done', 'Cancel']"/>
                         <button name="pause" type="object" string="Pausar" class="oe_highlight" invisible="state == 'Cancel' or current_state in ['Created','Pause','End']"/>
                         <button name="resume" type="object" string="Reanudar" class="oe_highlight" invisible="state == 'Cancel' or current_state in ['Created','Resume','Start','End']"/>
-                        <button name="submit" type="object" string="Enviar" class="oe_highlight" invisible="state == 'Cancel' or current_state not in ['Start','Resume']"/>
-                        <button name="approve_all_lines" type="object" string="Aprobar líneas de sesión" groups="setu_inventory_count_management.group_setu_inventory_count_manager" class="oe_highlight" invisible="state != 'Submitted' or state == 'Done' or is_multi_session or not session_line_ids"/>
-                        <button name="reject_all_lines" type="object" string="Rechazar líneas de sesión" groups="setu_inventory_count_management.group_setu_inventory_count_manager" class="oe_highlight" invisible="state != 'Submitted' or state == 'Done' or is_multi_session or not session_line_ids"/>
-                        <button name="create_re_session" type="object" string="Crear sesión de reconteo" class="oe_highlight" groups="setu_inventory_count_management.group_setu_inventory_count_manager" invisible="not re_open_session_bool or is_multi_session"/>
-                        <button name="validate_session" type="object" string="Validar" class="oe_highlight" confirm="¿Está seguro de validar la sesión?" groups="setu_inventory_count_management.group_setu_inventory_count_manager" invisible="state != 'Submitted' or is_multi_session or state == 'Done'"/>
+                        <button name="submit" type="object" string="Finalizar sesión" class="oe_highlight" invisible="state == 'Cancel' or current_state not in ['Start','Resume']"/>
+                        <button name="approve_all_lines" type="object" string="Aprobar líneas de sesión" groups="setu_inventory_count_management.group_setu_inventory_count_manager" class="oe_highlight" invisible="1"/>
+                        <button name="reject_all_lines" type="object" string="Rechazar líneas de sesión" groups="setu_inventory_count_management.group_setu_inventory_count_manager" class="oe_highlight" invisible="1"/>
+                        <button name="create_re_session" type="object" string="Crear sesión de reconteo" class="oe_highlight" groups="setu_inventory_count_management.group_setu_inventory_count_manager" invisible="1"/>
+                        <button name="validate_session" type="object" string="Validar" class="oe_highlight" confirm="¿Está seguro de validar la sesión?" groups="setu_inventory_count_management.group_setu_inventory_count_manager" invisible="1"/>
                         <button name="cancel_session" type="object" string="Cancelar" class="oe_highlight" groups="setu_inventory_count_management.group_setu_inventory_count_manager" confirm="¿Está seguro de cancelar la sesión?" invisible="state != 'Draft'"/>
                     </header>
                     <sheet>
@@ -468,6 +468,7 @@
             <field name="name">Sesiones</field>
             <field name="type">ir.actions.act_window</field>
             <field name="res_model">setu.inventory.count.session</field>
+            <field name="domain">[('inventory_count_id.count_id', '=', False)]</field>
             <field name="view_mode">kanban,list,form</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face" style="margin-top:250px;">
@@ -480,6 +481,7 @@
             <field name="name">Sesiones</field>
             <field name="type">ir.actions.act_window</field>
             <field name="res_model">setu.inventory.count.session</field>
+            <field name="domain">[('inventory_count_id.count_id', '=', False)]</field>
             <field name="view_mode">kanban,form</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face" style="margin-top:250px;">

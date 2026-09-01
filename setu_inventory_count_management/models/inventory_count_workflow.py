@@ -138,6 +138,14 @@ class StockInventoryCountWorkflow(models.Model):
                 })
 
             count._refresh_persistent_kpis()
+            sessions = count.session_ids.filtered(lambda s: s.state != "Cancel")
+            if (
+                sessions
+                and not sessions.filtered(lambda s: s.state != "Done")
+                and not count.pending_item_count
+                and not count.duplicate_item_count
+            ):
+                count.state = "To Be Approved"
             count.message_post(
                 body=_(
                     "Se marcaron %s productos/lotes pendientes como no encontrados (cantidad física 0). "
@@ -146,8 +154,37 @@ class StockInventoryCountWorkflow(models.Model):
             )
         return True
 
+    def _ensure_count_line_for_snapshot_adjustment(self, snapshot_line):
+        """Garantiza una línea de control para una divergencia del snapshot."""
+        self.ensure_one()
+        CountLine = self.env["setu.stock.inventory.count.line"]
+        count_line = self._find_count_line_for_snapshot(snapshot_line)
+        vals = {
+            "inventory_count_id": self.id,
+            "product_id": snapshot_line.product_id.id,
+            "location_id": snapshot_line.location_id.id,
+            "theoretical_qty": snapshot_line.expected_qty,
+            "qty_in_stock": snapshot_line.expected_qty,
+            "counted_qty": snapshot_line.counted_qty,
+            "state": "Approve",
+            "is_system_generated": True,
+        }
+        tracking = snapshot_line.product_id.tracking
+        if tracking == "lot":
+            vals["lot_id"] = snapshot_line.lot_id.id if snapshot_line.lot_id else False
+        elif tracking == "serial" and snapshot_line.lot_id:
+            if snapshot_line.expected_qty > 0 and snapshot_line.counted_qty <= 0:
+                vals["not_found_serial_number_ids"] = [(6, 0, snapshot_line.lot_id.ids)]
+            elif snapshot_line.counted_qty > 0:
+                vals["serial_number_ids"] = [(6, 0, snapshot_line.lot_id.ids)]
+
+        if count_line:
+            count_line.write(vals)
+            return count_line
+        return CountLine.create(vals)
+
     def action_accept_adjustment_candidates(self):
-        """Acepta en lote las diferencias resueltas que irán al ajuste."""
+        """Acepta divergencias y garantiza líneas para el ajuste."""
         for count in self:
             if count.state != "To Be Approved":
                 raise ValidationError(
@@ -163,7 +200,7 @@ class StockInventoryCountWorkflow(models.Model):
             count_lines = self.env["setu.stock.inventory.count.line"]
             session_lines = self.env["setu.inventory.count.session.line"]
             for snapshot_line in candidates:
-                count_lines |= count._find_count_line_for_snapshot(snapshot_line)
+                count_lines |= count._ensure_count_line_for_snapshot_adjustment(snapshot_line)
                 session_lines |= count._find_session_lines_for_snapshot(snapshot_line)
 
             if count_lines:
@@ -172,15 +209,128 @@ class StockInventoryCountWorkflow(models.Model):
                 session_lines.write({"state": "Approve"})
 
             count.message_post(
-                body=_(
-                    "Se aceptaron %s diferencias para el ajuste de inventario."
-                ) % len(candidates)
+                body=_("Se aceptaron %s diferencias para el ajuste de inventario.") % len(candidates)
             )
         return True
 
-    def action_prepare_directed_recount(self):
-        """Marca solo divergencias y abre el flujo de reconteo existente."""
+    def action_accept_and_approve(self):
+        """Acepta todas las diferencias pendientes y aprueba en una sola acción.
+
+        El snapshot es la fuente de verdad, pero versiones anteriores del flujo
+        pueden dejar líneas legacy en ``Pending Review`` aunque la divergencia
+        del snapshot ya haya sido aceptada. Al elegir esta acción el usuario
+        está aceptando explícitamente TODAS las diferencias del conteo, por lo
+        que también cerramos esas líneas residuales antes de aprobar.
+        """
         self.ensure_one()
+
+        if self.count_id:
+            return self.approve_inventory_count()
+
+        if self.state != "To Be Approved":
+            raise ValidationError(_("El conteo debe estar Por aprobar."))
+
+        if self.line_ids.filtered(lambda line: line.state == "Reject"):
+            raise ValidationError(
+                _("Existen líneas enviadas a reconteo. Apruebe primero el reconteo correspondiente.")
+            )
+
+        # 1. Materializar y aceptar las divergencias reales del snapshot.
+        self.action_accept_adjustment_candidates()
+
+        # 2. Cerrar cualquier línea legacy residual del flujo anterior.
+        pending_count_lines = self.line_ids.filtered(
+            lambda line: line.state == "Pending Review"
+        )
+        if pending_count_lines:
+            pending_count_lines.write({"state": "Approve"})
+
+        pending_session_lines = self.session_ids.mapped("session_line_ids").filtered(
+            lambda line: line.state == "Pending Review"
+        )
+        if pending_session_lines:
+            pending_session_lines.write({"state": "Approve"})
+
+        # 3. Releer desde BD antes de la validación final.
+        self.flush_recordset()
+        self.invalidate_recordset()
+        self.line_ids.invalidate_recordset(["state"])
+
+        remaining = self.line_ids.filtered(
+            lambda line: line.state == "Pending Review"
+        )
+        if remaining:
+            raise ValidationError(
+                _(
+                    "No fue posible resolver automáticamente %(count)s línea(s) pendientes. "
+                    "Revise esas líneas antes de aprobar."
+                ) % {"count": len(remaining)}
+            )
+
+        self.message_post(
+            body=_(
+                "Se aceptaron todas las diferencias pendientes. "
+                "El conteo se aprobará y el ajuste se generará automáticamente."
+            )
+        )
+
+        # 4. Aprobar + crear ajuste + desbloqueo normal del flujo.
+        # El contexto indica que el usuario ya tomó explícitamente la decisión
+        # de aceptar TODAS las diferencias. approve_inventory_count vuelve a
+        # normalizar cualquier línea residual creada durante el mismo flujo.
+        return self.with_context(
+            setu_accept_all_differences=True
+        ).approve_inventory_count()
+
+    def action_approve_without_differences(self):
+        """Aprueba directamente cuando el snapshot no tiene diferencias."""
+        self.ensure_one()
+        if self.count_id:
+            raise ValidationError(_("Use «Aprobar reconteo» para cerrar un reconteo."))
+        if self.state != "To Be Approved":
+            raise ValidationError(_("El conteo debe estar Por aprobar."))
+
+        self._refresh_persistent_kpis()
+        snapshot_differences = self.snapshot_line_ids.filtered(
+            lambda line: line.status in ("difference", "zero", "unexpected")
+        )
+        if snapshot_differences:
+            raise ValidationError(
+                _("Existen diferencias. Use «Aceptar diferencias y aprobar» o «Recontar diferencias».")
+            )
+
+        # El snapshot está limpio: cualquier Pending Review en modelos legacy
+        # pertenece a una etapa previa y no debe bloquear el cierre.
+        stale_count_lines = self.line_ids.filtered(
+            lambda line: line.state == "Pending Review"
+        )
+        if stale_count_lines:
+            stale_count_lines.write({"state": "Approve"})
+
+        stale_session_lines = self.session_ids.mapped(
+            "session_line_ids"
+        ).filtered(
+            lambda line: line.state == "Pending Review"
+        )
+        if stale_session_lines:
+            stale_session_lines.write({"state": "Approve"})
+
+        return self.approve_inventory_count()
+
+    def action_approve_recount(self):
+        """Cierra un reconteo y consolida su resultado en el conteo principal."""
+        self.ensure_one()
+        if not self.count_id:
+            raise ValidationError(_("Esta acción solo está disponible para reconteos."))
+        return self.approve_inventory_count()
+
+    def action_prepare_directed_recount(self):
+        """Marca divergencias del conteo principal y crea un reconteo dirigido."""
+        self.ensure_one()
+        if self.count_id:
+            raise ValidationError(
+                _("Los reconteos no generan nuevos reconteos. Regrese al conteo principal.")
+            )
         if self.state != "To Be Approved":
             raise ValidationError(_("El reconteo dirigido se prepara cuando el conteo está Por aprobar."))
 
@@ -271,8 +421,8 @@ class StockInventoryCountWorkflow(models.Model):
             if pending_review:
                 raise ValidationError(
                     _(
-                        "Quedan %s diferencias sin decisión. Use «Aceptar diferencias» "
-                        "o «Reconteo de divergencias» antes de aprobar y generar el ajuste."
+                        "Quedan %s diferencias sin decisión. Use «Aceptar diferencias y aprobar» "
+                        "o «Recontar diferencias»."
                     ) % len(pending_review)
                 )
         return True

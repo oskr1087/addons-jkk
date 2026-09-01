@@ -82,11 +82,14 @@
                 <attribute name="invisible">1</attribute>
             </xpath>
             <xpath expr="//header/button[@name='complete_counting']" position="attributes">
-                <attribute name="string">Enviar a revisión</attribute>
+                <attribute name="invisible">1</attribute>
             </xpath>
+            <!-- La aprobación base se oculta: el usuario solo ve acciones válidas para el estado actual. -->
             <xpath expr="//header/button[@name='approve_inventory_count']" position="attributes">
-                <attribute name="string">Aprobar y generar ajuste</attribute>
-                <attribute name="confirm">Se generará el ajuste únicamente con las diferencias aceptadas. ¿Desea continuar?</attribute>
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='reject_inventory_count']" position="attributes">
+                <attribute name="invisible">1</attribute>
             </xpath>
 
             <xpath expr="//header/button[@name='complete_counting']" position="before">
@@ -98,21 +101,37 @@
                         groups="setu_inventory_count_management.group_setu_inventory_count_manager"
                         invisible="state != 'In Progress' or pending_item_count == 0"
                         confirm="Los productos/lotes pendientes se considerarán NO ENCONTRADOS y su cantidad física será 0. ¿Desea continuar?"/>
-                <button name="action_accept_adjustment_candidates"
+                <button name="action_accept_and_approve"
                         type="object"
-                        string="Aceptar diferencias"
+                        string="Aceptar diferencias y aprobar"
                         icon="fa-check"
                         class="btn-secondary"
                         groups="setu_inventory_count_management.group_setu_inventory_count_manager"
                         invisible="state != 'To Be Approved' or adjustment_candidate_count == 0"
-                        confirm="Las diferencias resueltas se aceptarán para el ajuste. ¿Desea continuar?"/>
+                        confirm="Se aceptarán todas las diferencias pendientes, se aprobará el conteo y se generará el ajuste automáticamente. ¿Desea continuar?"/>
+                <button name="action_approve_without_differences"
+                        type="object"
+                        string="Aprobar y generar ajuste"
+                        icon="fa-check"
+                        class="btn-primary"
+                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
+                        invisible="state != 'To Be Approved' or adjustment_candidate_count != 0 or count_id"
+                        confirm="El conteo no tiene diferencias pendientes. Se aprobará y se generará el ajuste automáticamente. ¿Desea continuar?"/>
+                <button name="action_approve_recount"
+                        type="object"
+                        string="Aprobar reconteo"
+                        icon="fa-check"
+                        class="btn-primary"
+                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
+                        invisible="state != 'To Be Approved' or not count_id"
+                        confirm="Se aprobará el reconteo y sus resultados se consolidarán en el conteo principal. ¿Desea continuar?"/>
                 <button name="action_prepare_directed_recount"
                         type="object"
-                        string="Reconteo de divergencias"
+                        string="Recontar diferencias"
                         icon="fa-refresh"
                         class="btn-secondary"
                         groups="setu_inventory_count_management.group_setu_inventory_count_manager"
-                        invisible="state != 'To Be Approved' or adjustment_candidate_count == 0"
+                        invisible="state != 'To Be Approved' or adjustment_candidate_count == 0 or count_id"
                         confirm="Se enviarán las diferencias al flujo de reconteo. ¿Desea continuar?"/>
                 <button name="action_open_financial_adjustment_preview"
                         type="object"
@@ -123,7 +142,7 @@
                         invisible="state != 'To Be Approved' or adjustment_candidate_count == 0"/>
             </xpath>
 
-            <xpath expr="//sheet/div[@name='button_box']" position="after">
+            <xpath expr="//sheet/notebook" position="before">
                 <div class="o_setu_count_control">
                     <div class="o_setu_count_control_header">
                         <div>
@@ -395,14 +414,20 @@
                     </field>
                 </page>
 
-                <page string="Pendientes" name="snapshot_pending"
+                <page string="Pendientes de conteo" name="snapshot_pending"
                       groups="setu_inventory_count_management.group_setu_inventory_count_manager">
-                    <field name="snapshot_line_ids" readonly="1" domain="[('status', '=', 'pending')]">
+                    <div class="alert alert-info" role="status">
+                        <strong>Pendientes de escanear:</strong>
+                        aquí se muestran únicamente productos, lotes o series esperados
+                        que todavía no registran ninguna lectura en las sesiones del conteo.
+                    </div>
+                    <field name="snapshot_pending_line_ids" readonly="1">
                         <list create="0" delete="0" decoration-muted="1">
                             <field name="product_id"/>
                             <field name="lot_id"/>
                             <field name="location_id"/>
-                            <field name="expected_qty"/>
+                            <field name="expected_qty" string="Cantidad esperada"/>
+                            <field name="scan_count" string="Lecturas"/>
                             <field name="status" widget="badge" decoration-muted="1"/>
                         </list>
                     </field>
@@ -410,8 +435,7 @@
 
                 <page string="Por resolver" name="snapshot_to_resolve"
                       groups="setu_inventory_count_management.group_setu_inventory_count_manager">
-                    <field name="snapshot_line_ids" readonly="1"
-                           domain="[('status', 'in', ['difference', 'zero', 'unexpected', 'duplicate'])]">
+                    <field name="snapshot_to_resolve_line_ids" readonly="1">
                         <list create="0" delete="0"
                               decoration-danger="status in ('difference', 'unexpected')"
                               decoration-warning="status in ('zero', 'duplicate')">
@@ -439,16 +463,7 @@
                     </field>
                 </page>
 
-                <page string="Sesiones" name="snapshot_sessions">
-                    <field name="session_ids" readonly="1">
-                        <list create="0" delete="0">
-                            <field name="name"/>
-                            <field name="user_ids" widget="many2many_tags"/>
-                            <field name="location_id"/>
-                            <field name="state" widget="badge"/>
-                        </list>
-                    </field>
-                </page>
+
             </xpath>
         </field>
     </record>

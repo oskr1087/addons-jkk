@@ -631,10 +631,7 @@ class SetuInventoryCountSession(models.Model):
         self.current_scanning_lot_id = False
         date_today = datetime.now()
         self.session_submit_date = date_today
-        if self.is_multi_session:
-            self.validate_session()
-        else:
-            self.state = 'Submitted'
+        self.state = 'Submitted'
         session_lines = self.inventory_count_id.session_ids.mapped('session_line_ids')
         not_found_serial = {}
         for line in self.session_line_ids:
@@ -833,6 +830,29 @@ class SetuInventoryCountSession(models.Model):
                         session_line_exists_already.write({'not_found_serial_number_ids': [(6, 0, final_lots.ids)],
                                                            'is_system_generated': True
                                                            })
+
+        self._validate_session()
+
+        count = self.inventory_count_id
+        sessions = count.session_ids.filtered(lambda s: s.state != 'Cancel')
+        if sessions and not sessions.filtered(lambda s: s.state != 'Done'):
+            count._refresh_persistent_kpis()
+            if not count.pending_item_count and not count.duplicate_item_count:
+                count.state = 'To Be Approved'
+                count.message_post(
+                    body=_("Todas las sesiones finalizaron. El conteo está listo para la decisión final.")
+                )
+            else:
+                count.message_post(
+                    body=_(
+                        "Todas las sesiones finalizaron. Quedan %(pending)s pendientes y "
+                        "%(duplicates)s duplicados por resolver."
+                    ) % {
+                        "pending": count.pending_item_count,
+                        "duplicates": count.duplicate_item_count,
+                    }
+                )
+        return True
 
     def _create_new_line(self, line):
         new_line = self.env['setu.stock.inventory.count.line'].create({

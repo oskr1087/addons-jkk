@@ -26,3 +26,5 @@ from . import warehouse_count_lock
 from . import inventory_count_workflow
 
 from . import view_repair_diagnostics
+
+from . import inventory_count_executive_report

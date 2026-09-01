@@ -16,3 +16,21 @@ from . import test_performance_batch
 from . import test_kpi_legacy_null_booleans
 
 from . import test_warehouse_admin_lock
+
+from . import test_auto_inventory_adjustment_creation
+
+from . import test_simplified_recount_flow
+
+from . import test_accept_and_approve_one_click
+
+from . import test_executive_final_report
+
+from . import test_inventory_adjustment_accounting_flow
+
+from . import test_inventory_adjustment_account_move_link
+
+from . import test_snapshot_tab_filters
+
+from . import test_count_form_layout
+
+from . import test_odoo19_inventory_adjustment_accounting
