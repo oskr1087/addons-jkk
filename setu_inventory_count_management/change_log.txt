@@ -1,3 +1,56 @@
+19.0.7.9.1
+- Revisión integral de permisos: Usuario, Controlador y Administrador.
+- Normalizado ir.model.access.csv y corregidas filas vacías/incompletas.
+- Snapshot limitado a usuarios del módulo y a compañías autorizadas.
+- Reglas específicas para contexto PDA, avance por ubicación, incidencias y traslados.
+- Usuario solo trabaja con su contexto y datos de conteos/sesiones asignados.
+- Controlador administra sus conteos y puede resolver incidencias de ubicación.
+- Administrador dispone de acceso total a los modelos nuevos.
+- Traslados internos protegidos en UI y backend para Controlador/Administrador.
+- Pruebas de seguridad y aislamiento entre usuarios agregadas.
+
+19.0.7.9.0
+- Nuevo control ejecutivo por ubicación: Sin contar / En proceso / Finalizada.
+- Ubicaciones consolidadas a nivel de conteo aunque existan varias sesiones y varios usuarios.
+- PDA incorpora Finalizar ubicación; el cierre es por usuario y respeta operadores concurrentes.
+- Pausar/Finalizar desde PDA deja de interrumpir a otros usuarios de la misma sesión.
+- Detección automática de producto/lote encontrado físicamente en una ubicación distinta a la registrada en Odoo.
+- Nueva resolución mediante traslado interno dentro del mismo almacén antes de aprobar.
+- Soporte para resolución parcial desde varias ubicaciones origen.
+- Los traslados resueltos se excluyen del ajuste de inventario para evitar doble corrección.
+- La aprobación queda bloqueada mientras existan incidencias de ubicación pendientes.
+- Reporte ejecutivo reorganizado por ubicación, participantes, productos/lotes leídos y traslados internos realizados.
+- Nuevas pruebas de avance por ubicación, concurrencia multiusuario y exclusión de traslados del ajuste.
+
+19.0.7.8.2
+- Simulador PDA contextual según el paso del conteo.
+- Sin ubicación activa muestra: Simular lectura de ubicación / Código de ubicación / Procesar ubicación.
+- Con ubicación activa muestra: Simular lectura desde celular / Artículo / Lote / Cantidad.
+- Nuevo botón Cambiar ubicación visible durante el conteo.
+- Cambiar ubicación limpia únicamente el contexto del usuario actual, compatible con varios usuarios en una misma sesión.
+- Agregadas pruebas de regresión del template, JS y método backend.
+
+19.0.7.8.1
+- Soporte real para varios usuarios contando simultáneamente en la misma sesión.
+- Nuevo contexto persistente por Sesión + Usuario.
+- Ubicación activa, producto, lote/serie y cantidad en curso ya no se comparten entre usuarios.
+- Cambiar de ubicación desde una PDA no modifica la ubicación activa de los demás operadores.
+- Feedback y datos temporales del QR se aíslan por usuario en el flujo PDA rápido.
+- Las líneas físicas siguen consolidándose en la misma sesión y snapshot.
+- Agregadas pruebas de concurrencia lógica con dos usuarios y ubicaciones diferentes.
+
+19.0.7.8.0
+- Nuevo flujo obligatorio Ubicación -> Lote/Serie/Producto en sesiones PDA.
+- La ubicación del conteo ahora define el alcance; ya no se asigna automáticamente como ubicación física activa.
+- Al iniciar una sesión, la ubicación activa queda vacía y debe escanearse por QR/código de barras.
+- Se bloquea cualquier lectura de producto/lote/serie mientras no exista ubicación activa.
+- Solo se aceptan ubicaciones internas dentro del alcance de la sesión/almacén.
+- Escanear otra ubicación cambia el contexto y limpia producto/lote pendientes.
+- Cada lectura conserva la ubicación física exacta.
+- El snapshot mantiene la clave Ubicación + Producto + Lote/Serie, evitando compensaciones entre ubicaciones.
+- Interfaz PDA actualizada con Paso 1 Ubicación y Paso 2 Conteo.
+- Agregadas pruebas funcionales para ubicación obligatoria, cambio de ubicación y separación del snapshot.
+
 19.0.7.7.19
 - Corregido NameError: ValidationError no estaba importado en setu_stock_inventory.py.
 - Añadida validación estática de imports críticos del archivo.

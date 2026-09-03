@@ -195,46 +195,111 @@
                                 Los importes se basan en cantidades y costos congelados durante el conteo y representan el resultado histórico del proceso.
                             </div>
 
-                            <!-- DETALLE SIEMPRE EN PÁGINA NUEVA -->
+                            <!-- UBICACIONES Y DETALLE EN PÁGINA NUEVA -->
                             <div class="ei-pagebreak"/>
-                            <div class="ei-detail-title">Detalle consolidado del conteo</div>
+                            <div class="ei-detail-title">Resultado por ubicación</div>
                             <div class="ei-detail-sub">
-                                <strong t-esc="doc.name"/> ·
-                                <span t-esc="doc.warehouse_id.display_name"/> ·
-                                <span t-esc="doc.location_id.complete_name or doc.location_id.display_name"/>
+                                Estado físico de las ubicaciones y responsables que participaron en el conteo.
                             </div>
                             <table class="ei-table">
                                 <thead>
                                     <tr>
-                                        <th style="width:34%;">Producto</th>
-                                        <th class="num" style="width:6%;">Pos.</th>
-                                        <th class="num" style="width:6%;">Lotes</th>
-                                        <th class="num" style="width:11%;">Esperado</th>
-                                        <th class="num" style="width:11%;">Físico</th>
-                                        <th class="num" style="width:10%;">Diferencia</th>
-                                        <th class="num" style="width:13%;">Impacto</th>
-                                        <th style="width:9%;">Resultado</th>
+                                        <th style="width:28%;">Ubicación</th>
+                                        <th style="width:10%;">Estado</th>
+                                        <th class="num">Esperadas</th>
+                                        <th class="num">Leídas</th>
+                                        <th class="num">Pendientes</th>
+                                        <th class="num">Diferencias</th>
+                                        <th class="num">Avance</th>
+                                        <th style="width:22%;">Participantes</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <t t-foreach="data['product_rows']" t-as="row">
+                                    <t t-foreach="data['location_rows']" t-as="row">
                                         <tr>
-                                            <td><t t-if="row['code']"><strong>[<span t-esc="row['code']"/>] </strong></t><span t-esc="row['name']"/></td>
-                                            <td class="num" t-esc="row['positions']"/>
-                                            <td class="num" t-esc="row['lots_count']"/>
+                                            <td t-esc="row['location'].display_name"/>
+                                            <td t-esc="row['state_label']"/>
+                                            <td class="num" t-esc="row['expected']"/>
+                                            <td class="num" t-esc="row['scanned']"/>
+                                            <td class="num" t-esc="row['pending']"/>
+                                            <td class="num" t-esc="row['differences']"/>
+                                            <td class="num" t-esc="row['progress_fmt']"/>
+                                            <td t-esc="row['participants']"/>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+
+                            <t t-if="data['relocation_rows']">
+                                <div class="ei-section">Correcciones de ubicación mediante traslado interno</div>
+                                <table class="ei-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:26%;">Producto / lote</th>
+                                            <th>Origen sistema</th>
+                                            <th>Ubicación física</th>
+                                            <th class="num">Cantidad</th>
+                                            <th>Traslado</th>
+                                            <th>Resuelto por</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="data['relocation_rows']" t-as="row">
+                                            <tr>
+                                                <td>
+                                                    <span t-esc="row['product']"/>
+                                                    <t t-if="row['lot']"> · <strong t-esc="row['lot']"/></t>
+                                                </td>
+                                                <td t-esc="row['source']"/>
+                                                <td t-esc="row['destination']"/>
+                                                <td class="num" t-esc="'{:,.2f}'.format(row['quantity'])"/>
+                                                <td t-esc="row['picking']"/>
+                                                <td t-esc="row['user']"/>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </t>
+
+                            <div class="ei-pagebreak"/>
+                            <div class="ei-detail-title">Detalle físico por ubicación</div>
+                            <div class="ei-detail-sub">
+                                Cada línea indica dónde se esperaba el producto/lote, dónde fue contado y quién realizó la última lectura.
+                            </div>
+                            <table class="ei-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:18%;">Ubicación</th>
+                                        <th style="width:29%;">Producto</th>
+                                        <th style="width:12%;">Lote/Serie</th>
+                                        <th class="num">Esperado</th>
+                                        <th class="num">Físico</th>
+                                        <th class="num">Diferencia</th>
+                                        <th style="width:10%;">Estado</th>
+                                        <th style="width:12%;">Usuario</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="data['location_detail_rows']" t-as="row">
+                                        <tr>
+                                            <td t-esc="row['location']"/>
+                                            <td>
+                                                <t t-if="row['code']"><strong>[<span t-esc="row['code']"/>] </strong></t>
+                                                <span t-esc="row['product']"/>
+                                            </td>
+                                            <td t-esc="row['lot'] or '-'"/>
                                             <td class="num" t-esc="'{:,.2f}'.format(row['expected_qty'])"/>
                                             <td class="num" t-esc="'{:,.2f}'.format(row['counted_qty'])"/>
                                             <td class="num" t-esc="'{:+,.2f}'.format(row['difference_qty'])"/>
-                                            <td class="num"><span t-att-class="'ei-money-neg' if row['impact_value'] &lt; 0 else ('ei-money-pos' if row['impact_value'] &gt; 0 else '')" t-esc="row['impact_value_fmt']"/></td>
-                                            <td><span t-att-class="'ei-badge ei-' + row['result_class']" t-esc="row['result']"/></td>
+                                            <td t-esc="row['status']"/>
+                                            <td t-esc="row['user']"/>
                                         </tr>
                                     </t>
                                 </tbody>
                             </table>
                             <div class="ei-footer">
                                 Fin del acta · <span t-esc="doc.name"/> · <span t-esc="data['final_result_label']"/>
-                            </div>
-                        </div>
+                            </div>                        </div>
                     </div>
                 </t>
             </t>

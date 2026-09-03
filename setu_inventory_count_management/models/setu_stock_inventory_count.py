@@ -751,7 +751,10 @@ class StockInvCount(models.Model):
         # El snapshot persistente es la fuente de verdad. Materializamos antes
         # cualquier divergencia aceptada que aún no tenga línea de control.
         snapshot_candidates = self.snapshot_line_ids.filtered(
-            lambda line: line.status in ("difference", "zero", "unexpected")
+            lambda line: (
+                line.status in ("difference", "zero", "unexpected")
+                and not line.relocation_resolved
+            )
         )
         for snapshot_line in snapshot_candidates:
             self._ensure_count_line_for_snapshot_adjustment(snapshot_line)

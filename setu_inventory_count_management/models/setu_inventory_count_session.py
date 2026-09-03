@@ -46,14 +46,37 @@ class SetuInventoryCountSession(models.Model):
     company_id = fields.Many2one(comodel_name="res.company", related="warehouse_id.company_id", string="Compañía",
                                  store=True)
     session_id = fields.Many2one(comodel_name="setu.inventory.count.session", string="Sesión")
-    current_scanning_location_id = fields.Many2one(comodel_name="stock.location", string="Ubicación actual de escaneo")
-    current_scanning_product_id = fields.Many2one(comodel_name="product.product", string="Producto actual de escaneo")
-    current_scanning_lot_id = fields.Many2one(comodel_name="stock.lot", string="Lote actual de escaneo")
+    # Estado de captura POR USUARIO. Estos campos mantienen compatibilidad con
+    # las vistas/métodos existentes, pero ya no se almacenan en la sesión.
+    current_scanning_location_id = fields.Many2one(
+        comodel_name="stock.location",
+        string="Ubicación actual de escaneo",
+        compute="_compute_user_scanning_context",
+        inverse="_inverse_current_scanning_location_id",
+        store=False,
+    )
+    current_scanning_product_id = fields.Many2one(
+        comodel_name="product.product",
+        string="Producto actual de escaneo",
+        compute="_compute_user_scanning_context",
+        inverse="_inverse_current_scanning_product_id",
+        store=False,
+    )
+    current_scanning_lot_id = fields.Many2one(
+        comodel_name="stock.lot",
+        string="Lote actual de escaneo",
+        compute="_compute_user_scanning_context",
+        inverse="_inverse_current_scanning_lot_id",
+        store=False,
+    )
 
-    # Mobile / PDA counting interface. These fields intentionally live on the
-    # session so the operator can leave/reopen the mobile view without losing
-    # the current location or quantity being captured.
-    mobile_count_qty = fields.Float(string="Cantidad física", default=1.0, copy=False)
+    # Cantidad en curso también es por usuario.
+    mobile_count_qty = fields.Float(
+        string="Cantidad física",
+        compute="_compute_user_scanning_context",
+        inverse="_inverse_mobile_count_qty",
+        store=False,
+    )
     mobile_progress_percent = fields.Float(compute="_compute_mobile_status", string="Progreso")
     mobile_counted_products = fields.Integer(compute="_compute_mobile_status", string="Productos contados")
     mobile_instruction = fields.Char(compute="_compute_mobile_status", string="Siguiente paso")
@@ -75,6 +98,104 @@ class SetuInventoryCountSession(models.Model):
     count_state = fields.Selection(related='inventory_count_id.state', string="Estado del conteo")
     type = fields.Selection(related="inventory_count_id.type", string="Tipo")
     approver_id = fields.Many2one(related="inventory_count_id.approver_id", string="Aprobador", store=True)
+
+    scan_user_context_ids = fields.One2many(
+        "setu.inventory.count.session.user.context",
+        "session_id",
+        string="Contextos de escaneo por usuario",
+        readonly=True,
+    )
+
+    def _get_user_scan_context(self, create=True):
+        """Contexto aislado del usuario actual dentro de esta sesión."""
+        self.ensure_one()
+        Context = self.env["setu.inventory.count.session.user.context"].sudo()
+
+        context = Context.search([
+            ("session_id", "=", self.id),
+            ("user_id", "=", self.env.user.id),
+        ], limit=1)
+
+        if not context and create:
+            # Un usuario asignado a la sesión puede tener su propio contexto.
+            # El aprobador/administrador también puede abrir la sesión.
+            if (
+                self.user_ids
+                and self.env.user not in self.user_ids
+                and self.env.user != self.approver_id
+                and not self.env.user.has_group(
+                    "setu_inventory_count_management.group_setu_inventory_count_admin"
+                )
+            ):
+                raise UserError(_(
+                    "El usuario %s no está asignado a esta sesión de conteo."
+                ) % self.env.user.display_name)
+
+            context = Context.create({
+                "session_id": self.id,
+                "user_id": self.env.user.id,
+                "mobile_count_qty": 1.0,
+            })
+
+        return context
+
+    def _compute_user_scanning_context(self):
+        for session in self:
+            context = session._get_user_scan_context(create=False)
+            session.current_scanning_location_id = (
+                context.current_location_id if context else False
+            )
+            session.current_scanning_product_id = (
+                context.current_product_id if context else False
+            )
+            session.current_scanning_lot_id = (
+                context.current_lot_id if context else False
+            )
+            session.mobile_count_qty = (
+                context.mobile_count_qty if context else 1.0
+            )
+
+    def _inverse_current_scanning_location_id(self):
+        for session in self:
+            context = session._get_user_scan_context(create=True)
+            context.current_location_id = session.current_scanning_location_id
+
+    def _inverse_current_scanning_product_id(self):
+        for session in self:
+            context = session._get_user_scan_context(create=True)
+            context.current_product_id = session.current_scanning_product_id
+
+    def _inverse_current_scanning_lot_id(self):
+        for session in self:
+            context = session._get_user_scan_context(create=True)
+            context.current_lot_id = session.current_scanning_lot_id
+
+    def _inverse_mobile_count_qty(self):
+        for session in self:
+            context = session._get_user_scan_context(create=True)
+            context.mobile_count_qty = session.mobile_count_qty
+
+    def _clear_current_user_scan_context(self, keep_location=False):
+        for session in self:
+            context = session._get_user_scan_context(create=True)
+            vals = {
+                "current_product_id": False,
+                "current_lot_id": False,
+                "mobile_count_qty": 1.0,
+                "qr_payload": False,
+                "qr_quantity": 0.0,
+                "qr_detected": False,
+            }
+            if not keep_location:
+                vals["current_location_id"] = False
+            context.write(vals)
+        self.invalidate_recordset([
+            "current_scanning_location_id",
+            "current_scanning_product_id",
+            "current_scanning_lot_id",
+            "mobile_count_qty",
+        ])
+        return True
 
     @api.depends(
         'current_scanning_location_id', 'current_scanning_product_id',
@@ -120,20 +241,99 @@ class SetuInventoryCountSession(models.Model):
             session.mobile_instruction = instruction
 
     def _ensure_default_scanning_location(self):
-        """Use the session/count location as the default active scanning location.
+        """Compatibilidad: nunca asigna una ubicación automáticamente.
 
-        The warehouse operator should not have to scan again a location that was
-        already defined by the supervisor when the Inventory Count was created.
-        A different valid child location can still be scanned explicitly later.
+        La ubicación del conteo define el ALCANCE del trabajo, no la ubicación
+        física en la que está parado el operario. La ubicación activa siempre
+        debe venir de una lectura de QR/código de barras.
         """
-        for session in self:
-            if not session.current_scanning_location_id and session.location_id:
-                session.current_scanning_location_id = session.location_id
+        return True
+
+    def _get_scanning_location_scope(self):
+        """Devuelve la ubicación raíz permitida para la sesión."""
+        self.ensure_one()
+        return self.location_id or self.warehouse_id.lot_stock_id
+
+    def _is_location_allowed_for_scan(self, location):
+        """Valida que la ubicación pertenezca al alcance de esta sesión."""
+        self.ensure_one()
+        if not location or location.usage != 'internal':
+            return False
+        if self.company_id and location.company_id and location.company_id != self.company_id:
+            return False
+
+        scope = self._get_scanning_location_scope()
+        if not scope:
+            return False
+
+        allowed = self.env['stock.location'].sudo().search_count([
+            ('id', '=', location.id),
+            ('id', 'child_of', scope.id),
+            ('usage', '=', 'internal'),
+        ])
+        return bool(allowed)
+
+    def _find_scanning_location(self, barcode):
+        """Busca una ubicación por el contenido exacto del QR/código."""
+        self.ensure_one()
+        Location = self.env['stock.location'].sudo()
+        locations = Location.search([
+            ('barcode', '=', barcode),
+            ('usage', '=', 'internal'),
+        ], limit=2)
+
+        if len(locations) > 1:
+            raise UserError(_(
+                'El código "%s" está asignado a más de una ubicación. '
+                'Corrija los códigos de barras de las ubicaciones antes de continuar.'
+            ) % barcode)
+
+        return locations[:1]
+
+    def _activate_scanned_location(self, location):
+        """Activa una ubicación y limpia cualquier producto/lote anterior."""
+        self.ensure_one()
+        if not self._is_location_allowed_for_scan(location):
+            scope = self._get_scanning_location_scope()
+            raise UserError(_(
+                'La ubicación "%(location)s" no pertenece al alcance de esta sesión '
+                '(%(scope)s). Escanee una ubicación interna válida del almacén.'
+            ) % {
+                'location': location.display_name,
+                'scope': scope.display_name if scope else self.warehouse_id.display_name,
+            })
+
+        context = self._get_user_scan_context(create=True)
+        context.write({
+            'current_location_id': location.id,
+            'current_product_id': False,
+            'current_lot_id': False,
+            'mobile_count_qty': 1.0,
+            'qr_payload': False,
+            'qr_quantity': 0.0,
+            'qr_detected': False,
+        })
+        self.invalidate_recordset([
+            'current_scanning_location_id',
+            'current_scanning_product_id',
+            'current_scanning_lot_id',
+            'mobile_count_qty',
+        ])
+        return True
+
+    @api.constrains('current_scanning_location_id')
+    def _check_current_scanning_location_scope(self):
+        for session in self.filtered('current_scanning_location_id'):
+            if not session._is_location_allowed_for_scan(
+                session.current_scanning_location_id
+            ):
+                raise ValidationError(_(
+                    'La ubicación activa no pertenece al almacén/alcance de la sesión.'
+                ))
 
     def action_open_mobile_count(self):
         """Open the operator-only handheld view for this count session."""
         self.ensure_one()
-        self._ensure_default_scanning_location()
         return {
             'type': 'ir.actions.act_window',
             'name': _('Conteo móvil de inventario'),
@@ -230,7 +430,7 @@ class SetuInventoryCountSession(models.Model):
             if not session.session_line_ids:
                 session.current_scanning_product_id = False
                 session.current_scanning_lot_id = False
-                session.current_scanning_location_id = session.location_id
+                session.current_scanning_location_id = False
 
     def messege_return(self, msg_type, message):
         return {'warning': {'title': _(msg_type), 'message': _(message)}}
@@ -248,20 +448,20 @@ class SetuInventoryCountSession(models.Model):
             if self.current_state in ('Start', 'Resume'):
                 vals = {}
                 scanning_done = False
-                location = self.env['stock.location'].sudo().search([('barcode', '=ilike', barcode)], limit=1)
+                location = self._find_scanning_location(barcode)
                 if location:
-                    child_of_location_ids = self.env['stock.location'].sudo().search(
-                        [('id', 'child_of', self.location_id.id)])
-                    if location not in child_of_location_ids:
-                        return self.messege_return("Warning",
-                                                   "Scanned location is not belongs to the current Inventory Count "
-                                                   "Warehouse. Kindly select an appropriate location.")
-                    self.current_scanning_location_id = location
-                    self.current_scanning_product_id = False
-                    self.current_scanning_lot_id = False
+                    self._activate_scanned_location(location)
+                    return self.messege_return(
+                        "Correcto",
+                        "Ubicación %s activada. Ahora escanee los lotes/productos de esta ubicación."
+                        % location.display_name,
+                    )
+
                 if not self.current_scanning_location_id:
-                    return self.messege_return("Warning",
-                                               "Escanee primero la ubicación.")
+                    return self.messege_return(
+                        "Warning",
+                        "Primero escanee el QR o código de barras de una ubicación válida del almacén."
+                    )
                 lot = self.env['stock.lot'].sudo().search([('name', '=ilike', barcode)], limit=1)
                 if lot:
                     self.current_scanning_lot_id = lot
@@ -571,7 +771,8 @@ class SetuInventoryCountSession(models.Model):
                 if len(session.user_ids) == 1 and len(self.user_ids) == 1:
                     raise ValidationError(_("Another session for the same User is Running. "
                                             "You cannot Start/Resume more than one session at a time."))
-        self._ensure_default_scanning_location()
+        # Cada usuario inicia con su propio contexto de ubicación/captura.
+        self._clear_current_user_scan_context(keep_location=False)
         self.current_state = 'Start'
         date_today = datetime.now()
         self.session_start_date = date_today
@@ -607,7 +808,6 @@ class SetuInventoryCountSession(models.Model):
                 if len(session.user_ids) == 1 and len(self.user_ids) == 1:
                     raise ValidationError(_("Another session for the same User is Running. "
                                             "You cannot Start/Resume more than one session at a time."))
-        self._ensure_default_scanning_location()
         self.current_state = 'Resume'
         date_today = datetime.now()
         self.env['setu.inventory.session.details'].create({'session_id': self.id, 'start_date': date_today})
@@ -626,9 +826,13 @@ class SetuInventoryCountSession(models.Model):
 
     def submit(self):
         self.end()
-        self.current_scanning_location_id = False
-        self.current_scanning_product_id = False
-        self.current_scanning_lot_id = False
+        self.scan_user_context_ids.sudo().write({
+            'current_location_id': False,
+            'current_product_id': False,
+            'current_lot_id': False,
+            'mobile_count_qty': 1.0,
+            'paused': False,
+        })
         date_today = datetime.now()
         self.session_submit_date = date_today
         self.state = 'Submitted'

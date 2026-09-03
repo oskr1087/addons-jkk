@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="setu_stock_inventory_count_location_flow_form" model="ir.ui.view">
+        <field name="name">setu.stock.inventory.count.location.flow.form</field>
+        <field name="model">setu.stock.inventory.count</field>
+        <field name="inherit_id" ref="setu_inventory_count_management.setu_stock_inventory_count_form_layout_finalizer"/>
+        <field name="priority">260</field>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='snapshot_all']" position="before">
+                <page string="Ubicaciones" name="location_progress"
+                      groups="setu_inventory_count_management.group_setu_inventory_count_manager">
+                    <div class="alert alert-info" role="status">
+                        <strong>Control físico por ubicación.</strong>
+                        Una ubicación queda <b>Finalizada</b> cuando los operadores que trabajan
+                        en ella pulsan «Finalizar ubicación». Si se vuelve a escanear, pasa otra vez a En proceso.
+                    </div>
+
+                    <group>
+                        <group string="Avance de ubicaciones">
+                            <field name="location_not_started_count" readonly="1"/>
+                            <field name="location_in_progress_count" readonly="1"/>
+                            <field name="location_done_count" readonly="1"/>
+                        </group>
+                        <group string="Correcciones de ubicación">
+                            <field name="pending_relocation_count" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <separator string="Estado de las ubicaciones"/>
+                    <field name="location_progress_ids" readonly="1">
+                        <list create="0" delete="0"
+                              decoration-muted="state == 'not_started'"
+                              decoration-warning="state == 'in_progress'"
+                              decoration-success="state == 'done'">
+                            <field name="location_id"/>
+                            <field name="state" widget="badge"
+                                   decoration-muted="state == 'not_started'"
+                                   decoration-warning="state == 'in_progress'"
+                                   decoration-success="state == 'done'"/>
+                            <field name="expected_position_count"/>
+                            <field name="scanned_position_count"/>
+                            <field name="pending_position_count"/>
+                            <field name="difference_position_count"/>
+                            <field name="progress_percent" widget="progressbar"/>
+                            <field name="active_user_ids" widget="many2many_tags"/>
+                            <field name="participant_user_ids" widget="many2many_tags" optional="show"/>
+                            <field name="started_at" optional="hide"/>
+                            <field name="last_scan_at" optional="show"/>
+                            <field name="finished_at" optional="show"/>
+                        </list>
+                    </field>
+
+                    <separator string="Productos/lotes encontrados en otra ubicación"/>
+                    <div class="alert alert-warning" role="status"
+                         invisible="pending_relocation_count == 0">
+                        Se detectaron productos o lotes que físicamente fueron contados en una ubicación,
+                        pero Odoo conserva existencias del mismo producto/lote en otra ubicación del mismo almacén.
+                        Seleccione «Viene de», confirme la cantidad y genere el traslado interno antes de aprobar.
+                    </div>
+                    <field name="relocation_issue_ids">
+                        <list create="0" delete="0"
+                              decoration-warning="state in ('pending', 'partial')"
+                              decoration-success="state == 'resolved'">
+                            <field name="candidate_source_location_ids" column_invisible="True"/>
+                            <field name="product_id"/>
+                            <field name="lot_id"/>
+                            <field name="found_location_id"/>
+                            <field name="found_qty"/>
+                            <field name="resolved_qty"/>
+                            <field name="remaining_qty"/>
+                            <field name="source_location_id"
+                                   domain="[('id', 'in', candidate_source_location_ids)]"
+                                   readonly="state == 'resolved'"/>
+                            <field name="quantity_to_move" readonly="state == 'resolved'"/>
+                            <button name="action_create_internal_transfer"
+                                    type="object"
+                                    string="Mover"
+                                    groups="setu_inventory_count_management.group_setu_inventory_count_manager"
+                                    icon="fa-exchange"
+                                    class="btn-secondary"
+                                    invisible="state == 'resolved'"/>
+                            <field name="last_picking_id" optional="show"/>
+                            <field name="state" widget="badge"
+                                   decoration-warning="state in ('pending', 'partial')"
+                                   decoration-success="state == 'resolved'"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

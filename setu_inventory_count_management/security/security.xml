@@ -133,5 +133,94 @@
             <field name="domain_force">[('company_id', 'in', company_ids)]</field>
             <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
         </record>
+
+        <!-- Seguridad del flujo moderno de conteo -->
+        <record id="rule_inventory_count_snapshot_company" model="ir.rule">
+            <field name="name">Snapshot de conteo: compañía</field>
+            <field name="model_id" ref="model_setu_inventory_count_snapshot"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+        <record id="rule_inventory_count_snapshot_line_company" model="ir.rule">
+            <field name="name">Snapshot líneas: compañía</field>
+            <field name="model_id" ref="model_setu_inventory_count_snapshot_line"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="rule_session_user_scan_context_own" model="ir.rule">
+            <field name="name">Contexto PDA: propio</field>
+            <field name="model_id" ref="model_setu_inventory_count_session_user_context"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_user'))]"/>
+            <field name="domain_force">[('user_id', '=', user.id)]</field>
+        </record>
+        <record id="rule_session_user_scan_context_manager" model="ir.rule">
+            <field name="name">Contexto PDA: controlador</field>
+            <field name="model_id" ref="model_setu_inventory_count_session_user_context"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
+            <field name="domain_force">['|', ('session_id.approver_id', '=', user.id), ('session_id.user_ids', '=', user.id)]</field>
+        </record>
+        <record id="rule_session_user_scan_context_admin_all" model="ir.rule">
+            <field name="name">Contexto PDA: administrador</field>
+            <field name="model_id" ref="model_setu_inventory_count_session_user_context"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_admin'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+        </record>
+
+        <record id="rule_location_progress_user" model="ir.rule">
+            <field name="name">Avance ubicación: usuario asignado</field>
+            <field name="model_id" ref="model_setu_inventory_count_location_progress"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_user'))]"/>
+            <field name="domain_force">['|', ('count_id.session_ids.user_ids', '=', user.id), ('count_id.approver_id', '=', user.id)]</field>
+        </record>
+        <record id="rule_location_progress_manager" model="ir.rule">
+            <field name="name">Avance ubicación: controlador</field>
+            <field name="model_id" ref="model_setu_inventory_count_location_progress"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
+            <field name="domain_force">['|', ('count_id.approver_id', '=', user.id), ('count_id.session_ids.user_ids', '=', user.id)]</field>
+        </record>
+        <record id="rule_location_progress_admin_all" model="ir.rule">
+            <field name="name">Avance ubicación: administrador</field>
+            <field name="model_id" ref="model_setu_inventory_count_location_progress"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_admin'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+        </record>
+
+        <record id="rule_relocation_issue_user" model="ir.rule">
+            <field name="name">Incidencia ubicación: usuario asignado</field>
+            <field name="model_id" ref="model_setu_inventory_count_relocation_issue"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_user'))]"/>
+            <field name="domain_force">['|', ('count_id.session_ids.user_ids', '=', user.id), ('count_id.approver_id', '=', user.id)]</field>
+        </record>
+        <record id="rule_relocation_issue_manager" model="ir.rule">
+            <field name="name">Incidencia ubicación: controlador</field>
+            <field name="model_id" ref="model_setu_inventory_count_relocation_issue"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
+            <field name="domain_force">['|', ('count_id.approver_id', '=', user.id), ('count_id.session_ids.user_ids', '=', user.id)]</field>
+        </record>
+        <record id="rule_relocation_issue_admin_all" model="ir.rule">
+            <field name="name">Incidencia ubicación: administrador</field>
+            <field name="model_id" ref="model_setu_inventory_count_relocation_issue"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_admin'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+        </record>
+
+        <record id="rule_relocation_line_user" model="ir.rule">
+            <field name="name">Traslado de conteo: usuario asignado</field>
+            <field name="model_id" ref="model_setu_inventory_count_relocation_line"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_user'))]"/>
+            <field name="domain_force">['|', ('issue_id.count_id.session_ids.user_ids', '=', user.id), ('issue_id.count_id.approver_id', '=', user.id)]</field>
+        </record>
+        <record id="rule_relocation_line_manager" model="ir.rule">
+            <field name="name">Traslado de conteo: controlador</field>
+            <field name="model_id" ref="model_setu_inventory_count_relocation_line"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
+            <field name="domain_force">['|', ('issue_id.count_id.approver_id', '=', user.id), ('issue_id.count_id.session_ids.user_ids', '=', user.id)]</field>
+        </record>
+        <record id="rule_relocation_line_admin_all" model="ir.rule">
+            <field name="name">Traslado de conteo: administrador</field>
+            <field name="model_id" ref="model_setu_inventory_count_relocation_line"/>
+            <field name="groups" eval="[(4, ref('group_setu_inventory_count_admin'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+        </record>
+
     </data>
 </odoo>

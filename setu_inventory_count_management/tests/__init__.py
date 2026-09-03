@@ -34,3 +34,13 @@ from . import test_snapshot_tab_filters
 from . import test_count_form_layout
 
 from . import test_odoo19_inventory_adjustment_accounting
+
+from . import test_location_first_counting
+
+from . import test_multiuser_same_session
+
+from . import test_pda_contextual_simulator
+
+from . import test_location_progress_and_relocation
+
+from . import test_count_security_profiles

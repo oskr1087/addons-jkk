@@ -85,6 +85,13 @@ class InventoryCountSessionLine(models.Model):
         records = super(InventoryCountSessionLine, self).create(vals_list)
         if not self.env.context.get('setu_bulk_count'):
             records._sync_persistent_count_snapshot()
+            for count in records.mapped('inventory_count_id'):
+                count._ensure_location_progress_records()
+                count._sync_relocation_issues()
+            for line in records.filtered(lambda line: line.product_scanned and line.location_id):
+                line.inventory_count_id._location_progress(
+                    line.location_id, create=True
+                )._mark_started(self.env.user)
         return records
 
     def write(self, vals):
@@ -97,6 +104,14 @@ class InventoryCountSessionLine(models.Model):
         result = super().write(vals)
         if watched.intersection(vals) and not self.env.context.get('setu_bulk_count'):
             self._sync_persistent_count_snapshot(extra_counts=before_counts)
+            counts = self.mapped('inventory_count_id') | before_counts
+            for count in counts:
+                count._ensure_location_progress_records()
+                count._sync_relocation_issues()
+            for line in self.filtered(lambda line: line.product_scanned and line.location_id):
+                line.inventory_count_id._location_progress(
+                    line.location_id, create=True
+                )._mark_started(self.env.user)
         return result
 
     def unlink(self):

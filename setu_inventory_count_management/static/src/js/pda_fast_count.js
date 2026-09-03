@@ -124,6 +124,22 @@ export class PDAFastCount extends Component {
         await this.callServer("pda_fast_clear_item");
     }
 
+    async changeLocation() {
+        if (this.state.busy) {
+            return;
+        }
+        this.state.manualBarcode = "";
+        await this.callServer("pda_fast_clear_location");
+    }
+
+    async finishLocation() {
+        if (this.state.busy || !this.state.data.location) {
+            return;
+        }
+        this.state.manualBarcode = "";
+        await this.callServer("pda_fast_finish_location");
+    }
+
     setQuantity(value) {
         this.state.quantity = Math.max(0, Number(value) || 0);
     }

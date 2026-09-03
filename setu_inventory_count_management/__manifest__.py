@@ -1,6 +1,6 @@
 {
     "name": "Conteo de Inventario Multiusuario - Móvil/PDA",
-    "version": "19.0.7.7.19",
+    "version": "19.0.7.9.2",
     "category": "Inventario",
     "license": "OPL-1",
     "author": "Oscar Morocho",
@@ -27,6 +27,7 @@
         "views/setu_inventory_session_details_views.xml",
         "views/setu_stock_inventory_views.xml",
         "views/inventory_count_snapshot_views.xml",
+        "views/inventory_count_location_flow_views.xml",
         "views/inventory_count_enhancement_views.xml",
         "views/pda_counting_views.xml",
         "views/stock_location_views.xml",

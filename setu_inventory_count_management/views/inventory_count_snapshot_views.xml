@@ -159,22 +159,29 @@
                                     string="Bloquear almacén" class="btn btn-outline-success"
                                     icon="fa-lock" invisible="warehouse_lock_active"/>
                         </div>
-                        <div class="alert alert-warning py-2"
-                             groups="setu_inventory_count_management.group_setu_inventory_count_admin"
-                             invisible="not warehouse_lock_manual_disabled">
-                            <i class="fa fa-unlock me-1" title="Bloqueo desactivado"/>
-                            Bloqueo del almacén desactivado manualmente por un administrador.
-                        </div>
+                        <!--
+                            Un único estado visual del bloqueo.
+                            warehouse_lock_active es la fuente de verdad del estado efectivo.
+                            warehouse_lock_manual_disabled se conserva únicamente para impedir
+                            que el bloqueo se reactive automáticamente después de una excepción
+                            administrativa; el detalle de quién/cuándo queda en el chatter.
+                        -->
                         <field name="warehouse_lock_manual_disabled" invisible="1"/>
+                        <field name="warehouse_lock_started_at" invisible="1"/>
+
                         <div class="o_setu_count_lock" invisible="not warehouse_lock_active">
                             <i class="fa fa-lock" title="Almacén bloqueado"/>
                             <div>
-                                <strong>Almacén bloqueado durante el conteo</strong>
-                                <span invisible="not warehouse_lock_started_at">
-                                    Bloqueado desde:
-                                    <field name="warehouse_lock_started_at" readonly="1" nolabel="1"/>
-                                </span>
+                                <strong>Almacén bloqueado</strong>
+                                <span>Movimientos restringidos durante el conteo.</span>
                             </div>
+                        </div>
+
+                        <div class="alert alert-success py-2 mb-0"
+                             invisible="warehouse_lock_active or state not in ['In Progress', 'To Be Approved']">
+                            <i class="fa fa-unlock me-1" title="Almacén desbloqueado"/>
+                            <strong>Almacén desbloqueado</strong>
+                            <span class="ms-1">Los movimientos están permitidos temporalmente.</span>
                         </div>
                     </div>
 

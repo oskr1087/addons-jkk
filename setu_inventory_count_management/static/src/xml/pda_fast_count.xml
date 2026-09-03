@@ -30,14 +30,33 @@
                             <i class="fa fa-map-marker" title="Ubicación"/>
                         </div>
                         <div>
-                            <small>UBICACIÓN ACTUAL</small>
-                            <strong t-esc="state.data.location ? state.data.location.name : 'Sin ubicación'"/>
+                            <small t-if="state.data.warehouse">
+                                <t t-esc="state.data.warehouse.name"/> · UBICACIÓN ACTUAL
+                            </small>
+                            <small t-else="">UBICACIÓN ACTUAL</small>
+                            <strong t-esc="state.data.location ? state.data.location.name : 'Escanee una ubicación'"/>
                         </div>
                         <div class="setu_pda_mobile_counter">
                             <strong t-esc="state.data.counted || 0"/>
                             <small>registrados</small>
                         </div>
                     </section>
+
+                    <div t-if="state.data.running and state.data.location"
+                         class="setu_pda_mobile_change_location">
+                        <button type="button"
+                                class="btn btn-link"
+                                t-on-click="changeLocation">
+                            <i class="fa fa-exchange" title="Cambiar ubicación"/>
+                            Cambiar ubicación
+                        </button>
+                        <button type="button"
+                                class="btn btn-success"
+                                t-on-click="finishLocation">
+                            <i class="fa fa-check" title="Finalizar ubicación"/>
+                            Finalizar ubicación
+                        </button>
+                    </div>
 
                     <!-- Duplicado: debe dominar toda la pantalla -->
                     <section t-if="state.data.duplicate_warning" class="setu_pda_mobile_duplicate">
@@ -66,16 +85,34 @@
                     </section>
 
                     <!-- Estado principal de lectura -->
-                    <section t-if="state.data.running and !state.data.product"
+                    <section t-if="state.data.running and !state.data.location"
+                             class="setu_pda_mobile_scan setu_pda_mobile_scan_location">
+                        <div class="setu_pda_mobile_scan_icon">
+                            <i class="fa fa-map-marker" title="Ubicación"/>
+                        </div>
+                        <span>PASO 1 · UBICACIÓN</span>
+                        <strong>Escanee el QR o código de barras de la ubicación</strong>
+                        <small t-if="state.data.scope_location">
+                            Alcance del conteo: <b t-esc="state.data.scope_location.name"/>.
+                            Solo se aceptan ubicaciones internas dentro de este alcance.
+                        </small>
+                        <div class="setu_pda_mobile_reader_status">
+                            <span class="setu_pda_mobile_reader_dot"/>
+                            Esperando ubicación
+                        </div>
+                    </section>
+
+                    <section t-elif="state.data.running and !state.data.product"
                              class="setu_pda_mobile_scan">
                         <div class="setu_pda_mobile_scan_icon">
                             <i class="fa fa-qrcode" title="QR o código de barras"/>
                         </div>
-                        <span>LISTO PARA ESCANEAR</span>
-                        <strong>Escanee el QR o código del lote</strong>
+                        <span>PASO 2 · CONTEO</span>
+                        <strong>Escanee el lote, serie o producto</strong>
                         <small>
-                            El QR puede contener Artículo / Lote / Cantidad.
-                            Use el gatillo de la PDA.
+                            Todos los registros se guardarán en
+                            <b t-esc="state.data.location.name"/>.
+                            Para cambiar de ubicación, escanee directamente el código de la nueva ubicación.
                         </small>
                         <div class="setu_pda_mobile_reader_status">
                             <span class="setu_pda_mobile_reader_dot"/>
@@ -185,18 +222,22 @@
                         </t>
                     </details>
 
-                    <!-- Simulación solo como herramienta secundaria -->
+                    <!-- Simulación contextual: ubicación primero, conteo después -->
                     <details t-if="state.data.running" class="setu_pda_mobile_simulator">
-                        <summary>Simular lectura desde celular</summary>
+                        <summary>
+                            <t t-if="!state.data.location">Simular lectura de ubicación</t>
+                            <t t-else="">Simular lectura desde celular</t>
+                        </summary>
                         <input type="text"
                                autocomplete="off"
                                enterkeyhint="done"
-                               placeholder="Artículo/Lote/Cantidad"
+                               t-att-placeholder="state.data.location ? 'Artículo / Lote / Cantidad' : 'Código de ubicación'"
                                t-att-value="state.manualBarcode"
                                t-on-input="onManualBarcodeInput"
                                t-on-keydown="onManualBarcodeKeydown"/>
                         <button class="btn btn-secondary" t-on-click="processManualBarcode">
-                            Procesar código
+                            <t t-if="!state.data.location">Procesar ubicación</t>
+                            <t t-else="">Procesar código</t>
                         </button>
                     </details>
                 </main>

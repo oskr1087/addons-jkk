@@ -122,6 +122,71 @@ class StockInventoryCountExecutiveReport(models.Model):
             if row["impact_value"] > rounding
         ][:10]
 
+        self._ensure_location_progress_records()
+        location_rows = []
+        for progress in self.location_progress_ids.sorted(
+            key=lambda item: item.location_id.complete_name or item.location_id.display_name
+        ):
+            location_rows.append({
+                "location": progress.location_id,
+                "state": progress.state,
+                "state_label": dict(
+                    progress._fields["state"]._description_selection(self.env)
+                ).get(progress.state, progress.state),
+                "expected": progress.expected_position_count,
+                "scanned": progress.scanned_position_count,
+                "pending": progress.pending_position_count,
+                "differences": progress.difference_position_count,
+                "progress_fmt": "{:.1f}%".format(progress.progress_percent or 0.0),
+                "participants": ", ".join(
+                    progress.participant_user_ids.mapped("display_name")
+                ) or "-",
+                "started_at": progress.started_at,
+                "last_scan_at": progress.last_scan_at,
+                "finished_at": progress.finished_at,
+            })
+
+        location_detail_rows = []
+        for line in lines.sorted(
+            key=lambda item: (
+                item.location_id.complete_name or item.location_id.display_name or "",
+                item.product_id.display_name or "",
+                item.lot_id.name if item.lot_id else "",
+            )
+        ):
+            location_detail_rows.append({
+                "location": line.location_id.display_name,
+                "product": line.product_id.display_name,
+                "code": line.product_id.default_code or "",
+                "lot": line.lot_id.name if line.lot_id else "",
+                "expected_qty": line.expected_qty,
+                "counted_qty": line.counted_qty,
+                "difference_qty": line.difference_qty,
+                "status": dict(
+                    line._fields["status"]._description_selection(self.env)
+                ).get(line.status, line.status),
+                "user": line.last_user_id.display_name if line.last_user_id else "-",
+                "session": line.last_session_id.display_name if line.last_session_id else "-",
+                "last_scan_at": line.last_scan_at,
+                "relocated": line.relocation_resolved,
+            })
+
+        relocation_rows = []
+        for issue in self.relocation_issue_ids.filtered(
+            lambda rec: rec.state == "resolved"
+        ):
+            for resolution in issue.resolution_line_ids:
+                relocation_rows.append({
+                    "product": issue.product_id.display_name,
+                    "lot": issue.lot_id.name if issue.lot_id else "",
+                    "source": resolution.source_location_id.display_name,
+                    "destination": resolution.destination_location_id.display_name,
+                    "quantity": resolution.quantity,
+                    "picking": resolution.picking_id.display_name,
+                    "user": resolution.user_id.display_name,
+                    "date": resolution.date,
+                })
+
         active_sessions = self.session_ids.filtered(lambda s: s.state != "Cancel")
         participant_users = active_sessions.mapped("user_ids")
         recounts = self.count_ids.sorted("id")
@@ -157,6 +222,9 @@ class StockInventoryCountExecutiveReport(models.Model):
             "count": self,
             "header": header,
             "product_rows": product_rows,
+            "location_rows": location_rows,
+            "location_detail_rows": location_detail_rows,
+            "relocation_rows": relocation_rows,
             "shortages": shortages,
             "surpluses": surpluses,
             "product_count": len(product_rows),

@@ -212,7 +212,6 @@ class InventoryCountSessionPDA(models.Model):
     def action_open_mobile_count(self):
         """Open the lightweight OWL workspace instead of a full form view."""
         self.ensure_one()
-        self._ensure_default_scanning_location()
         return {
             'type': 'ir.actions.client',
             'tag': 'setu_inventory_count_management.pda_fast_count',
@@ -222,7 +221,6 @@ class InventoryCountSessionPDA(models.Model):
 
     def _get_pda_fast_state(self):
         self.ensure_one()
-        self._ensure_default_scanning_location()
 
         Line = self.env['setu.inventory.count.session.line']
         counted = Line.search_count([
@@ -239,6 +237,7 @@ class InventoryCountSessionPDA(models.Model):
             limit=3,
         )
 
+        scan_context = self._get_user_scan_context(create=True)
         product = self.current_scanning_product_id
         lot = self.current_scanning_lot_id
         tracking = product.tracking if product else False
@@ -257,11 +256,26 @@ class InventoryCountSessionPDA(models.Model):
         return {
             'id': self.id,
             'name': self.name or '',
+            'warehouse': {
+                'id': self.warehouse_id.id,
+                'name': self.warehouse_id.display_name or '',
+            } if self.warehouse_id else False,
+            'scope_location': {
+                'id': self.location_id.id,
+                'name': self.location_id.display_name or '',
+            } if self.location_id else False,
             'state': self.state or '',
             'current_state': self.current_state or '',
-            'running': self.current_state in ('Start', 'Resume'),
-            'paused': self.current_state == 'Pause',
-            'finished': self.state in ('Submitted', 'Done', 'Cancel') or self.current_state == 'End',
+            'running': (
+                self.current_state in ('Start', 'Resume')
+                and not scan_context.paused
+                and not scan_context.finished
+            ),
+            'paused': scan_context.paused,
+            'finished': (
+                self.state in ('Submitted', 'Done', 'Cancel')
+                or scan_context.finished
+            ),
             'location': {
                 'id': self.current_scanning_location_id.id,
                 'name': self.current_scanning_location_id.display_name or '',
@@ -279,27 +293,29 @@ class InventoryCountSessionPDA(models.Model):
                 'name': lot.name or '',
             } if lot else False,
             'qty': self.mobile_count_qty or 0.0,
-            'qr_detected': self.mobile_qr_detected,
-            'qr_quantity': self.mobile_qr_quantity or 0.0,
-            'qr_payload': self.mobile_qr_payload or '',
+            'qr_detected': scan_context.qr_detected,
+            'qr_quantity': scan_context.qr_quantity or 0.0,
+            'qr_payload': scan_context.qr_payload or '',
             'can_set_qty': can_set_qty,
             'is_serial': tracking == 'serial',
             'counted': counted,
             'zero': zero,
-            'feedback': self.mobile_last_feedback or '',
-            'feedback_type': self.mobile_last_feedback_type or 'info',
+            'feedback': scan_context.last_feedback or '',
+            'feedback_type': scan_context.last_feedback_type or 'info',
             'duplicate_warning': (
-                'ya fue escaneado' in (self.mobile_last_feedback or '').lower()
-                or 'pendiente de confirmar' in (self.mobile_last_feedback or '').lower()
+                'ya fue escaneado' in (scan_context.last_feedback or '').lower()
+                or 'pendiente de confirmar' in (scan_context.last_feedback or '').lower()
             ),
             'instruction': (
-                _('Escanee cada número de serie.')
+                _('Escanee primero el QR o código de barras de la ubicación.')
+                if self.current_state in ('Start', 'Resume') and not self.current_scanning_location_id
+                else _('Escanee cada número de serie.')
                 if tracking == 'serial'
                 else _('Escanee el lote.')
                 if tracking == 'lot' and not lot
                 else _('Ingrese la cantidad física y confirme.')
                 if can_set_qty
-                else _('Escanee el código de barras del producto.')
+                else _('Escanee el lote, serie o producto de la ubicación activa.')
             ),
             'recent': [{
                 'id': line.id,
@@ -333,40 +349,136 @@ class InventoryCountSessionPDA(models.Model):
                 )
                 return self._get_pda_fast_state()
 
-        self.mobile_count_qty = quantity
+        scan_context = self._get_user_scan_context(create=True)
+        scan_context.mobile_count_qty = quantity
+        self.invalidate_recordset(['mobile_count_qty'])
         self.action_mobile_confirm_qty()
-        self.write({
-            'mobile_qr_payload': False,
-            'mobile_qr_quantity': 0.0,
-            'mobile_qr_detected': False,
+        scan_context.write({
+            'qr_payload': False,
+            'qr_quantity': 0.0,
+            'qr_detected': False,
+            'last_feedback': _('Cantidad registrada correctamente.'),
+            'last_feedback_type': 'success',
         })
-        self.mobile_last_feedback = _('Cantidad registrada correctamente.')
-        self.mobile_last_feedback_type = 'success'
+        return self._get_pda_fast_state()
+
+    def pda_fast_finish_location(self):
+        """Finaliza la ubicación SOLO para el usuario actual."""
+        self.ensure_one()
+        location = self.current_scanning_location_id
+        if not location:
+            raise ValidationError(_("No hay una ubicación activa para finalizar."))
+
+        progress = self.inventory_count_id._location_progress(
+            location, create=True
+        )
+        scan_context = self._get_user_scan_context(create=True)
+        scan_context.write({
+            'current_location_id': False,
+            'current_product_id': False,
+            'current_lot_id': False,
+            'mobile_count_qty': 1.0,
+        })
+        self.invalidate_recordset([
+            'current_scanning_location_id',
+            'current_scanning_product_id',
+            'current_scanning_lot_id',
+            'mobile_count_qty',
+        ])
+        progress._mark_finished_by(self.env.user)
+        scan_context.write({
+            'last_feedback': _(
+                "Ubicación %s finalizada. Escanee la siguiente ubicación."
+            ) % location.display_name,
+            'last_feedback_type': 'success',
+        })
+        return self._get_pda_fast_state()
+
+    def pda_fast_clear_location(self):
+        """Vuelve al Paso 1 solo para el usuario actual.
+
+        No modifica la ubicación ni el producto/lote activo de los demás
+        usuarios que estén trabajando en la misma sesión.
+        """
+        self.ensure_one()
+        self._clear_current_user_scan_context(keep_location=False)
+        scan_context = self._get_user_scan_context(create=True)
+        scan_context.write({
+            'last_feedback': _('Escanee la nueva ubicación para continuar.'),
+            'last_feedback_type': 'info',
+        })
         return self._get_pda_fast_state()
 
     def pda_fast_clear_item(self):
         self.ensure_one()
-        self.write({
-            'current_scanning_product_id': False,
-            'current_scanning_lot_id': False,
+        scan_context = self._get_user_scan_context(create=True)
+        scan_context.write({
+            'current_product_id': False,
+            'current_lot_id': False,
             'mobile_count_qty': 1.0,
-            'mobile_qr_payload': False,
-            'mobile_qr_quantity': 0.0,
-            'mobile_qr_detected': False,
+            'qr_payload': False,
+            'qr_quantity': 0.0,
+            'qr_detected': False,
+            'last_feedback': False,
+            'last_feedback_type': 'info',
         })
-        self.mobile_last_feedback = False
+        self.invalidate_recordset([
+            'current_scanning_product_id',
+            'current_scanning_lot_id',
+            'mobile_count_qty',
+        ])
         return self._get_pda_fast_state()
 
     def pda_fast_control(self, operation):
         self.ensure_one()
+        scan_context = self._get_user_scan_context(create=True)
+        multiuser = len(self.user_ids) > 1
+
         if operation == 'start':
-            self.start()
+            if self.state == 'Draft':
+                self.start()
+            scan_context.write({
+                'paused': False,
+                'finished': False,
+                'finished_at': False,
+            })
         elif operation == 'resume':
-            self.resume()
+            if multiuser:
+                scan_context.write({
+                    'paused': False,
+                    'finished': False,
+                })
+            else:
+                self.resume()
         elif operation == 'pause':
-            self.pause()
+            if multiuser:
+                scan_context.paused = True
+            else:
+                self.pause()
         elif operation == 'submit':
-            self.submit()
+            if multiuser:
+                if self.current_scanning_location_id:
+                    self.pda_fast_finish_location()
+                    scan_context = self._get_user_scan_context(create=True)
+                scan_context.write({
+                    'finished': True,
+                    'finished_at': fields.Datetime.now(),
+                    'paused': False,
+                })
+
+                assigned = self.user_ids
+                contexts = self.env[
+                    'setu.inventory.count.session.user.context'
+                ].sudo().search([
+                    ('session_id', '=', self.id),
+                    ('user_id', 'in', assigned.ids),
+                    ('finished', '=', True),
+                ])
+                finished_users = contexts.mapped('user_id')
+                if assigned and not (assigned - finished_users):
+                    self.submit()
+            else:
+                self.submit()
         else:
             raise ValidationError(_('Operación PDA no válida.'))
         return self._get_pda_fast_state()
@@ -441,8 +553,11 @@ class InventoryCountSessionPDA(models.Model):
             'Error': 'danger',
         }
         for session in self:
-            session.mobile_last_feedback = message
-            session.mobile_last_feedback_type = type_map.get(msg_type, 'info')
+            scan_context = session._get_user_scan_context(create=True)
+            scan_context.write({
+                'last_feedback': message,
+                'last_feedback_type': type_map.get(msg_type, 'info'),
+            })
         return result
 
     def action_mobile_simulate_barcode(self):
@@ -636,14 +751,30 @@ class InventoryCountSessionPDA(models.Model):
         if self.current_state not in ('Start', 'Resume'):
             return self.messege_return("Advertencia", "Inicie o reanude la sesión para escanear.")
 
-        self._ensure_default_scanning_location()
+        # Una ubicación siempre tiene prioridad. Esto permite cambiar de
+        # ubicación simplemente escaneando el siguiente QR/código.
+        location = self._find_scanning_location(barcode)
+        if location:
+            self._activate_scanned_location(location)
+            return self.messege_return(
+                "Correcto",
+                "Ubicación %s activada. Continúe con los lotes/productos."
+                % location.display_name,
+            )
+
+        # Ningún lote/producto se procesa sin una ubicación física activa.
+        if not self.current_scanning_location_id:
+            return self.messege_return(
+                "Advertencia",
+                "Escanee primero el QR o código de barras de la ubicación."
+            )
 
         # One-scan path for packing labels: ARTICULO/LOTE/CANTIDAD.
         # If it looks like our enriched QR, it is fully handled here.
         if self._scan_enriched_lot_qr(barcode):
             return
 
-        # Fast path for PDA: the location is already fixed by the count.
+        # Fast path para productos dentro de la ubicación físicamente escaneada.
         # Search the product first. Only if it is not a product barcode do we
         # query lots/serials. This avoids unnecessary queries on every scan.
         product = self.env['product.product'].sudo().search([
@@ -830,7 +961,12 @@ class InventoryCountSessionPDA(models.Model):
             # Keep progress as 0 until items are counted; the UI shows the live count.
             session.mobile_progress_percent = 0.0
 
-            if session.current_state in ('Start', 'Resume') and session.current_scanning_location_id and not session.current_scanning_product_id:
-                session.mobile_instruction = _(
-                    "PDA listo. Escanee el código de barras del producto."
-                )
+            if session.current_state in ('Start', 'Resume'):
+                if not session.current_scanning_location_id:
+                    session.mobile_instruction = _(
+                        "Escanee primero el QR o código de barras de la ubicación."
+                    )
+                elif not session.current_scanning_product_id:
+                    session.mobile_instruction = _(
+                        "Ubicación validada. Escanee el lote, serie o producto."
+                    )

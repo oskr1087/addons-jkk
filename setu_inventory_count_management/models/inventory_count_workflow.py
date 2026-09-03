@@ -21,6 +21,7 @@ class StockInventoryCountWorkflow(models.Model):
         self.ensure_one()
         return self.snapshot_line_ids.filtered(
             lambda line: line.status in ("difference", "zero", "unexpected", "duplicate")
+            and not line.relocation_resolved
         )
 
     def _find_count_line_for_snapshot(self, snapshot_line):
@@ -192,7 +193,10 @@ class StockInventoryCountWorkflow(models.Model):
                 )
 
             candidates = count.snapshot_line_ids.filtered(
-                lambda line: line.status in ("difference", "zero", "unexpected")
+                lambda line: (
+                    line.status in ("difference", "zero", "unexpected")
+                    and not line.relocation_resolved
+                )
             )
             if not candidates:
                 raise ValidationError(_("No existen diferencias listas para ajustar."))

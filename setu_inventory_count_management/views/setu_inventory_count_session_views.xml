@@ -223,6 +223,15 @@
                             <field name="mobile_instruction" nolabel="1" readonly="1"/>
                         </div>
 
+                        <div class="alert alert-warning"
+                             invisible="current_state not in ['Start', 'Resume'] or current_scanning_location_id">
+                            <strong>Paso 1 · Escanee una ubicación</strong>
+                            <div>
+                                Antes de contar un lote o producto, lea el QR/código de barras
+                                de la ubicación física dentro del almacén de esta sesión.
+                            </div>
+                        </div>
+
                         <div class="setu_mobile_location" invisible="not current_scanning_location_id">
                             <div class="setu_mobile_section_label"><i class="fa fa-map-marker" title="Indicador"/> UBICACIÓN ACTIVA</div>
                             <div class="setu_mobile_primary_value">

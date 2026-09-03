@@ -192,6 +192,7 @@ class InventoryCountSnapshotLine(models.Model):
             ("zero", "Cantidad cero"),
             ("unexpected", "No previsto"),
             ("duplicate", "Posible duplicado"),
+            ("relocated", "Corregido por traslado"),
         ],
         string="Estado",
         default="pending",
@@ -631,14 +632,19 @@ class StockInventoryCountPersistentSnapshot(models.Model):
                     and line.state == "Pending Review"
                 )
             )
+            unresolved_relocations = count.relocation_issue_ids.filtered(
+                lambda issue: issue.state != "resolved"
+            )
             count.blocking_issue_count = (
                 (header.pending_item_count + header.duplicate_item_count) if header else 0
-            ) + len(open_sessions) + len(pending_decisions)
+            ) + len(open_sessions) + len(pending_decisions) + len(unresolved_relocations)
             count.adjustment_ready = bool(
                 header and count.state == "To Be Approved" and not count.blocking_issue_count
             )
             if open_sessions:
                 count.adjustment_readiness_text = "Hay sesiones abiertas"
+            elif unresolved_relocations:
+                count.adjustment_readiness_text = "Hay productos encontrados en otra ubicación por resolver"
             elif header and header.pending_item_count:
                 count.adjustment_readiness_text = "Faltan productos/lotes por resolver"
             elif header and header.duplicate_item_count:
@@ -812,6 +818,7 @@ class StockInventoryCountPersistentSnapshot(models.Model):
                 "ready": True,
                 "snapshot_date": fields.Datetime.now(),
             })
+            count._ensure_location_progress_records()
             count._refresh_persistent_kpis()
 
         return True

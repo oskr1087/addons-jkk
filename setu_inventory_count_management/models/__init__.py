@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from . import ir_module_module
+from . import setu_inventory_count_session_user_context
 from . import setu_inventory_count_session
 from . import setu_inventory_count_session_line
 from . import res_config_settings
@@ -28,3 +29,5 @@ from . import inventory_count_workflow
 from . import view_repair_diagnostics
 
 from . import inventory_count_executive_report
+
+from . import inventory_count_location_flow
