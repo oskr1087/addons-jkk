@@ -58,3 +58,11 @@ from . import test_v79_pending_lot_supply
 
 
 from . import test_v81_route_based_sale_manufacturing_hold
+
+from . import test_v82_stock_lot_qr_report
+
+from . import test_v82_1_report_name
+
+from . import test_v82_2_qr_embedded_widget
+
+from . import test_v82_3_qr_payload_count

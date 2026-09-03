@@ -17,3 +17,5 @@ from . import sale_availability_wizard
 from . import lot_reservation
 
 from . import stock_rule
+
+from . import stock_lot_report

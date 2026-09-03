@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="paperformat_aps_lot_qr_a4" model="report.paperformat">
+        <field name="name">APS - Etiquetas QR de lotes A4 2x4</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">5</field>
+        <field name="margin_bottom">5</field>
+        <field name="margin_left">5</field>
+        <field name="margin_right">5</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">0</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <record id="action_report_stock_lot_qr_pda" model="ir.actions.report">
+        <field name="name">Etiquetas QR de lotes (PDA)</field>
+        <field name="model">stock.lot</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">mrp_advanced_planner.report_stock_lot_qr_pda</field>
+        <field name="report_file">mrp_advanced_planner.report_stock_lot_qr_pda</field>
+        <field name="paperformat_id" ref="paperformat_aps_lot_qr_a4"/>
+        <field name="binding_model_id" ref="stock.model_stock_lot"/>
+        <field name="binding_type">report</field>
+        <field name="print_report_name">'Lote_QR_PDA_%s' % (object.name or 'sin_lote')</field>
+    </record>
+</odoo>
