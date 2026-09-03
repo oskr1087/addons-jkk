@@ -13,3 +13,7 @@ from . import planning_dashboard
 from . import stock_availability_wizard
 
 from . import sale_availability_wizard
+
+from . import lot_reservation
+
+from . import stock_rule

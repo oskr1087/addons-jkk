@@ -83,3 +83,16 @@ planificador.
 
 Esto evita que Odoo vuelva a comparar una modificación intencional del
 planificador contra la cantidad de la LdM original al validar/finalizar la OF.
+
+
+## Transferencias opcionales - 19.0.30.0.0
+
+Las existencias encontradas en otras bodegas son recomendaciones y no
+condiciones obligatorias para fabricar.
+
+- Una transferencia sugerida no bloquea `Fabricar`.
+- Mientras no se genere el traslado, su cantidad no reduce `A comprar` ni
+  `A fabricar` de los componentes.
+- Si se genera un traslado real, el plan queda `Requiere recalcular`.
+- Al recalcular, el movimiento interno pendiente pasa a formar parte de la
+  cobertura real y reduce correctamente las nuevas necesidades.

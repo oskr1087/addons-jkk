@@ -132,10 +132,72 @@
                                 icon="fa-cubes"
                                 class="btn-secondary"
                                 invisible="not product_id"/>
+                        <button name="action_open_lot_reservations"
+                                type="object"
+                                string="Lotes reservados"
+                                icon="fa-tags"
+                                class="btn-secondary ms-2"
+                                invisible="product_tracking == 'none'"/>
                     </div>
 
                     <!-- TRAZABILIDAD SECUNDARIA -->
                     <notebook class="mt-3">
+                        <page string="Lotes reservados"
+                              name="lot_reservations"
+                              invisible="product_tracking == 'none'">
+                            <div class="alert alert-info"
+                                 role="alert">
+                                <i class="fa fa-info-circle me-2" title="Información"/>
+                                APS carga por defecto los lotes disponibles hasta
+                                cubrir la necesidad. Puede cambiar esta selección
+                                mientras la OF todavía no haya sido generada.
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col">
+                                    <strong>Reservado:</strong>
+                                    <field name="reserved_lot_qty" readonly="1"/>
+                                </div>
+                                <div class="col">
+                                    <strong>Pendiente:</strong>
+                                    <field name="pending_lot_qty" readonly="1"/>
+                                </div>
+                                <div class="col">
+                                    <strong>Cobertura:</strong>
+                                    <field name="lot_coverage_percent"
+                                           widget="percentage"
+                                           readonly="1"/>
+                                </div>
+                                <div class="col">
+                                    <field name="lot_reservation_status"
+                                           widget="badge"
+                                           readonly="1"/>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-end mb-2">
+                                <button name="action_complete_lot_reservations"
+                                        type="object"
+                                        string="Completar reserva con lotes disponibles"
+                                        icon="fa-refresh"
+                                        class="btn-secondary"
+                                        invisible="pending_lot_qty &lt;= 0"/>
+                            </div>
+                            <field name="lot_reservation_ids"
+                                   nolabel="1"
+                                   readonly="engineering_locked">
+                                <list editable="bottom"
+                                      create="1"
+                                      delete="1">
+                                    <field name="product_id" column_invisible="1"/>
+                                    <field name="company_id" column_invisible="1"/>
+                                    <field name="warehouse_id" readonly="1"/>
+                                    <field name="lot_id"/>
+                                    <field name="available_qty" readonly="1"/>
+                                    <field name="reserved_qty"/>
+                                    <field name="state" widget="badge" readonly="1"/>
+                                </list>
+                            </field>
+                        </page>
+
                         <page string="Trazabilidad de ingeniería"
                               name="engineering_traceability">
                             <group>
@@ -179,6 +241,7 @@
                     <field name="availability_qty" invisible="1"/>
                     <field name="is_subcontracted" invisible="1"/>
                     <field name="engineering_locked" invisible="1"/>
+                    <field name="product_tracking" invisible="1"/>
                 </sheet>
                 <footer>
                     <button string="Guardar"

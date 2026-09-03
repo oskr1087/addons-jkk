@@ -49,3 +49,12 @@ from . import test_v76_component_lock_after_mo
 from . import test_v76_1_engineering_lock_compute
 
 from . import test_v76_2_internal_transfer_odoo19
+
+from . import test_v77_optional_transfers
+
+from . import test_v78_lot_reservation
+
+from . import test_v79_pending_lot_supply
+
+
+from . import test_v81_route_based_sale_manufacturing_hold

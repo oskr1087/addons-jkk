@@ -73,6 +73,12 @@ export class PlanningComponentTreeField extends Component {
                 "is_subcontracted",
                 "subcontract_bom_id",
                 "engineering_locked",
+                "reserved_lot_qty",
+                "lot_reservation_count",
+                "lot_reservation_status",
+                "pending_lot_qty",
+                "lot_coverage_percent",
+                "product_tracking",
                 "note",
             ],
             { order: "planning_line_id, sequence, level, id" }
@@ -295,6 +301,17 @@ export class PlanningComponentTreeField extends Component {
             await this.action.doAction(action);
         }
         await this.load();
+    }
+
+    async openLotReservations(row) {
+        const action = await this.orm.call(
+            "mrp.planning.production.component",
+            "action_open_lot_reservations",
+            [row.id]
+        );
+        if (action) {
+            await this.action.doAction(action, { onClose: () => this.load() });
+        }
     }
 
     getStatusClass(status) {

@@ -719,19 +719,10 @@ class PlanningPlan(models.Model):
         # Re-evaluate the edited snapshot immediately before execution.
         self._refresh_component_sourcing()
 
-        # Transfers have priority. A positive move_qty means the user has not
-        # yet decided whether to use the stock found in another warehouse.
-        pending_moves = self.external_move_ids.filtered(
-            lambda move: move.state == 'pending' and move.move_qty > 1e-6
-        )
-        if pending_moves:
-            raise UserError(_(
-                'Existen %s traslado(s) sugerido(s) pendientes. Para evitar '
-                'comprar o fabricar cantidades que existen en otra bodega, '
-                'ejecute esos traslados primero o coloque Cantidad a transferir '
-                'en 0 para indicar que no desea utilizarlos.'
-            ) % len(pending_moves))
-
+        # Internal transfers are OPTIONAL recommendations.  They never block
+        # manufacturing.  If the user executes one, action_create_transfer()
+        # marks the plan as requiring recalculation so the new incoming stock
+        # is considered before creating subsequent supply documents.
         # Create/update procurement plan first, then sub-MOs and finished MOs.
         self._sync_component_purchase_plan()
 
@@ -764,6 +755,19 @@ class PlanningPlan(models.Model):
                 skip_compute_move_raw_ids=True
             ).create(vals)
             mo.action_confirm()
+
+            # Transfer the planner lot allocation to the generated MO.
+            line.production_component_ids.mapped(
+                'lot_reservation_ids'
+            ).filtered(
+                lambda reservation: reservation.state == 'reserved'
+            ).with_context(
+                aps_allow_locked_lot_reservation_write=True
+            ).write({
+                'production_id': mo.id,
+                'state': 'assigned',
+            })
+
             line.write({
                 'created_production_id': mo.id,
                 'state': 'applied',

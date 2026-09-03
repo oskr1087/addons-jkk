@@ -153,6 +153,14 @@
                                 t-on-click="() => this.openAvailability(row)">
                             <i class="fa fa-cubes"/>
                         </button>
+                        <button t-if="row.product_tracking !== 'none'"
+                                type="button"
+                                class="btn btn-link btn-sm"
+                                t-att-title="'Lotes APS: ' + (row.lot_reservation_count || 0)"
+                                t-on-click="() => this.openLotReservations(row)">
+                            <i class="fa fa-tags"/>
+                            <small class="ms-1" t-esc="row.lot_reservation_count || 0"/>
+                        </button>
                         <button t-if="!row.engineering_locked"
                                 type="button"
                                 class="btn btn-link btn-sm"

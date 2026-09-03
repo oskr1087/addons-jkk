@@ -282,33 +282,45 @@ class ComponentSourcingEngine:
             has_children = bool(component.child_line_ids.filtered('include_in_mo'))
             subcontract_bom = subcontract_boms.get(component.product_id.id)
             is_subcontracted = bool(subcontract_bom)
-            residual_after_move = max(shortage - movable, 0.0)
+
+            # A transfer from another warehouse is only a suggestion.  Do NOT
+            # deduct it from the supply requirement until the transfer has
+            # actually been created.  Once created, the plan is recalculated
+            # and `_pending_internal_incoming()` incorporates that real move.
+            #
+            # This lets the planner choose:
+            #   * move stock, then recalculate, OR
+            #   * ignore the suggestion and manufacture/purchase the shortage.
+            supply_shortage = shortage
 
             if shortage <= 1e-6:
                 resolution = 'available'
                 to_make = to_buy = 0.0
-            elif movable + 1e-6 >= shortage:
-                resolution = 'move'
-                to_make = to_buy = 0.0
             elif is_subcontracted:
                 # A subcontracted component is procured through Purchase.
-                # Odoo's subcontracting core handles the corresponding receipt
-                # and subcontracting manufacturing flow.
                 to_make = 0.0
-                to_buy = residual_after_move
+                to_buy = supply_shortage
                 resolution = (
                     'move_subcontract'
                     if movable > 1e-6
                     else 'subcontract'
                 )
             elif has_children:
-                to_make = residual_after_move
+                to_make = supply_shortage
                 to_buy = 0.0
-                resolution = 'move_manufacture' if movable > 1e-6 else 'manufacture'
+                resolution = (
+                    'move_manufacture'
+                    if movable > 1e-6
+                    else 'manufacture'
+                )
             else:
                 to_make = 0.0
-                to_buy = residual_after_move
-                resolution = 'move_purchase' if movable > 1e-6 else 'purchase'
+                to_buy = supply_shortage
+                resolution = (
+                    'move_purchase'
+                    if movable > 1e-6
+                    else 'purchase'
+                )
 
             component.with_context(
                 aps_skip_subtree_rebuild=True,
@@ -364,4 +376,5 @@ class ComponentSourcingEngine:
         for root in roots.sorted(key=lambda c: (c.planning_line_id.id, c.sequence, c.id)):
             resolve(root, root.planned_qty)
 
+        components._aps_sync_default_lot_reservations()
         return components

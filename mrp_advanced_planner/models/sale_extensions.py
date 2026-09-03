@@ -99,6 +99,42 @@ class SaleOrderLine(models.Model):
         ),
     )
 
+    def _action_launch_stock_rule(self, previous_product_uom_qty=False):
+        """Keep current Odoo routes but hold manufacture launched from SO.
+
+        No extra product parameter is required. Existing MTO, Manufacture,
+        Buy and warehouse routes remain unchanged. Only manufacturing rules
+        reached while confirming sale lines are held for APS. Component MRP
+        launched later from manufacturing does not carry this context.
+        """
+        commercial_lines = self.filtered(
+            lambda line:
+                not line.display_type
+                and line.product_id
+                and line.product_uom_qty > 0
+        )
+        other_lines = self - commercial_lines
+
+        result = True
+        if other_lines:
+            result = super(
+                SaleOrderLine, other_lines
+            )._action_launch_stock_rule(
+                previous_product_uom_qty=previous_product_uom_qty
+            )
+
+        if commercial_lines:
+            result = super(
+                SaleOrderLine,
+                commercial_lines.with_context(
+                    aps_hold_sale_mto_manufacturing=True
+                ),
+            )._action_launch_stock_rule(
+                previous_product_uom_qty=previous_product_uom_qty
+            )
+        return result
+
+
     @api.depends(
         'aps_planning_line_ids',
         'aps_planning_line_ids.plan_id',

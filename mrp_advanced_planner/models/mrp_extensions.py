@@ -279,6 +279,76 @@ class MrpProduction(models.Model):
         }
 
 
+    def _aps_validate_lot_reservation_coverage(self):
+        for production in self.filtered(
+            lambda mo:
+                mo.aps_component_snapshot and mo.planning_plan_line_id
+        ):
+            components = production._aps_snapshot_components().filtered(
+                lambda component:
+                    component.product_id.tracking != 'none'
+                    and component.include_in_mo
+                    and component.planned_qty > 1e-6
+            )
+            incomplete = components.filtered(
+                lambda component:
+                    not component._aps_has_complete_lot_reservation()
+            )
+            if incomplete:
+                details = []
+                for component in incomplete:
+                    details.append(
+                        '%s: requerido %.2f / reservado %.2f / pendiente %.2f'
+                        % (
+                            component.product_id.display_name,
+                            component.effective_required_qty
+                            or component.planned_qty,
+                            component.reserved_lot_qty,
+                            component.pending_lot_qty,
+                        )
+                    )
+                raise UserError(_(
+                    'No puede finalizar la OF %s porque existen componentes '
+                    'con seguimiento por lote sin reserva completa:\n- %s\n\n'
+                    'Reciba o disponga el material y complete la reserva de '
+                    'lotes antes de finalizar la producción.'
+                ) % (
+                    production.display_name,
+                    '\n- '.join(details),
+                ))
+        return True
+
+    def button_mark_done(self):
+        self._aps_validate_lot_reservation_coverage()
+        return super().button_mark_done()
+
+    def write(self, vals):
+        result = super().write(vals)
+        if 'state' in vals:
+            Reservation = self.env[
+                'mrp.planning.component.lot.reservation'
+            ].sudo()
+            for production in self:
+                reservations = Reservation.search([
+                    ('production_id', '=', production.id),
+                    ('state', 'in', ('reserved', 'assigned')),
+                ])
+                if not reservations:
+                    continue
+                if production.state == 'cancel':
+                    reservations.with_context(
+                        aps_allow_locked_lot_reservation_write=True
+                    ).write({
+                        'state': 'released',
+                        'production_id': False,
+                    })
+                elif production.state == 'done':
+                    reservations.with_context(
+                        aps_allow_locked_lot_reservation_write=True
+                    ).write({'state': 'consumed'})
+        return result
+
+
 class PurchaseOrder(models.Model):
     _inherit = 'purchase.order'
 

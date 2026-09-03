@@ -616,6 +616,11 @@ class PlanningProductionComponent(models.Model):
     )
     root_product_id = fields.Many2one('product.product', required=True, index=True)
     product_id = fields.Many2one('product.product', required=True, index=True, string='Componente')
+    product_tracking = fields.Selection(
+        related='product_id.tracking',
+        string='Seguimiento',
+        readonly=True,
+    )
     original_product_id = fields.Many2one(
         'product.product', required=True, index=True, string='Componente ingeniería',
     )
@@ -702,10 +707,256 @@ class PlanningProductionComponent(models.Model):
         'mrp.planning.external.warehouse.move', 'production_component_id',
         string='Traslados sugeridos', copy=False
     )
+    lot_reservation_ids = fields.One2many(
+        'mrp.planning.component.lot.reservation',
+        'component_id',
+        string='Lotes reservados',
+        copy=False,
+    )
+    reserved_lot_qty = fields.Float(
+        string='Cantidad en lotes APS',
+        compute='_compute_lot_reservation_summary',
+        digits='Product Unit of Measure',
+    )
+    lot_reservation_count = fields.Integer(
+        string='Lotes', compute='_compute_lot_reservation_summary'
+    )
+    pending_lot_qty = fields.Float(
+        string='Pendiente de reservar',
+        compute='_compute_lot_reservation_summary',
+        digits='Product Unit of Measure',
+    )
+    lot_coverage_percent = fields.Float(
+        string='Cobertura de lotes (%)',
+        compute='_compute_lot_reservation_summary',
+    )
+    lot_reservation_status = fields.Selection([
+        ('not_tracked', 'Sin seguimiento'),
+        ('none', 'Sin lotes disponibles'),
+        ('pending_supply', 'Pendiente de abastecimiento'),
+        ('partial', 'Reserva parcial'),
+        ('reserved', 'Reservado'),
+        ('locked', 'Asignado a OF'),
+    ], string='Reserva de lotes', compute='_compute_lot_reservation_summary')
 
     hierarchy_label = fields.Char(
         string='Jerarquía', compute='_compute_hierarchy_label'
     )
+
+    @api.depends(
+        'lot_reservation_ids.reserved_qty',
+        'lot_reservation_ids.state',
+        'product_id.tracking',
+        'engineering_locked',
+        'effective_required_qty',
+        'planned_qty',
+    )
+    def _compute_lot_reservation_summary(self):
+        for component in self:
+            active = component.lot_reservation_ids.filtered(
+                lambda reservation:
+                    reservation.state in ('reserved', 'assigned')
+            )
+            target_qty = max(
+                component.effective_required_qty or component.planned_qty,
+                0.0,
+            )
+            qty = sum(active.mapped('reserved_qty'))
+            pending = max(target_qty - qty, 0.0)
+            coverage = (
+                min((qty / target_qty) * 100.0, 100.0)
+                if target_qty > 1e-6
+                else 100.0
+            )
+
+            component.reserved_lot_qty = qty
+            component.pending_lot_qty = pending
+            component.lot_coverage_percent = coverage
+            component.lot_reservation_count = len(active)
+
+            if component.product_id.tracking == 'none':
+                status = 'not_tracked'
+            elif pending <= 1e-6 and active:
+                status = 'locked' if component.engineering_locked else 'reserved'
+            elif qty > 1e-6:
+                status = 'partial'
+            elif target_qty > 1e-6:
+                status = 'pending_supply'
+            else:
+                status = 'none'
+            component.lot_reservation_status = status
+
+    def _aps_has_complete_lot_reservation(self):
+        self.ensure_one()
+        if self.product_id.tracking == 'none':
+            return True
+        required = max(
+            self.effective_required_qty or self.planned_qty,
+            0.0,
+        )
+        reserved = sum(
+            self.lot_reservation_ids.filtered(
+                lambda reservation:
+                    reservation.state in ('reserved', 'assigned')
+            ).mapped('reserved_qty')
+        )
+        return reserved + 1e-6 >= required
+
+
+    def _aps_lot_free_rows(self):
+        """Available lot quantities in the component destination warehouse.
+
+        Lots actively reserved by another APS component are excluded entirely.
+        This intentionally makes a lot exclusive to one APS demand.
+        """
+        self.ensure_one()
+        if not self.product_id or self.product_id.tracking == 'none':
+            return []
+
+        warehouse = (
+            self.planning_line_id.target_warehouse_id
+            or self.plan_id.warehouse_ids[:1]
+        )
+        if not warehouse:
+            return []
+
+        locations = self.env['stock.location'].sudo().search([
+            ('id', 'child_of', warehouse.view_location_id.id),
+            ('usage', '=', 'internal'),
+            ('company_id', 'in', [False, self.plan_id.company_id.id]),
+        ])
+        quants = self.env['stock.quant'].sudo().search([
+            ('product_id', '=', self.product_id.id),
+            ('lot_id', '!=', False),
+            ('location_id', 'in', locations.ids),
+            ('quantity', '>', 0),
+        ])
+
+        reserved_elsewhere = set(
+            self.env['mrp.planning.component.lot.reservation'].sudo().search([
+                ('component_id', '!=', self.id),
+                ('state', 'in', ('reserved', 'assigned')),
+                ('lot_id', 'in', quants.mapped('lot_id').ids),
+            ]).mapped('lot_id').ids
+        )
+
+        free_by_lot = {}
+        for quant in quants:
+            lot = quant.lot_id
+            if lot.id in reserved_elsewhere:
+                continue
+            free = max(
+                (quant.quantity or 0.0)
+                - (getattr(quant, 'reserved_quantity', 0.0) or 0.0),
+                0.0,
+            )
+            if free <= 1e-6:
+                continue
+            free_by_lot[lot.id] = free_by_lot.get(lot.id, 0.0) + free
+
+        lots = self.env['stock.lot'].browse(list(free_by_lot))
+        def lot_order(lot):
+            removal = (
+                getattr(lot, 'removal_date', False)
+                or getattr(lot, 'expiration_date', False)
+                or fields.Datetime.to_datetime('9999-12-31 00:00:00')
+            )
+            return (removal, lot.name or '', lot.id)
+
+        return [
+            (lot, free_by_lot[lot.id], warehouse)
+            for lot in sorted(lots, key=lot_order)
+        ]
+
+    def _aps_sync_default_lot_reservations(self):
+        Reservation = self.env[
+            'mrp.planning.component.lot.reservation'
+        ].sudo()
+        for component in self:
+            if (
+                component.engineering_locked
+                or not component.include_in_mo
+                or not component.product_id
+                or component.product_id.tracking == 'none'
+            ):
+                continue
+
+            active = component.lot_reservation_ids.filtered(
+                lambda reservation:
+                    reservation.state in ('reserved', 'assigned')
+            )
+            target_qty = max(
+                component.effective_required_qty or component.planned_qty,
+                0.0,
+            )
+            current_qty = sum(active.mapped('reserved_qty'))
+            missing = max(target_qty - current_qty, 0.0)
+            if missing <= 1e-6:
+                continue
+
+            existing_lots = set(active.mapped('lot_id').ids)
+            for lot, free_qty, warehouse in component._aps_lot_free_rows():
+                if lot.id in existing_lots or missing <= 1e-6:
+                    continue
+                qty = min(free_qty, missing)
+                Reservation.create({
+                    'plan_id': component.plan_id.id,
+                    'planning_line_id': component.planning_line_id.id,
+                    'component_id': component.id,
+                    'warehouse_id': warehouse.id,
+                    'lot_id': lot.id,
+                    'reserved_qty': qty,
+                })
+                existing_lots.add(lot.id)
+                missing -= qty
+        return True
+
+    def action_open_lot_reservations(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Lotes reservados - %s') % self.product_id.display_name,
+            'res_model': 'mrp.planning.component.lot.reservation',
+            'view_mode': 'list,form',
+            'views': [(False, 'list'), (False, 'form')],
+            'domain': [('component_id', '=', self.id)],
+            'context': {
+                'default_plan_id': self.plan_id.id,
+                'default_planning_line_id': self.planning_line_id.id,
+                'default_component_id': self.id,
+                'default_warehouse_id': (
+                    self.planning_line_id.target_warehouse_id.id
+                    or self.plan_id.warehouse_ids[:1].id
+                ),
+            },
+            'target': 'new',
+        }
+
+    def action_complete_lot_reservations(self):
+        for component in self:
+            self.env[
+                'mrp.planning.component.lot.reservation'
+            ].sudo()._aps_auto_complete_pending_for_products(
+                component.product_id,
+                warehouse=(
+                    component.planning_line_id.target_warehouse_id
+                    or component.plan_id.warehouse_ids[:1]
+                ),
+            )
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('Reserva de lotes actualizada'),
+                'message': _(
+                    'APS volvió a buscar lotes físicos disponibles para '
+                    'completar las reservas pendientes.'
+                ),
+                'type': 'success',
+                'sticky': False,
+            },
+        }
+
 
     @api.depends(
         'generated_production_id',
