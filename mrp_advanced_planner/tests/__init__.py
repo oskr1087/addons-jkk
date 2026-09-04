@@ -70,3 +70,9 @@ from . import test_v82_3_qr_payload_count
 from . import test_v83_security_profiles
 
 from . import test_v83_2_qr_pda_format
+
+from . import test_v84_1_delivery_menu
+
+from . import test_v84_2_delivery_view_fields
+
+from . import test_v84_3_searchable_plan_count

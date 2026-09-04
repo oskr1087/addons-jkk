@@ -47,6 +47,7 @@ class SaleOrderLine(models.Model):
         string='Planificaciones APS',
         compute='_compute_aps_traceability',
         compute_sudo=True,
+        search='_search_aps_plan_count',
     )
     aps_mo_count = fields.Integer(
         string='OF APS',
@@ -141,6 +142,69 @@ class SaleOrderLine(models.Model):
             )
         return result
 
+
+    @api.model
+    def _search_aps_plan_count(self, operator, value):
+        """Buscar líneas de venta según si ya fueron tomadas por APS.
+
+        ``aps_plan_count`` es calculado porque la trazabilidad puede provenir
+        tanto de la relación M2M histórica como de ``sale_line_id`` en las
+        líneas del plan. Para los filtros operativos de agenda sólo necesitamos
+        distinguir 0 vs. uno-o-más planes, sin almacenar un contador duplicado.
+        """
+        try:
+            numeric_value = float(value or 0)
+        except (TypeError, ValueError):
+            numeric_value = 0.0
+
+        PlanLine = self.env['mrp.planning.plan.line'].sudo()
+        direct_sale_ids = PlanLine.search([
+            ('sale_line_id', '!=', False),
+        ]).mapped('sale_line_id').ids
+
+        planned_domain = [
+            '|',
+            ('aps_planning_line_ids', '!=', False),
+            ('id', 'in', direct_sale_ids),
+        ]
+
+        # Los filtros de la agenda usan exactamente = 0 y > 0.
+        if operator == '=' and numeric_value == 0:
+            planned_ids = self.sudo().search(planned_domain).ids
+            return [('id', 'not in', planned_ids)]
+
+        if operator in ('>', '>=') and numeric_value <= 0:
+            return planned_domain
+
+        if operator == '!=' and numeric_value == 0:
+            return planned_domain
+
+        if operator in ('<', '<=') and numeric_value <= 0:
+            # El contador nunca es negativo; < 0 no tiene resultados,
+            # <= 0 equivale a no planificado.
+            if operator == '<':
+                return [('id', '=', 0)]
+            planned_ids = self.sudo().search(planned_domain).ids
+            return [('id', 'not in', planned_ids)]
+
+        # Para búsquedas numéricas no binarias, calcular sobre candidatos.
+        # Es menos frecuente pero hace al campo correctamente searchable.
+        candidate_ids = self.sudo().search([]).ids
+        matching_ids = []
+        for line in self.sudo().browse(candidate_ids):
+            line._compute_aps_traceability()
+            count = line.aps_plan_count
+            ok = {
+                '=': count == numeric_value,
+                '!=': count != numeric_value,
+                '>': count > numeric_value,
+                '>=': count >= numeric_value,
+                '<': count < numeric_value,
+                '<=': count <= numeric_value,
+            }.get(operator, False)
+            if ok:
+                matching_ids.append(line.id)
+        return [('id', 'in', matching_ids)]
 
     @api.depends(
         'aps_planning_line_ids',
