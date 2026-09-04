@@ -19,37 +19,44 @@ class SaleOrderLine(models.Model):
         'mrp.planning.plan',
         string='Planificaciones APS',
         compute='_compute_aps_traceability',
+        compute_sudo=True,
         readonly=True,
     )
     aps_production_ids = fields.Many2many(
         'mrp.production',
         string='Órdenes de fabricación APS',
         compute='_compute_aps_traceability',
+        compute_sudo=True,
         readonly=True,
     )
     aps_purchase_order_ids = fields.Many2many(
         'purchase.order',
         string='Órdenes de compra APS',
         compute='_compute_aps_traceability',
+        compute_sudo=True,
         readonly=True,
     )
     aps_picking_ids = fields.Many2many(
         'stock.picking',
         string='Transferencias APS',
         compute='_compute_aps_traceability',
+        compute_sudo=True,
         readonly=True,
     )
     aps_plan_count = fields.Integer(
         string='Planificaciones APS',
         compute='_compute_aps_traceability',
+        compute_sudo=True,
     )
     aps_mo_count = fields.Integer(
         string='OF APS',
         compute='_compute_aps_traceability',
+        compute_sudo=True,
     )
     aps_po_count = fields.Integer(
         string='PO APS',
         compute='_compute_aps_traceability',
+        compute_sudo=True,
     )
 
 
@@ -143,9 +150,9 @@ class SaleOrderLine(models.Model):
         'aps_planning_line_ids.created_picking_ids',
     )
     def _compute_aps_traceability(self):
-        PlanLine = self.env['mrp.planning.plan.line']
+        PlanLine = self.env['mrp.planning.plan.line'].sudo()
         for line in self:
-            planning_lines = line.aps_planning_line_ids | PlanLine.search([
+            planning_lines = line.aps_planning_line_ids.sudo() | PlanLine.search([
                 ('sale_line_id', '=', line.id),
             ])
             line.aps_plan_ids = planning_lines.mapped('plan_id')

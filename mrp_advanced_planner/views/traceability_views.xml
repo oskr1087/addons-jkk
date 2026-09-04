@@ -12,6 +12,7 @@
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button name="action_open_aps_plans"
                         type="object"
+                        groups="mrp_advanced_planner.group_planner_manufacturing_user,mrp_advanced_planner.group_planner_purchase_user"
                         class="oe_stat_button"
                         icon="fa-sitemap"
                         invisible="aps_plan_count == 0">
@@ -19,6 +20,7 @@
                 </button>
                 <button name="action_open_aps_productions"
                         type="object"
+                        groups="mrp.group_mrp_user"
                         class="oe_stat_button"
                         icon="fa-industry"
                         invisible="aps_mo_count == 0">
@@ -26,6 +28,7 @@
                 </button>
                 <button name="action_open_aps_purchases"
                         type="object"
+                        groups="purchase.group_purchase_user"
                         class="oe_stat_button"
                         icon="fa-shopping-cart"
                         invisible="aps_po_count == 0">
@@ -33,6 +36,7 @@
                 </button>
                 <button name="action_open_aps_pickings"
                         type="object"
+                        groups="stock.group_stock_user"
                         class="oe_stat_button"
                         icon="fa-exchange"
                         invisible="aps_picking_count == 0">
@@ -42,21 +46,25 @@
 
             <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="after">
                 <field name="aps_plan_ids"
+                       groups="mrp_advanced_planner.group_planner_manufacturing_user,mrp_advanced_planner.group_planner_purchase_user"
                        string="Planificaciones APS"
                        widget="many2many_tags"
                        optional="hide"
                        readonly="1"/>
                 <field name="aps_production_ids"
+                       groups="mrp.group_mrp_user"
                        string="OF APS"
                        widget="many2many_tags"
                        optional="hide"
                        readonly="1"/>
                 <field name="aps_purchase_order_ids"
+                       groups="purchase.group_purchase_user"
                        string="PO APS"
                        widget="many2many_tags"
                        optional="hide"
                        readonly="1"/>
                 <field name="aps_picking_ids"
+                       groups="stock.group_stock_user"
                        string="Traslados APS"
                        widget="many2many_tags"
                        optional="hide"
@@ -65,18 +73,22 @@
 
             <xpath expr="//field[@name='order_line']/form//field[@name='product_id']" position="after">
                 <field name="aps_plan_ids"
+                       groups="mrp_advanced_planner.group_planner_manufacturing_user,mrp_advanced_planner.group_planner_purchase_user"
                        string="Planificaciones APS"
                        widget="many2many_tags"
                        readonly="1"/>
                 <field name="aps_production_ids"
+                       groups="mrp.group_mrp_user"
                        string="OF APS"
                        widget="many2many_tags"
                        readonly="1"/>
                 <field name="aps_purchase_order_ids"
+                       groups="purchase.group_purchase_user"
                        string="PO APS"
                        widget="many2many_tags"
                        readonly="1"/>
                 <field name="aps_picking_ids"
+                       groups="stock.group_stock_user"
                        string="Traslados APS"
                        widget="many2many_tags"
                        readonly="1"/>
@@ -95,6 +107,7 @@
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button name="action_open_planning_sale_orders"
                         type="object"
+                        groups="sales_team.group_sale_salesman"
                         class="oe_stat_button"
                         icon="fa-file-text-o"
                         invisible="planning_sale_order_count == 0">
@@ -118,6 +131,7 @@
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button name="action_open_planning_sale_orders"
                         type="object"
+                        groups="sales_team.group_sale_salesman"
                         class="oe_stat_button"
                         icon="fa-file-text-o"
                         invisible="planning_sale_order_count == 0">
@@ -129,19 +143,23 @@
 
             <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="after">
                 <field name="planning_plan_id"
+                       groups="mrp_advanced_planner.group_planner_purchase_user"
                        string="Planificación APS"
                        optional="hide"
                        readonly="1"/>
                 <field name="source_manufacturing_plan_id"
+                       groups="mrp_advanced_planner.group_planner_purchase_user"
                        string="Plan fabricación origen"
                        optional="hide"
                        readonly="1"/>
                 <field name="planning_sale_order_ids"
+                       groups="sales_team.group_sale_salesman"
                        string="Pedidos venta origen"
                        widget="many2many_tags"
                        optional="hide"
                        readonly="1"/>
                 <field name="planning_sale_line_ids"
+                       groups="sales_team.group_sale_salesman"
                        string="Líneas venta origen"
                        widget="many2many_tags"
                        optional="hide"
@@ -151,6 +169,7 @@
             <xpath expr="//notebook" position="inside">
                 <page string="Trazabilidad APS"
                       name="aps_traceability"
+                      groups="mrp_advanced_planner.group_planner_purchase_user"
                       invisible="not advanced_plan_id and not planning_plan_line_ids">
                     <group>
                         <group>
@@ -168,10 +187,12 @@
                         </group>
                         <group>
                             <field name="planning_sale_order_ids"
+                                   groups="sales_team.group_sale_salesman"
                                    string="Pedidos de venta origen"
                                    widget="many2many_tags"
                                    readonly="1"/>
                             <field name="planning_sale_line_ids"
+                                   groups="sales_team.group_sale_salesman"
                                    string="Líneas de venta origen"
                                    widget="many2many_tags"
                                    readonly="1"/>
@@ -193,6 +214,7 @@
             <xpath expr="//notebook" position="inside">
                 <page string="Trazabilidad APS"
                       name="aps_traceability"
+                      groups="mrp_advanced_planner.group_planner_manufacturing_user,mrp_advanced_planner.group_planner_purchase_user"
                       invisible="not advanced_plan_id and not planning_plan_line_ids">
                     <group>
                         <group>
@@ -206,10 +228,12 @@
                         </group>
                         <group>
                             <field name="planning_sale_order_ids"
+                                   groups="sales_team.group_sale_salesman"
                                    string="Pedidos de venta origen"
                                    widget="many2many_tags"
                                    readonly="1"/>
                             <field name="planning_sale_line_ids"
+                                   groups="sales_team.group_sale_salesman"
                                    string="Líneas de venta origen"
                                    widget="many2many_tags"
                                    readonly="1"/>

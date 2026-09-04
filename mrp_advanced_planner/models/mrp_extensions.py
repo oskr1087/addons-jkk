@@ -39,13 +39,14 @@ class MrpProduction(models.Model):
     planning_sale_order_count = fields.Integer(
         string='Ventas origen',
         compute='_compute_planning_sale_order_count',
+        compute_sudo=True,
     )
 
     @api.depends('planning_plan_line_id.sale_line_ids.order_id')
     def _compute_planning_sale_order_count(self):
         for production in self:
             production.planning_sale_order_count = len(
-                production.planning_sale_order_ids
+                production.sudo().planning_sale_order_ids
             )
 
     def action_open_planning_sale_orders(self):
@@ -357,18 +358,21 @@ class PurchaseOrder(models.Model):
         'mrp.planning.plan.line',
         string='Líneas de planificación',
         compute='_compute_aps_traceability',
+        compute_sudo=True,
         readonly=True,
     )
     planning_sale_line_ids = fields.Many2many(
         'sale.order.line',
         string='Líneas de venta origen',
         compute='_compute_aps_traceability',
+        compute_sudo=True,
         readonly=True,
     )
     planning_sale_order_ids = fields.Many2many(
         'sale.order',
         string='Pedidos de venta origen',
         compute='_compute_aps_traceability',
+        compute_sudo=True,
         readonly=True,
     )
     mrp_production_id = fields.Many2one(
@@ -381,6 +385,7 @@ class PurchaseOrder(models.Model):
     planning_sale_order_count = fields.Integer(
         string='Ventas origen',
         compute='_compute_aps_traceability',
+        compute_sudo=True,
     )
     source_manufacturing_plan_id = fields.Many2one(
         related='advanced_plan_id.source_manufacturing_plan_id',
@@ -394,7 +399,7 @@ class PurchaseOrder(models.Model):
     )
     def _compute_aps_traceability(self):
         for order in self:
-            plan_lines = order.order_line.mapped('planning_plan_line_id')
+            plan_lines = order.sudo().order_line.mapped('planning_plan_line_id')
             order.planning_plan_line_ids = plan_lines
             order.planning_sale_line_ids = plan_lines.mapped('sale_line_ids')
             order.planning_sale_order_ids = plan_lines.mapped(
@@ -478,18 +483,21 @@ class StockPicking(models.Model):
         'mrp.planning.plan.line',
         string='Líneas de planificación',
         compute='_compute_aps_traceability',
+        compute_sudo=True,
         readonly=True,
     )
     planning_sale_line_ids = fields.Many2many(
         'sale.order.line',
         string='Líneas de venta origen',
         compute='_compute_aps_traceability',
+        compute_sudo=True,
         readonly=True,
     )
     planning_sale_order_ids = fields.Many2many(
         'sale.order',
         string='Pedidos de venta origen',
         compute='_compute_aps_traceability',
+        compute_sudo=True,
         readonly=True,
     )
 
@@ -499,7 +507,7 @@ class StockPicking(models.Model):
     )
     def _compute_aps_traceability(self):
         for picking in self:
-            plan_lines = picking.move_ids.mapped('planning_plan_line_id')
+            plan_lines = picking.sudo().move_ids.mapped('planning_plan_line_id')
             picking.planning_plan_line_ids = plan_lines
             picking.planning_sale_line_ids = plan_lines.mapped('sale_line_ids')
             picking.planning_sale_order_ids = plan_lines.mapped(

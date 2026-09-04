@@ -4,7 +4,8 @@
     <record id="group_planner_user" model="res.groups">
         <field name="name">Planificación - Acceso base</field>
         <field name="sequence">5</field>
-        <field name="implied_ids" eval="[(4, ref('stock.group_stock_user'))]"/>
+        <!-- Grupo técnico APS: no concede permisos funcionales de Inventario,
+             Ventas, Compras, Contabilidad ni Manufactura por sí mismo. -->
     </record>
 
     <!-- Odoo 19: los derechos funcionales se muestran mediante res.groups.privilege. -->
@@ -129,6 +130,36 @@
         <field name="model_id" ref="model_mrp_planning_external_warehouse_move"/>
         <field name="domain_force">[('plan_id.plan_type', '=', 'purchase')]</field>
         <field name="groups" eval="[(4, ref('group_planner_purchase_user'))]"/>
+    </record>
+
+    <!-- Seguridad multi-compañía para modelos APS usados desde trazabilidad.
+         Estas reglas nunca amplían permisos de módulos estándar. -->
+    <record id="rule_planning_line_company" model="ir.rule">
+        <field name="name">Líneas APS: compañía permitida</field>
+        <field name="model_id" ref="model_mrp_planning_plan_line"/>
+        <field name="domain_force">[('plan_id.company_id', 'in', company_ids)]</field>
+        <field name="global" eval="True"/>
+    </record>
+
+    <record id="rule_planning_line_warehouse_company" model="ir.rule">
+        <field name="name">Detalle almacén APS: compañía permitida</field>
+        <field name="model_id" ref="model_mrp_planning_plan_line_warehouse"/>
+        <field name="domain_force">[('plan_id.company_id', 'in', company_ids)]</field>
+        <field name="global" eval="True"/>
+    </record>
+
+    <record id="rule_planning_component_company" model="ir.rule">
+        <field name="name">Componentes APS: compañía permitida</field>
+        <field name="model_id" ref="model_mrp_planning_production_component"/>
+        <field name="domain_force">[('plan_id.company_id', 'in', company_ids)]</field>
+        <field name="global" eval="True"/>
+    </record>
+
+    <record id="rule_planning_lot_reservation_company" model="ir.rule">
+        <field name="name">Reservas de lotes APS: compañía permitida</field>
+        <field name="model_id" ref="model_mrp_planning_component_lot_reservation"/>
+        <field name="domain_force">[('plan_id.company_id', 'in', company_ids)]</field>
+        <field name="global" eval="True"/>
     </record>
 
 </odoo>
