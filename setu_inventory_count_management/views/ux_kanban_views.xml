@@ -70,6 +70,7 @@
                                         string="Crear sesión"
                                         icon="fa-plus"
                                         class="btn btn-primary btn-sm"
+                                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
                                         invisible="not create_session_bool"/>
                             </div>
                         </div>

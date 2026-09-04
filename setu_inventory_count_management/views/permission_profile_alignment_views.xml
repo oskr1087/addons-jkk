@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="inventory_count_session_permission_alignment" model="ir.ui.view">
+        <field name="name">setu.inventory.count.session.permission.alignment</field>
+        <field name="model">setu.inventory.count.session</field>
+        <field name="inherit_id" ref="setu_inventory_count_management.inventory_count_session_form_view"/>
+        <field name="priority">300</field>
+        <field name="arch" type="xml">
+            <!-- El operador ejecuta; el controlador administra. -->
+            <xpath expr="//button[@name='cancel_session']" position="attributes">
+                <attribute name="groups">setu_inventory_count_management.group_setu_inventory_count_manager</attribute>
+            </xpath>
+            <xpath expr="//button[@name='create_re_session']" position="attributes">
+                <attribute name="groups">setu_inventory_count_management.group_setu_inventory_count_manager</attribute>
+            </xpath>
+            <xpath expr="//button[@name='validate_session']" position="attributes">
+                <attribute name="groups">setu_inventory_count_management.group_setu_inventory_count_manager</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>

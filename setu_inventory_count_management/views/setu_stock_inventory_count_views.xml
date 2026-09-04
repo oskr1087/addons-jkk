@@ -5,7 +5,7 @@
             <field name="name">setu_stock_inventory_count.form</field>
             <field name="model">setu.stock.inventory.count</field>
             <field name="arch" type="xml">
-                <form string="Conteo de inventario">
+                <form string="Conteo de inventario" create="0">
                     <header>
                         <field name="state" widget="statusbar" statusbar_visible="Draft,In Progress,To Be Approved,Approved,Inventory Adjusted"/>
                         <field name="start_inventory_bool" invisible="1"/>
@@ -37,9 +37,7 @@
                             <button name="action_open_counts" type="object" class="oe_stat_button" groups="setu_inventory_count_management.group_setu_inventory_count_manager" icon="fa-rotate-left" invisible="re_count_ids == 0">
                                 <field name="re_count_ids" widget="statinfo" string="Reconteo"/>
                             </button>
-                            <button name="action_open_parent_count" type="object"
-                                    class="oe_stat_button" icon="fa-level-up"
-                                    invisible="not count_id">
+                            <button name="action_open_parent_count" type="object" class="oe_stat_button" icon="fa-level-up" invisible="not count_id">
                                 <span class="o_stat_text">Conteo origen</span>
                             </button>
                             <button name="action_open_inventory_adj" type="object" string="Ajuste de inventario" groups="setu_inventory_count_management.group_setu_inventory_count_manager" class="oe_stat_button" icon="fa-exchange" invisible="not inventory_adj_ids">
@@ -212,7 +210,7 @@
         </record>
 
         <record id="setu_stock_inventory_count_act_window" model="ir.actions.act_window">
-            <field name="name">Conteos de inventario</field>
+                        <field name="name">Conteos de inventario</field>
             <field name="type">ir.actions.act_window</field>
             <field name="res_model">setu.stock.inventory.count</field>
             <field name="view_mode">list,form</field>
@@ -225,7 +223,7 @@
         </record>
 
         <record id="new_inventory_count_act_window" model="ir.actions.act_window">
-            <field name="name">Conteos de inventario</field>
+                        <field name="name">Conteos de inventario</field>
             <field name="type">ir.actions.act_window</field>
             <field name="res_model">setu.stock.inventory.count</field>
             <field name="view_mode">list,form</field>
@@ -237,9 +235,9 @@
             </field>
         </record>
 
-        <menuitem name="Conteos de inventario" id="setu_inventory_count_root" web_icon="setu_inventory_count_management,static/description/icon.png"/>
+        <menuitem name="Conteos de inventario" id="setu_inventory_count_root" web_icon="setu_inventory_count_management,static/description/icon.png" groups="setu_inventory_count_management.group_setu_inventory_count_user"/>
 
-        <menuitem name="Operaciones" id="main_documents_menu" parent="setu_inventory_count_management.setu_inventory_count_root"/>
+        <menuitem name="Operaciones" id="main_documents_menu" parent="setu_inventory_count_management.setu_inventory_count_root" groups="setu_inventory_count_management.group_setu_inventory_count_user"/>
 
         <menuitem name="Conteos" id="setu_stock_inventory_count_menu" parent="setu_inventory_count_management.main_documents_menu" action="setu_stock_inventory_count_act_window" groups="setu_inventory_count_management.group_setu_inventory_count_manager" sequence="0"/>
     </data>

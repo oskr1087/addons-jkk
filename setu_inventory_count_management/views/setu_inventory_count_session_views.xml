@@ -87,7 +87,8 @@
                                 <field name="_barcode_scanned" widget="barcode_handler"/>
 
                                 <field name="inventory_count_id" readonly="1" groups="setu_inventory_count_management.group_setu_inventory_count_manager"/>
-                                <field name="user_ids" widget="many2many_tags" readonly="state != 'Draft'"/>
+                                <field name="user_ids" widget="many2many_tags" readonly="1" groups="setu_inventory_count_management.group_setu_inventory_count_user,!setu_inventory_count_management.group_setu_inventory_count_manager"/>
+                                <field name="user_ids" widget="many2many_tags" readonly="state != 'Draft'" groups="setu_inventory_count_management.group_setu_inventory_count_manager"/>
                                 <field name="location_id" readonly="1" options="{'no_create': True, 'no_open':True}"/>
                                 <field name="warehouse_id" readonly="1" options="{'no_create': True, 'no_open':True}"/>
                                 <field name="company_id" invisible="1"/>
@@ -101,13 +102,14 @@
                                 <field name="total_scanned_products" readonly="1"/>
                                 <field name="is_multi_session" invisible="1"/>
                                 <field name="to_be_scanned" readonly="1"/>
-                                <field name="type"/>
+                                <field name="type" readonly="1" groups="setu_inventory_count_management.group_setu_inventory_count_user,!setu_inventory_count_management.group_setu_inventory_count_manager"/>
+                                <field name="type" groups="setu_inventory_count_management.group_setu_inventory_count_manager"/>
                             </group>
                         </group>
                         <notebook>
                             <page string="Líneas de sesión">
                                 <field name="session_line_ids" force_save="1" nolabel="1" readonly="current_state not in ['Start', 'Resume']">
-                                    <list decoration-muted="state=='Reject'" decoration-danger="is_system_generated" delete="true" editable="bottom" decoration-primary="state=='Pending Review'">
+                                    <list decoration-muted="state=='Reject'" decoration-danger="is_system_generated" delete="false" editable="bottom" decoration-primary="state=='Pending Review'">
                                         <field name="date_of_scanning" column_invisible="True"/>
                                         <field name="user_ids" widget="many2many_tags" readonly="1" column_invisible="1"/>
                                         <field name="product_id" required="True" force_save="1" domain="[('is_storable', '=', True)]" options="{'no_create': True, 'no_open':True}" readonly="parent.use_barcode_scanner"/>
@@ -223,8 +225,7 @@
                             <field name="mobile_instruction" nolabel="1" readonly="1"/>
                         </div>
 
-                        <div class="alert alert-warning"
-                             invisible="current_state not in ['Start', 'Resume'] or current_scanning_location_id">
+                        <div class="alert alert-warning" invisible="current_state not in ['Start', 'Resume'] or current_scanning_location_id" role="status">
                             <strong>Paso 1 · Escanee una ubicación</strong>
                             <div>
                                 Antes de contar un lote o producto, lea el QR/código de barras
@@ -474,7 +475,7 @@
         </record>
 
         <record id="inventory_count_session_act_window" model="ir.actions.act_window">
-            <field name="name">Sesiones</field>
+                        <field name="name">Sesiones</field>
             <field name="type">ir.actions.act_window</field>
             <field name="res_model">setu.inventory.count.session</field>
             <field name="domain">[('inventory_count_id.count_id', '=', False)]</field>
@@ -487,7 +488,7 @@
         </record>
 
         <record id="inventory_count_session_kanban_act_window" model="ir.actions.act_window">
-            <field name="name">Sesiones</field>
+                        <field name="name">Sesiones</field>
             <field name="type">ir.actions.act_window</field>
             <field name="res_model">setu.inventory.count.session</field>
             <field name="domain">[('inventory_count_id.count_id', '=', False)]</field>
@@ -500,7 +501,7 @@
         </record>
 
 
-        <menuitem name="Sesiones" id="inventory_count_session_menu" parent="setu_inventory_count_management.main_documents_menu" action="inventory_count_session_act_window" sequence="10"/>
+        <menuitem name="Sesiones" id="inventory_count_session_menu" parent="setu_inventory_count_management.main_documents_menu" action="inventory_count_session_act_window" groups="setu_inventory_count_management.group_setu_inventory_count_user" sequence="10"/>
 
         <!--        <record id="readonly_attribute_setu_inventory_session_manager" model="ir.ui.view">-->
         <!--            <field name="name">readonly_attribute_setu_inventory_session_manager</field>-->

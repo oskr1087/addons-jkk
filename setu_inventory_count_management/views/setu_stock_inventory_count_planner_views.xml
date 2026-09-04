@@ -84,7 +84,7 @@
 
 
         <record id="setu_stock_inventory_count_planner_act_window" model="ir.actions.act_window">
-            <field name="name">Inventory Count Planners</field>
+                        <field name="name">Inventory Count Planners</field>
             <field name="type">ir.actions.act_window</field>
             <field name="res_model">setu.stock.inventory.count.planner</field>
             <field name="view_mode">list,form</field>
@@ -98,7 +98,7 @@
             </field>
         </record>
 
-        <menuitem name="Configuration" id="main_configuration_menu" parent="setu_inventory_count_management.setu_inventory_count_root" sequence="1000"/>
+        <menuitem name="Configuration" id="main_configuration_menu" parent="setu_inventory_count_management.setu_inventory_count_root" groups="setu_inventory_count_management.group_setu_inventory_count_manager" sequence="1000"/>
 
 
         <menuitem name="Inventory Count Planners" id="setu_stock_inventory_count_planner_menu" parent="setu_inventory_count_management.main_configuration_menu" action="setu_stock_inventory_count_planner_act_window" groups="setu_inventory_count_management.group_setu_inventory_count_manager" sequence="2"/>

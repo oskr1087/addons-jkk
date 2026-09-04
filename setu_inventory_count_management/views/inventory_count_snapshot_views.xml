@@ -1,14 +1,10 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <odoo>
     <record id="setu_inventory_count_snapshot_line_list" model="ir.ui.view">
         <field name="name">setu.inventory.count.snapshot.line.list</field>
         <field name="model">setu.inventory.count.snapshot.line</field>
         <field name="arch" type="xml">
-            <list string="Detalle del conteo" create="0" delete="0"
-                  decoration-success="status == 'matched'"
-                  decoration-danger="status in ('difference', 'unexpected')"
-                  decoration-warning="status in ('zero', 'duplicate')"
-                  decoration-muted="status == 'pending'">
+            <list string="Detalle del conteo" create="0" delete="0" decoration-success="status == 'matched'" decoration-danger="status in ('difference', 'unexpected')" decoration-warning="status in ('zero', 'duplicate')" decoration-muted="status == 'pending'">
                 <field name="currency_id" column_invisible="True"/>
                 <field name="product_id"/>
                 <field name="lot_id"/>
@@ -17,15 +13,9 @@
                 <field name="counted_qty" sum="Contado"/>
                 <field name="difference_display"/>
                 <field name="unit_cost" widget="monetary" optional="hide"/>
-                <field name="impact_value" widget="monetary" optional="show"
-                       decoration-danger="impact_value &lt; 0"
-                       decoration-success="impact_value &gt; 0"/>
+                <field name="impact_value" widget="monetary" optional="show" decoration-danger="impact_value &lt; 0" decoration-success="impact_value &gt; 0"/>
                 <field name="high_impact" optional="show"/>
-                <field name="status" widget="badge"
-       decoration-success="status == 'matched'"
-       decoration-danger="status in ('difference', 'unexpected')"
-       decoration-warning="status in ('zero', 'duplicate')"
-       decoration-muted="status == 'pending'"/>
+                <field name="status" widget="badge" decoration-success="status == 'matched'" decoration-danger="status in ('difference', 'unexpected')" decoration-warning="status in ('zero', 'duplicate')" decoration-muted="status == 'pending'"/>
                 <field name="scan_count"/>
                 <field name="last_session_id" optional="show"/>
                 <field name="last_user_id" optional="show"/>
@@ -93,53 +83,12 @@
             </xpath>
 
             <xpath expr="//header/button[@name='complete_counting']" position="before">
-                <button name="action_mark_pending_as_zero"
-                        type="object"
-                        string="Pendientes = 0"
-                        icon="fa-ban"
-                        class="btn-secondary"
-                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
-                        invisible="state != 'In Progress' or pending_item_count == 0"
-                        confirm="Los productos/lotes pendientes se considerarán NO ENCONTRADOS y su cantidad física será 0. ¿Desea continuar?"/>
-                <button name="action_accept_and_approve"
-                        type="object"
-                        string="Aceptar diferencias y aprobar"
-                        icon="fa-check"
-                        class="btn-secondary"
-                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
-                        invisible="state != 'To Be Approved' or adjustment_candidate_count == 0"
-                        confirm="Se aceptarán todas las diferencias pendientes, se aprobará el conteo y se generará el ajuste automáticamente. ¿Desea continuar?"/>
-                <button name="action_approve_without_differences"
-                        type="object"
-                        string="Aprobar y generar ajuste"
-                        icon="fa-check"
-                        class="btn-primary"
-                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
-                        invisible="state != 'To Be Approved' or adjustment_candidate_count != 0 or count_id"
-                        confirm="El conteo no tiene diferencias pendientes. Se aprobará y se generará el ajuste automáticamente. ¿Desea continuar?"/>
-                <button name="action_approve_recount"
-                        type="object"
-                        string="Aprobar reconteo"
-                        icon="fa-check"
-                        class="btn-primary"
-                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
-                        invisible="state != 'To Be Approved' or not count_id"
-                        confirm="Se aprobará el reconteo y sus resultados se consolidarán en el conteo principal. ¿Desea continuar?"/>
-                <button name="action_prepare_directed_recount"
-                        type="object"
-                        string="Recontar diferencias"
-                        icon="fa-refresh"
-                        class="btn-secondary"
-                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
-                        invisible="state != 'To Be Approved' or adjustment_candidate_count == 0 or count_id"
-                        confirm="Se enviarán las diferencias al flujo de reconteo. ¿Desea continuar?"/>
-                <button name="action_open_financial_adjustment_preview"
-                        type="object"
-                        string="Vista previa del ajuste"
-                        icon="fa-search"
-                        class="btn-secondary"
-                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
-                        invisible="state != 'To Be Approved' or adjustment_candidate_count == 0"/>
+                <button name="action_mark_pending_as_zero" type="object" string="Pendientes = 0" icon="fa-ban" class="btn-secondary" groups="setu_inventory_count_management.group_setu_inventory_count_manager" invisible="state != 'In Progress' or pending_item_count == 0" confirm="Los productos/lotes pendientes se considerarán NO ENCONTRADOS y su cantidad física será 0. ¿Desea continuar?"/>
+                <button name="action_accept_and_approve" type="object" string="Aceptar diferencias y aprobar" icon="fa-check" class="btn-secondary" groups="setu_inventory_count_management.group_setu_inventory_count_manager" invisible="state != 'To Be Approved' or adjustment_candidate_count == 0" confirm="Se aceptarán todas las diferencias pendientes, se aprobará el conteo y se generará el ajuste automáticamente. ¿Desea continuar?"/>
+                <button name="action_approve_without_differences" type="object" string="Aprobar y generar ajuste" icon="fa-check" class="btn-primary" groups="setu_inventory_count_management.group_setu_inventory_count_manager" invisible="state != 'To Be Approved' or adjustment_candidate_count != 0 or count_id" confirm="El conteo no tiene diferencias pendientes. Se aprobará y se generará el ajuste automáticamente. ¿Desea continuar?"/>
+                <button name="action_approve_recount" type="object" string="Aprobar reconteo" icon="fa-check" class="btn-primary" groups="setu_inventory_count_management.group_setu_inventory_count_manager" invisible="state != 'To Be Approved' or not count_id" confirm="Se aprobará el reconteo y sus resultados se consolidarán en el conteo principal. ¿Desea continuar?"/>
+                <button name="action_prepare_directed_recount" type="object" string="Recontar diferencias" icon="fa-refresh" class="btn-secondary" groups="setu_inventory_count_management.group_setu_inventory_count_manager" invisible="state != 'To Be Approved' or adjustment_candidate_count == 0 or count_id" confirm="Se enviarán las diferencias al flujo de reconteo. ¿Desea continuar?"/>
+                <button name="action_open_financial_adjustment_preview" type="object" string="Vista previa del ajuste" icon="fa-search" class="btn-secondary" groups="setu_inventory_count_management.group_setu_inventory_count_manager" invisible="state != 'To Be Approved' or adjustment_candidate_count == 0"/>
             </xpath>
 
             <xpath expr="//sheet/notebook" position="before">
@@ -149,15 +98,9 @@
                             <span class="o_setu_count_eyebrow">CONTROL DEL CONTEO</span>
                             <h2>Avance físico del inventario</h2>
                         </div>
-                        <div class="d-flex justify-content-end gap-2 mb-2"
-                             groups="setu_inventory_count_management.group_setu_inventory_count_admin"
-                             invisible="state not in ['In Progress', 'To Be Approved']">
-                            <button name="action_admin_unlock_warehouse" type="object"
-                                    string="Desbloquear almacén" class="btn btn-outline-danger"
-                                    icon="fa-unlock" invisible="not warehouse_lock_active"/>
-                            <button name="action_admin_lock_warehouse" type="object"
-                                    string="Bloquear almacén" class="btn btn-outline-success"
-                                    icon="fa-lock" invisible="warehouse_lock_active"/>
+                        <div class="d-flex justify-content-end gap-2 mb-2" groups="setu_inventory_count_management.group_setu_inventory_count_admin" invisible="state not in ['In Progress', 'To Be Approved']">
+                            <button name="action_admin_unlock_warehouse" type="object" string="Desbloquear almacén" class="btn btn-outline-danger" icon="fa-unlock" invisible="not warehouse_lock_active"/>
+                            <button name="action_admin_lock_warehouse" type="object" string="Bloquear almacén" class="btn btn-outline-success" icon="fa-lock" invisible="warehouse_lock_active"/>
                         </div>
                         <!--
                             Un único estado visual del bloqueo.
@@ -177,8 +120,7 @@
                             </div>
                         </div>
 
-                        <div class="alert alert-success py-2 mb-0"
-                             invisible="warehouse_lock_active or state not in ['In Progress', 'To Be Approved']">
+                        <div class="alert alert-success py-2 mb-0" invisible="warehouse_lock_active or state not in ['In Progress', 'To Be Approved']" role="status">
                             <i class="fa fa-unlock me-1" title="Almacén desbloqueado"/>
                             <strong>Almacén desbloqueado</strong>
                             <span class="ms-1">Los movimientos están permitidos temporalmente.</span>
@@ -232,16 +174,14 @@
                         </div>
                     </div>
 
-                    <div class="o_setu_count_readiness o_setu_count_readiness_ok"
-                         invisible="not adjustment_ready">
+                    <div class="o_setu_count_readiness o_setu_count_readiness_ok" invisible="not adjustment_ready">
                         <i class="fa fa-check-circle" title="Listo"/>
                         <div>
                             <strong>Listo para generar el ajuste</strong>
                             <span><field name="adjustment_readiness_text" readonly="1" nolabel="1"/></span>
                         </div>
                     </div>
-                    <div class="o_setu_count_readiness o_setu_count_readiness_wait"
-                         invisible="adjustment_ready">
+                    <div class="o_setu_count_readiness o_setu_count_readiness_wait" invisible="adjustment_ready">
                         <i class="fa fa-info-circle" title="Revisión pendiente"/>
                         <div>
                             <strong>Estado previo al ajuste</strong>
@@ -395,14 +335,9 @@
                 </div>
             </xpath>
 <xpath expr="//sheet/notebook" position="inside">
-                <page string="Todos" name="snapshot_all"
-                      groups="setu_inventory_count_management.group_setu_inventory_count_manager">
+                <page string="Todos" name="snapshot_all" groups="setu_inventory_count_management.group_setu_inventory_count_manager">
                     <field name="snapshot_line_ids" readonly="1">
-                        <list create="0" delete="0"
-                              decoration-success="status == 'matched'"
-                              decoration-danger="status in ('difference', 'unexpected')"
-                              decoration-warning="status in ('zero', 'duplicate')"
-                              decoration-muted="status == 'pending'">
+                        <list create="0" delete="0" decoration-success="status == 'matched'" decoration-danger="status in ('difference', 'unexpected')" decoration-warning="status in ('zero', 'duplicate')" decoration-muted="status == 'pending'">
                             <field name="currency_id" column_invisible="True"/>
                             <field name="product_id"/>
                             <field name="lot_id"/>
@@ -410,19 +345,14 @@
                             <field name="expected_qty"/>
                             <field name="counted_qty"/>
                             <field name="difference_display"/>
-                            <field name="status" widget="badge"
-                                   decoration-success="status == 'matched'"
-                                   decoration-danger="status in ('difference', 'unexpected')"
-                                   decoration-warning="status in ('zero', 'duplicate')"
-                                   decoration-muted="status == 'pending'"/>
+                            <field name="status" widget="badge" decoration-success="status == 'matched'" decoration-danger="status in ('difference', 'unexpected')" decoration-warning="status in ('zero', 'duplicate')" decoration-muted="status == 'pending'"/>
                             <field name="last_user_id" optional="show"/>
                             <field name="last_scan_at" optional="show"/>
                         </list>
                     </field>
                 </page>
 
-                <page string="Pendientes de conteo" name="snapshot_pending"
-                      groups="setu_inventory_count_management.group_setu_inventory_count_manager">
+                <page string="Pendientes de conteo" name="snapshot_pending" groups="setu_inventory_count_management.group_setu_inventory_count_manager">
                     <div class="alert alert-info" role="status">
                         <strong>Pendientes de escanear:</strong>
                         aquí se muestran únicamente productos, lotes o series esperados
@@ -440,12 +370,9 @@
                     </field>
                 </page>
 
-                <page string="Por resolver" name="snapshot_to_resolve"
-                      groups="setu_inventory_count_management.group_setu_inventory_count_manager">
+                <page string="Por resolver" name="snapshot_to_resolve" groups="setu_inventory_count_management.group_setu_inventory_count_manager">
                     <field name="snapshot_to_resolve_line_ids" readonly="1">
-                        <list create="0" delete="0"
-                              decoration-danger="status in ('difference', 'unexpected')"
-                              decoration-warning="status in ('zero', 'duplicate')">
+                        <list create="0" delete="0" decoration-danger="status in ('difference', 'unexpected')" decoration-warning="status in ('zero', 'duplicate')">
                             <field name="currency_id" column_invisible="True"/>
                             <field name="product_id"/>
                             <field name="lot_id"/>
@@ -454,13 +381,9 @@
                             <field name="counted_qty"/>
                             <field name="difference_display"/>
                             <field name="unit_cost" widget="monetary"/>
-                            <field name="impact_value" widget="monetary"
-                                   decoration-danger="impact_value &lt; 0"
-                                   decoration-success="impact_value &gt; 0"/>
+                            <field name="impact_value" widget="monetary" decoration-danger="impact_value &lt; 0" decoration-success="impact_value &gt; 0"/>
                             <field name="high_impact"/>
-                            <field name="status" widget="badge"
-                                   decoration-danger="status in ('difference', 'unexpected')"
-                                   decoration-warning="status in ('zero', 'duplicate')"/>
+                            <field name="status" widget="badge" decoration-danger="status in ('difference', 'unexpected')" decoration-warning="status in ('zero', 'duplicate')"/>
                             <field name="closed_as_zero" optional="show"/>
                             <field name="recount_required" optional="show"/>
                             <field name="last_session_id" optional="show"/>

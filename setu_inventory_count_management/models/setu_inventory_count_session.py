@@ -2,7 +2,7 @@
 from datetime import datetime
 
 from odoo import fields, models, api, _
-from odoo.exceptions import UserError, ValidationError
+from odoo.exceptions import AccessError, UserError, ValidationError
 
 
 class SetuInventoryCountSession(models.Model):
@@ -744,13 +744,34 @@ class SetuInventoryCountSession(models.Model):
             session.to_be_scanned = to_be_scanned
 
     def write(self, vals):
-        res = super(SetuInventoryCountSession, self).write(vals)
+        # El operador necesita write para el flujo de conteo, pero no debe poder
+        # reconfigurar la sesión desde RPC/importaciones ni desde una vista antigua.
+        if not self.env.user.has_group(
+            "setu_inventory_count_management.group_setu_inventory_count_manager"
+        ):
+            protected_fields = {
+                "name",
+                "inventory_count_id",
+                "warehouse_id",
+                "location_id",
+                "approver_id",
+                "user_ids",
+                "type",
+                "use_barcode_scanner",
+                "blind_count",
+            }
+            forbidden = protected_fields.intersection(vals)
+            if forbidden:
+                raise AccessError(_(
+                    "El perfil Usuario de conteo no puede modificar la "
+                    "configuración de la sesión: %s"
+                ) % ", ".join(sorted(forbidden)))
+
         if vals.get('name'):
             raise ValidationError(_("You cannot change 'Name' of the Session"))
         if vals.get('inventory_count_id'):
             raise ValidationError(_("You cannot change the Reference Inventory Count of the Session"))
-        else:
-            return res
+        return super(SetuInventoryCountSession, self).write(vals)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -1372,16 +1393,43 @@ class SetuInventoryCountSession(models.Model):
         }
 
     def open_inventory_count(self):
+        self.ensure_one()
         count_id = self.inventory_count_id.id
-        return {
+        action = {
             'name': self.name + ' --> ' + 'Inventory Count',
             'view_mode': 'form',
-            'views': [(self.sudo().env.ref('setu_inventory_count_management.setu_stock_inventory_count_form_view').id,
-                       'form')],
+            'views': [(
+                self.sudo().env.ref(
+                    'setu_inventory_count_management.setu_stock_inventory_count_form_view'
+                ).id,
+                'form',
+            )],
             'res_model': 'setu.stock.inventory.count',
             'type': 'ir.actions.act_window',
-            'res_id': count_id
+            'res_id': count_id,
+            'target': 'current',
         }
+
+        # El operador solo consulta el conteo maestro. Crear/modificar conteos y
+        # crear sesiones pertenece al Controlador/Administrador. Esto evita que
+        # la interfaz ofrezca acciones que terminarían en AccessError.
+        if not self.env.user.has_group(
+            'setu_inventory_count_management.group_setu_inventory_count_manager'
+        ):
+            action.update({
+                'context': dict(
+                    self.env.context,
+                    form_view_initial_mode='readonly',
+                    setu_count_readonly_from_session=True,
+                ),
+                'flags': {
+                    'mode': 'readonly',
+                    'create': False,
+                    'edit': False,
+                    'delete': False,
+                },
+            })
+        return action
 
     def open_user(self):
         users = self.user_ids.ids

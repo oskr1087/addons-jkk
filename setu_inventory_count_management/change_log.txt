@@ -1,3 +1,36 @@
+19.0.7.9.6
+- Compatibilidad Odoo 19: eliminado groups_id de ir.actions.act_window.
+- Seguridad conservada mediante menús, ACL, reglas, vistas/botones y validaciones backend.
+- Corregidos alert-* sin role mediante role="status".
+- Añadida validación estática para evitar groups_id en acciones de ventana.
+
+19.0.7.9.5
+- Corregidas expresiones XML groups_id con ref(...) inválido por comillas escapadas.
+- Eliminados todos los ref(\'xmlid\') generados en la versión anterior.
+- Validada sintaxis de todos los atributos eval del módulo.
+- Verificados específicamente todos los groups_id de acciones.
+
+19.0.7.9.4
+- Alineación integral entre perfiles, ACL, reglas y vistas.
+- Usuario: menú Sesiones/PDA; conteo maestro solo lectura y sin creación/eliminación.
+- Controlador: creación/gestión de conteos, sesiones, aprobación, reconteos, traslados y reportes.
+- Administrador: hereda Controlador y conserva configuración global y bloqueo/desbloqueo de almacén.
+- Menús raíz/Operaciones/Sesiones ahora exigen grupo Usuario de conteo.
+- Configuración técnica del módulo queda exclusiva de Administrador; Planificadores permanecen para Controlador.
+- Acciones de Conteos/Pendientes/Ajustes se restringen también a nivel ir.actions.act_window.
+- Usuario ya no puede modificar asignados, almacén, ubicación, aprobador, tipo o modo de captura de la sesión, incluso por RPC.
+- Líneas físicas de sesión ya no pueden eliminarse por Usuario y la vista tampoco ofrece borrar.
+- Campos Usuarios y Tipo son solo lectura para operador y editables por Controlador en borrador.
+- Nuevas pruebas de alineación vista/ACL/backend por perfil.
+
+19.0.7.9.3
+- Corregida inconsistencia de permisos/UI para el perfil Usuario.
+- El formulario de un conteo existente ya no ofrece Nuevo, evitando intentos de crear setu.stock.inventory.count sin ACL.
+- Al abrir el conteo desde una sesión, un operador entra explícitamente en modo solo lectura.
+- Crear sesión en kanban queda restringido a Controlador/Administrador, igual que en el formulario.
+- Se mantienen los ACL correctos: Usuario no crea el conteo maestro; Controlador/Administrador sí.
+- Agregadas pruebas de regresión para navegación readonly y botones por perfil.
+
 19.0.7.9.1
 - Revisión integral de permisos: Usuario, Controlador y Administrador.
 - Normalizado ir.model.access.csv y corregidas filas vacías/incompletas.

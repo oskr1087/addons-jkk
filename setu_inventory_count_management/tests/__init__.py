@@ -44,3 +44,7 @@ from . import test_pda_contextual_simulator
 from . import test_location_progress_and_relocation
 
 from . import test_count_security_profiles
+
+from . import test_count_operator_ui_permissions
+
+from . import test_permission_view_alignment
