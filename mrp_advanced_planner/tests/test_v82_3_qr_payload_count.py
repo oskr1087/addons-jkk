@@ -17,7 +17,7 @@ class TestV823QrPayloadCount(TransactionCase):
             'product_id': product.id,
         })
         payload = lot._aps_pda_qr_payload()
-        self.assertTrue(payload.startswith('LOT-0001/APS-CODE-01/'))
+        self.assertTrue(payload.startswith('APS-CODE-01/LOT-0001/'))
         self.assertEqual(len(payload.split('/')), 3)
 
     def test_report_barcode_uses_full_payload_field(self):

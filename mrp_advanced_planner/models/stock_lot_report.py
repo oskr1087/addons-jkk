@@ -38,18 +38,18 @@ class StockLot(models.Model):
         """Payload expected by the PDA count flow.
 
         Format:
-            LOT/CODE/QUANTITY
+            CODE/LOT/QUANTITY
 
         Example:
-            10000/1090EV18IT/140.00
+            1090EV18IT/10000/140.00
         """
         self.ensure_one()
         lot_name = self.name or ''
         product_code = self.product_id.default_code or ''
         quantity = self._aps_pda_qty()
         return '%s/%s/%.2f' % (
-            lot_name,
             product_code,
+            lot_name,
             quantity,
         )
 

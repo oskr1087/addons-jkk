@@ -68,3 +68,5 @@ from . import test_v82_2_qr_embedded_widget
 from . import test_v82_3_qr_payload_count
 
 from . import test_v83_security_profiles
+
+from . import test_v83_2_qr_pda_format
