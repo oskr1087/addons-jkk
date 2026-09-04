@@ -34,7 +34,7 @@ class ComponentSourcingEngine:
             pending = max(
                 (line.product_qty or 0.0) - (line.qty_received or 0.0), 0.0
             )
-            if warehouse and pending > 1e-6:
+            if warehouse and pending > 1e-9:
                 result[(line.product_id.id, warehouse.id)] += (
                     line.product_uom_id._compute_quantity(
                         pending, line.product_id.uom_id
@@ -65,7 +65,7 @@ class ComponentSourcingEngine:
         for mo in mos:
             warehouse = mo.picking_type_id.warehouse_id
             pending = max((mo.product_qty or 0.0) - (mo.qty_produced or 0.0), 0.0)
-            if warehouse and pending > 1e-6:
+            if warehouse and pending > 1e-9:
                 result[(mo.product_id.id, warehouse.id)] += (
                     mo.product_uom_id._compute_quantity(
                         pending, mo.product_id.uom_id
@@ -121,7 +121,7 @@ class ComponentSourcingEngine:
                     - (getattr(move, 'quantity', 0.0) or 0.0),
                     0.0,
                 )
-                if pending > 1e-6:
+                if pending > 1e-9:
                     result[(move.product_id.id, warehouse.id)] += (
                         move.product_uom._compute_quantity(
                             pending, move.product_id.uom_id
@@ -161,7 +161,7 @@ class ComponentSourcingEngine:
             return self.env['mrp.planning.production.component']
 
         components = self.plan.production_component_ids.filtered(
-            lambda c: c.include_in_mo and c.product_id and c.planned_qty > 1e-6
+            lambda c: c.include_in_mo and c.product_id and c.planned_qty > 1e-9
         )
         # Preserve an explicit user decision not to move (move_qty = 0)
         # across sourcing refreshes.
@@ -175,7 +175,7 @@ class ComponentSourcingEngine:
                 move.destination_warehouse_id.id,
             )
             for move in old_pending
-            if move.move_qty <= 1e-6
+            if move.move_qty <= 1e-9
         }
         old_pending.unlink()
 
@@ -222,7 +222,7 @@ class ComponentSourcingEngine:
             by_parent[component.parent_line_id.id if component.parent_line_id else False] |= component
 
         def resolve(component, effective_required):
-            if effective_required <= 1e-6 or not component.include_in_mo:
+            if effective_required <= 1e-9 or not component.include_in_mo:
                 component.write({
                     'effective_required_qty': max(effective_required, 0.0),
                     'supply_resolution': 'not_required',
@@ -266,7 +266,7 @@ class ComponentSourcingEngine:
                     - external_consumed[ext_key],
                     0.0,
                 )
-                if ext_free <= 1e-6 or remaining_for_suggestion <= 1e-6:
+                if ext_free <= 1e-9 or remaining_for_suggestion <= 1e-9:
                     continue
                 move_key = (
                     component.id, source_wh.id, destination.id
@@ -293,7 +293,7 @@ class ComponentSourcingEngine:
             #   * ignore the suggestion and manufacture/purchase the shortage.
             supply_shortage = shortage
 
-            if shortage <= 1e-6:
+            if shortage <= 1e-9:
                 resolution = 'available'
                 to_make = to_buy = 0.0
             elif is_subcontracted:
@@ -302,7 +302,7 @@ class ComponentSourcingEngine:
                 to_buy = supply_shortage
                 resolution = (
                     'move_subcontract'
-                    if movable > 1e-6
+                    if movable > 1e-9
                     else 'subcontract'
                 )
             elif has_children:
@@ -310,7 +310,7 @@ class ComponentSourcingEngine:
                 to_buy = 0.0
                 resolution = (
                     'move_manufacture'
-                    if movable > 1e-6
+                    if movable > 1e-9
                     else 'manufacture'
                 )
             else:
@@ -318,7 +318,7 @@ class ComponentSourcingEngine:
                 to_buy = supply_shortage
                 resolution = (
                     'move_purchase'
-                    if movable > 1e-6
+                    if movable > 1e-9
                     else 'purchase'
                 )
 
@@ -359,7 +359,7 @@ class ComponentSourcingEngine:
             # that APS really needs to manufacture.
             ratio = (
                 to_make / component.planned_qty
-                if component.planned_qty > 1e-6 else 0.0
+                if component.planned_qty > 1e-9 else 0.0
             )
             for child in component.child_line_ids:
                 # If the parent is subcontracted, APS purchases the parent

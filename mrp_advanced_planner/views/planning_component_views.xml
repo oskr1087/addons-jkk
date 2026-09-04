@@ -176,10 +176,16 @@
                             <div class="d-flex justify-content-end mb-2">
                                 <button name="action_complete_lot_reservations"
                                         type="object"
-                                        string="Completar reserva con lotes disponibles"
+                                        string="Cargar lotes disponibles"
                                         icon="fa-refresh"
                                         class="btn-secondary"
                                         invisible="pending_lot_qty &lt;= 0"/>
+                                <button name="action_reassign_lot_reservations"
+                                        type="object"
+                                        string="Reasignar lotes"
+                                        icon="fa-random"
+                                        class="btn-secondary ms-2"
+                                        invisible="product_tracking == 'none'"/>
                             </div>
                             <field name="lot_reservation_ids"
                                    nolabel="1"
@@ -255,4 +261,85 @@
             </form>
         </field>
     </record>
+
+    <record id="view_planning_component_lot_management_form" model="ir.ui.view">
+        <field name="name">mrp.planning.production.component.lot.management.form</field>
+        <field name="model">mrp.planning.production.component</field>
+        <field name="arch" type="xml">
+            <form string="Gestión de lotes APS" create="0" delete="0">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="product_id" readonly="1"/>
+                            <field name="product_tracking" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="reserved_lot_qty" readonly="1"/>
+                            <field name="pending_lot_qty" readonly="1"/>
+                            <field name="lot_coverage_percent"
+                                   widget="percentage"
+                                   readonly="1"/>
+                            <field name="lot_reservation_status"
+                                   widget="badge"
+                                   readonly="1"/>
+                            <field name="physical_lot_available_qty"
+                                   string="Disponible físico en lotes"
+                                   readonly="1"/>
+                            <field name="physical_lot_candidate_count"
+                                   string="Lotes físicos candidatos"
+                                   readonly="1"/>
+                        </group>
+                    </group>
+
+                    <div class="alert alert-info" role="status">
+                        <strong>Cargar lotes disponibles</strong> asigna al componente seleccionado y conserva los lotes
+                        ya asignados y completa únicamente la cantidad pendiente.
+                        <strong>Reasignar lotes</strong> libera la selección APS actual
+                        y vuelve a elegir lotes con la disponibilidad física existente.
+                        Ambas opciones pueden utilizarse después de generar la OF,
+                        siempre que la producción no haya consumido el componente.
+                    </div>
+
+                    <div class="alert alert-warning"
+                         role="status"
+                         invisible="product_tracking == 'none' or physical_lot_candidate_count &gt; 0 or pending_lot_qty &lt;= 0">
+                        El abastecimiento puede estar cubierto por pronóstico, compras,
+                        fabricación o movimientos entrantes, pero actualmente no existe
+                        cantidad física libre con lote en el almacén destino. La reserva
+                        de lote se podrá cargar cuando esa existencia sea recibida y esté disponible.
+                    </div>
+
+                    <div class="d-flex gap-2 mb-3">
+                        <button name="action_complete_lot_reservations"
+                                type="object"
+                                string="Cargar lotes disponibles"
+                                icon="fa-download"
+                                class="btn-primary"
+                                invisible="product_tracking == 'none' or pending_lot_qty &lt;= 0"/>
+                        <button name="action_reassign_lot_reservations"
+                                type="object"
+                                string="Reasignar lotes"
+                                icon="fa-refresh"
+                                class="btn-secondary"
+                                invisible="product_tracking == 'none'"/>
+                    </div>
+
+                    <field name="lot_reservation_ids" nolabel="1" readonly="1">
+                        <list create="0" delete="0">
+                            <field name="warehouse_id"/>
+                            <field name="lot_id"/>
+                            <field name="available_qty"/>
+                            <field name="reserved_qty"/>
+                            <field name="state" widget="badge"/>
+                            <field name="production_id" optional="show"/>
+                        </list>
+                    </field>
+                </sheet>
+                <footer>
+                    <button string="Cerrar" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
 </odoo>

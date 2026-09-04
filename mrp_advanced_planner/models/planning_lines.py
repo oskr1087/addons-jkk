@@ -42,10 +42,10 @@ class PlanningPlanLine(models.Model):
         'mrp.planning.plan.line.warehouse', 'planning_line_id', string='Detalle por almacén', copy=False,
     )
 
-    demand_qty = fields.Float(string='Demanda')
-    sales_qty = fields.Float(string='Demanda total')
-    direct_sale_demand_qty = fields.Float(string='Demanda directa de ventas')
-    mrp_component_demand_qty = fields.Float(string='Demanda desde fabricación')
+    demand_qty = fields.Float(string='Demanda', digits=(16, 4))
+    sales_qty = fields.Float(string='Demanda total', digits=(16, 4))
+    direct_sale_demand_qty = fields.Float(string='Demanda directa de ventas', digits=(16, 4))
+    mrp_component_demand_qty = fields.Float(string='Demanda desde fabricación', digits=(16, 4))
     bom_origin_detail = fields.Text(
         string='Origen de componentes',
         help='Detalle de las rutas de LdM que originaron la necesidad de compra.',
@@ -53,25 +53,26 @@ class PlanningPlanLine(models.Model):
     stock_qty = fields.Float(
         string='Pronóstico disponible',
         help='Cantidad pronosticada al horizonte del plan. Incluye entradas/salidas de Odoo, RFQ pendientes y abastecimientos comprometidos en otras planificaciones.',
-    )
+     digits=(16, 4))
     stock_warehouse_tooltip = fields.Char(
         string='Pronóstico por almacén',
         compute='_compute_stock_warehouse_tooltip',
         help='Detalle de la cantidad pronosticada por almacén al horizonte de la planificación.',
     )
-    reserved_qty = fields.Float()
-    incoming_qty = fields.Float(string='Entradas pronosticadas')
-    outgoing_qty = fields.Float(string='Salidas pronosticadas')
-    draft_purchase_qty = fields.Float(string='RFQ pendientes')
-    other_plan_supply_qty = fields.Float(string='Otros planes')
-    production_qty = fields.Float(string='OF abiertas')
-    net_requirement_qty = fields.Float(string='Necesidad neta')
-    move_suggested_qty = fields.Float(string='Mover sugerido')
+    reserved_qty = fields.Float(digits=(16, 4))
+    incoming_qty = fields.Float(string='Entradas pronosticadas', digits=(16, 4))
+    outgoing_qty = fields.Float(string='Salidas pronosticadas', digits=(16, 4))
+
+    draft_purchase_qty = fields.Float(string='RFQ pendientes', digits=(16, 4))
+    other_plan_supply_qty = fields.Float(string='Otros planes', digits=(16, 4))
+    production_qty = fields.Float(string='OF abiertas', digits=(16, 4))
+    net_requirement_qty = fields.Float(string='Necesidad neta', digits=(16, 4))
+    move_suggested_qty = fields.Float(string='Mover sugerido', digits=(16, 4))
 
     # New generic planning quantity. The old field stays for technical backwards compatibility.
-    planner_production_qty = fields.Float(string='Cantidad planificada')
-    planned_production_qty = fields.Float(string='Cantidad a fabricar (legacy)')
-    planned_purchase_qty = fields.Float()
+    planner_production_qty = fields.Float(string='Cantidad planificada', digits=(16, 4))
+    planned_production_qty = fields.Float(string='Cantidad a fabricar (legacy)', digits=(16, 4))
+    planned_purchase_qty = fields.Float(digits=(16, 4))
 
     action_manufacture = fields.Boolean(string='Fabricar')
     action_purchase = fields.Boolean(string='Comprar')
@@ -407,18 +408,18 @@ class PlanningPlanLineWarehouse(models.Model):
     plan_id = fields.Many2one(related='planning_line_id.plan_id', store=True, index=True)
     product_id = fields.Many2one(related='planning_line_id.product_id', store=True, index=True)
     warehouse_id = fields.Many2one('stock.warehouse', required=True, index=True, ondelete='cascade')
-    demand_qty = fields.Float(string='Demanda')
-    on_hand_qty = fields.Float(string='A mano')
-    free_qty = fields.Float(string='Libre')
-    incoming_qty = fields.Float(string='Entradas')
-    outgoing_qty = fields.Float(string='Salidas')
-    draft_purchase_qty = fields.Float(string='RFQ pendientes')
-    other_plan_supply_qty = fields.Float(string='Otros planes')
-    stock_qty = fields.Float(string='Pronóstico disponible')
-    open_mo_qty = fields.Float(string='OF abiertas')
-    unforecasted_mo_qty = fields.Float(string='OF no incluida en pronóstico')
-    local_shortage_qty = fields.Float(string='Faltante local')
-    transferable_excess_qty = fields.Float(string='Excedente movible')
+    demand_qty = fields.Float(string='Demanda', digits=(16, 4))
+    on_hand_qty = fields.Float(string='A mano', digits=(16, 4))
+    free_qty = fields.Float(string='Libre', digits=(16, 4))
+    incoming_qty = fields.Float(string='Entradas', digits=(16, 4))
+    outgoing_qty = fields.Float(string='Salidas', digits=(16, 4))
+    draft_purchase_qty = fields.Float(string='RFQ pendientes', digits=(16, 4))
+    other_plan_supply_qty = fields.Float(string='Otros planes', digits=(16, 4))
+    stock_qty = fields.Float(string='Pronóstico disponible', digits=(16, 4))
+    open_mo_qty = fields.Float(string='OF abiertas', digits=(16, 4))
+    unforecasted_mo_qty = fields.Float(string='OF no incluida en pronóstico', digits=(16, 4))
+    local_shortage_qty = fields.Float(string='Faltante local', digits=(16, 4))
+    transferable_excess_qty = fields.Float(string='Excedente movible', digits=(16, 4))
 
 
 class PlanningExternalWarehouseMove(models.Model):
@@ -436,13 +437,13 @@ class PlanningExternalWarehouseMove(models.Model):
     product_uom_id = fields.Many2one(related='product_id.uom_id', readonly=True)
     source_warehouse_id = fields.Many2one('stock.warehouse', string='Desde almacén', required=True, readonly=True)
     destination_warehouse_id = fields.Many2one('stock.warehouse', string='Hacia almacén', required=True, readonly=True)
-    source_on_hand_qty = fields.Float(string='A mano origen', readonly=True)
-    source_free_qty = fields.Float(string='Libre origen', readonly=True)
-    source_forecast_qty = fields.Float(string='Pronóstico origen', readonly=True)
-    source_open_mo_qty = fields.Float(string='OF abiertas origen', readonly=True)
-    destination_shortage_qty = fields.Float(string='Faltante destino', readonly=True)
-    suggested_qty = fields.Float(string='Sugerido mover', readonly=True)
-    move_qty = fields.Float(string='Cantidad a transferir')
+    source_on_hand_qty = fields.Float(string='A mano origen', readonly=True, digits=(16, 4))
+    source_free_qty = fields.Float(string='Libre origen', readonly=True, digits=(16, 4))
+    source_forecast_qty = fields.Float(string='Pronóstico origen', readonly=True, digits=(16, 4))
+    source_open_mo_qty = fields.Float(string='OF abiertas origen', readonly=True, digits=(16, 4))
+    destination_shortage_qty = fields.Float(string='Faltante destino', readonly=True, digits=(16, 4))
+    suggested_qty = fields.Float(string='Sugerido mover', readonly=True, digits=(16, 4))
+    move_qty = fields.Float(string='Cantidad a transferir', digits=(16, 4))
     picking_id = fields.Many2one('stock.picking', string='Transferencia', readonly=True, copy=False)
     state = fields.Selection([('pending', 'Pendiente'), ('generated', 'Transferencia creada')], default='pending', required=True, readonly=True, index=True)
 
@@ -536,9 +537,9 @@ class PlanningDemand(models.Model):
     company_id = fields.Many2one(related='plan_id.company_id', store=True)
     warehouse_id = fields.Many2one('stock.warehouse', index=True)
     date_required = fields.Datetime(required=True, index=True)
-    quantity = fields.Float(required=True)
-    delivered_qty = fields.Float()
-    remaining_qty = fields.Float(compute='_compute_remaining', store=True)
+    quantity = fields.Float(required=True, digits=(16, 4))
+    delivered_qty = fields.Float(digits=(16, 4))
+    remaining_qty = fields.Float(compute='_compute_remaining', store=True, digits=(16, 4))
     priority = fields.Selection([('0', 'Normal'), ('1', 'High'), ('2', 'Urgent')], default='0')
     source_reference = fields.Char()
 
@@ -569,9 +570,9 @@ class PlanningRequirement(models.Model):
     bom_id = fields.Many2one('mrp.bom')
     bom_line_id = fields.Many2one('mrp.bom.line')
     level = fields.Integer(default=0)
-    required_qty = fields.Float(required=True)
-    available_qty = fields.Float()
-    net_qty = fields.Float()
+    required_qty = fields.Float(required=True, digits=(16, 4))
+    available_qty = fields.Float(digits=(16, 4))
+    net_qty = fields.Float(digits=(16, 4))
     date_required = fields.Datetime(index=True)
     supply_type = fields.Selection([('available', 'Available'), ('existing', 'Existing Supply'), ('make', 'Make'), ('buy', 'Buy'), ('blocked', 'Blocked')], default='blocked')
     hierarchy_label = fields.Char(string='Jerarquía', compute='_compute_hierarchy_label')
@@ -625,8 +626,8 @@ class PlanningProductionComponent(models.Model):
         'product.product', required=True, index=True, string='Componente ingeniería',
     )
     product_uom_id = fields.Many2one('uom.uom', required=True, string='UdM')
-    original_qty = fields.Float(string='Cantidad ingeniería', digits='Product Unit of Measure')
-    planned_qty = fields.Float(string='Cantidad planificada', digits='Product Unit of Measure', required=True)
+    original_qty = fields.Float(string='Cantidad ingeniería', digits=(16, 4))
+    planned_qty = fields.Float(string='Cantidad planificada', digits=(16, 4), required=True)
     level = fields.Integer(required=True, default=1, index=True)
     sequence = fields.Integer(default=10)
     path = fields.Char(string='Ruta', readonly=True)
@@ -649,10 +650,10 @@ class PlanningProductionComponent(models.Model):
     include_in_mo = fields.Boolean(string='Incluir en OF', default=True)
     note = fields.Char(string='Observación')
     availability_qty = fields.Float(
-        string='Disponible total', compute='_compute_availability', digits='Product Unit of Measure'
+        string='Disponible total', compute='_compute_availability', digits=(16, 4)
     )
     availability_need_qty = fields.Float(
-        string='Necesidad neta', compute='_compute_availability', digits='Product Unit of Measure'
+        string='Necesidad neta', compute='_compute_availability', digits=(16, 4)
     )
     availability_status = fields.Selection([
         ('pending', 'Seleccione componente'),
@@ -665,19 +666,19 @@ class PlanningProductionComponent(models.Model):
     )
 
     effective_required_qty = fields.Float(
-        string='Necesidad efectiva', digits='Product Unit of Measure', readonly=True, copy=False
+        string='Necesidad efectiva', digits=(16, 4), readonly=True, copy=False
     )
     local_supply_qty = fields.Float(
-        string='Cobertura local', digits='Product Unit of Measure', readonly=True, copy=False
+        string='Cobertura local', digits=(16, 4), readonly=True, copy=False
     )
     external_move_suggested_qty = fields.Float(
-        string='Movible desde otras bodegas', digits='Product Unit of Measure', readonly=True, copy=False
+        string='Movible desde otras bodegas', digits=(16, 4), readonly=True, copy=False
     )
     to_manufacture_qty = fields.Float(
-        string='A fabricar', digits='Product Unit of Measure', readonly=True, copy=False
+        string='A fabricar', digits=(16, 4), readonly=True, copy=False
     )
     to_purchase_qty = fields.Float(
-        string='A comprar', digits='Product Unit of Measure', readonly=True, copy=False
+        string='A comprar', digits=(16, 4), readonly=True, copy=False
     )
     supply_resolution = fields.Selection([
         ('not_required', 'No requerido'),
@@ -716,7 +717,7 @@ class PlanningProductionComponent(models.Model):
     reserved_lot_qty = fields.Float(
         string='Cantidad en lotes APS',
         compute='_compute_lot_reservation_summary',
-        digits='Product Unit of Measure',
+        digits=(16, 4),
     )
     lot_reservation_count = fields.Integer(
         string='Lotes', compute='_compute_lot_reservation_summary'
@@ -724,15 +725,25 @@ class PlanningProductionComponent(models.Model):
     pending_lot_qty = fields.Float(
         string='Pendiente de reservar',
         compute='_compute_lot_reservation_summary',
-        digits='Product Unit of Measure',
+        digits=(16, 4),
     )
     lot_coverage_percent = fields.Float(
         string='Cobertura de lotes (%)',
+        compute='_compute_lot_reservation_summary',
+     digits=(16, 4))
+    physical_lot_available_qty = fields.Float(
+        string='Disponible físico en lotes',
+        compute='_compute_lot_reservation_summary',
+        digits=(16, 4),
+    )
+    physical_lot_candidate_count = fields.Integer(
+        string='Lotes físicos disponibles',
         compute='_compute_lot_reservation_summary',
     )
     lot_reservation_status = fields.Selection([
         ('not_tracked', 'Sin seguimiento'),
         ('none', 'Sin lotes disponibles'),
+        ('available_to_assign', 'Disponible para asignar'),
         ('pending_supply', 'Pendiente de abastecimiento'),
         ('partial', 'Reserva parcial'),
         ('reserved', 'Reservado'),
@@ -774,12 +785,28 @@ class PlanningProductionComponent(models.Model):
             component.lot_coverage_percent = coverage
             component.lot_reservation_count = len(active)
 
+            free_rows = (
+                component._aps_lot_free_rows()
+                if component.product_id.tracking != 'none'
+                else []
+            )
+            component.physical_lot_available_qty = sum(
+                row[1] for row in free_rows
+            )
+            component.physical_lot_candidate_count = len(free_rows)
+
             if component.product_id.tracking == 'none':
                 status = 'not_tracked'
             elif pending <= 1e-6 and active:
                 status = 'locked' if component.engineering_locked else 'reserved'
             elif qty > 1e-6:
                 status = 'partial'
+            elif (
+                target_qty > 1e-6
+                and component.physical_lot_candidate_count > 0
+                and component.physical_lot_available_qty > 1e-6
+            ):
+                status = 'available_to_assign'
             elif target_qty > 1e-6:
                 status = 'pending_supply'
             else:
@@ -832,27 +859,44 @@ class PlanningProductionComponent(models.Model):
             ('quantity', '>', 0),
         ])
 
-        reserved_elsewhere = set(
-            self.env['mrp.planning.component.lot.reservation'].sudo().search([
-                ('component_id', '!=', self.id),
-                ('state', 'in', ('reserved', 'assigned')),
-                ('lot_id', 'in', quants.mapped('lot_id').ids),
-            ]).mapped('lot_id').ids
-        )
+        # APS reservations are quantitative. A lot may serve more than one
+        # plan/component while it still has enough physical quantity available.
+        # The previous implementation excluded the COMPLETE lot as soon as
+        # another APS plan reserved any quantity, which produced false
+        # "no lots available" situations.
+        other_reservations = self.env[
+            'mrp.planning.component.lot.reservation'
+        ].sudo().search([
+            ('component_id', '!=', self.id),
+            ('state', 'in', ('reserved', 'assigned')),
+            ('lot_id', 'in', quants.mapped('lot_id').ids),
+            ('plan_id.state', 'in', ('calculated', 'approved')),
+        ])
+        reserved_elsewhere_qty = {}
+        for reservation in other_reservations:
+            reserved_elsewhere_qty[reservation.lot_id.id] = (
+                reserved_elsewhere_qty.get(reservation.lot_id.id, 0.0)
+                + reservation.reserved_qty
+            )
 
-        free_by_lot = {}
+        physical_free_by_lot = {}
         for quant in quants:
             lot = quant.lot_id
-            if lot.id in reserved_elsewhere:
-                continue
             free = max(
                 (quant.quantity or 0.0)
                 - (getattr(quant, 'reserved_quantity', 0.0) or 0.0),
                 0.0,
             )
-            if free <= 1e-6:
-                continue
-            free_by_lot[lot.id] = free_by_lot.get(lot.id, 0.0) + free
+            physical_free_by_lot[lot.id] = (
+                physical_free_by_lot.get(lot.id, 0.0) + free
+            )
+
+        free_by_lot = {}
+        for lot_id, physical_free in physical_free_by_lot.items():
+            aps_other = reserved_elsewhere_qty.get(lot_id, 0.0)
+            free = max(physical_free - aps_other, 0.0)
+            if free > 1e-6:
+                free_by_lot[lot_id] = free
 
         lots = self.env['stock.lot'].browse(list(free_by_lot))
         def lot_order(lot):
@@ -894,20 +938,35 @@ class PlanningProductionComponent(models.Model):
             if missing <= 1e-6:
                 continue
 
-            existing_lots = set(active.mapped('lot_id').ids)
+            active_by_lot = {
+                reservation.lot_id.id: reservation
+                for reservation in active
+            }
             for lot, free_qty, warehouse in component._aps_lot_free_rows():
-                if lot.id in existing_lots or missing <= 1e-6:
+                if missing <= 1e-6:
                     continue
                 qty = min(free_qty, missing)
-                Reservation.create({
-                    'plan_id': component.plan_id.id,
-                    'planning_line_id': component.planning_line_id.id,
-                    'component_id': component.id,
-                    'warehouse_id': warehouse.id,
-                    'lot_id': lot.id,
-                    'reserved_qty': qty,
-                })
-                existing_lots.add(lot.id)
+                if qty <= 1e-6:
+                    continue
+                existing = active_by_lot.get(lot.id)
+                if existing:
+                    existing.with_context(
+                        aps_allow_locked_lot_reservation_write=True
+                    ).write({
+                        'reserved_qty': existing.reserved_qty + qty,
+                    })
+                else:
+                    reservation = Reservation.with_context(
+                        aps_allow_locked_lot_reservation_write=True
+                    ).create({
+                        'plan_id': component.plan_id.id,
+                        'planning_line_id': component.planning_line_id.id,
+                        'component_id': component.id,
+                        'warehouse_id': warehouse.id,
+                        'lot_id': lot.id,
+                        'reserved_qty': qty,
+                    })
+                    active_by_lot[lot.id] = reservation
                 missing -= qty
         return True
 
@@ -916,46 +975,158 @@ class PlanningProductionComponent(models.Model):
         return {
             'type': 'ir.actions.act_window',
             'name': _('Lotes reservados - %s') % self.product_id.display_name,
-            'res_model': 'mrp.planning.component.lot.reservation',
-            'view_mode': 'list,form',
-            'views': [(False, 'list'), (False, 'form')],
-            'domain': [('component_id', '=', self.id)],
-            'context': {
-                'default_plan_id': self.plan_id.id,
-                'default_planning_line_id': self.planning_line_id.id,
-                'default_component_id': self.id,
-                'default_warehouse_id': (
-                    self.planning_line_id.target_warehouse_id.id
-                    or self.plan_id.warehouse_ids[:1].id
-                ),
-            },
+            'res_model': 'mrp.planning.production.component',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'views': [(
+                self.env.ref(
+                    'mrp_advanced_planner.'
+                    'view_planning_component_lot_management_form'
+                ).id,
+                'form',
+            )],
             'target': 'new',
         }
 
-    def action_complete_lot_reservations(self):
-        for component in self:
-            self.env[
-                'mrp.planning.component.lot.reservation'
-            ].sudo()._aps_auto_complete_pending_for_products(
-                component.product_id,
-                warehouse=(
-                    component.planning_line_id.target_warehouse_id
-                    or component.plan_id.warehouse_ids[:1]
-                ),
+    def _aps_lot_production(self):
+        self.ensure_one()
+        return (
+            self.planning_line_id.created_production_id
+            or self.generated_production_id
+        )
+
+    def _aps_validate_lot_reassignment_allowed(self):
+        self.ensure_one()
+        production = self._aps_lot_production()
+        if not production:
+            return True
+        if production.state in ('done', 'cancel'):
+            raise UserError(_(
+                'No puede reasignar lotes porque la Orden de Fabricación %s '
+                'ya está terminada o cancelada.'
+            ) % production.display_name)
+
+        # Reassignment is safe while material has not actually been consumed.
+        component_moves = production.move_raw_ids.filtered(
+            lambda move: move.aps_planning_component_id == self
+        )
+        consumed = False
+        for move_line in component_moves.mapped('move_line_ids'):
+            qty = (
+                getattr(move_line, 'quantity', 0.0)
+                or getattr(move_line, 'qty_done', 0.0)
+                or 0.0
             )
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': _('Reserva de lotes actualizada'),
-                'message': _(
-                    'APS volvió a buscar lotes físicos disponibles para '
-                    'completar las reservas pendientes.'
-                ),
-                'type': 'success',
-                'sticky': False,
-            },
-        }
+            if qty > 1e-6:
+                consumed = True
+                break
+        if consumed:
+            raise UserError(_(
+                'No puede reasignar los lotes de %s porque ya existe consumo '
+                'registrado en la Orden de Fabricación %s.'
+            ) % (
+                self.product_id.display_name,
+                production.display_name,
+            ))
+        return True
+
+    def action_reassign_lot_reservations(self):
+        """Release and rebuild lots for this exact APS component."""
+        self._aps_allocate_available_lots(replace=True)
+        return self.action_open_lot_reservations()
+
+    def _aps_allocate_available_lots(self, replace=False):
+        """Allocate current physical lots directly to the selected component.
+
+        The popup must not use the global product auto-completion routine:
+        that routine prioritizes all pending APS components and can assign the
+        stock to a different plan. This method always serves ``self``.
+        """
+        Reservation = self.env[
+            'mrp.planning.component.lot.reservation'
+        ].sudo()
+
+        for component in self:
+            if component.product_id.tracking == 'none':
+                continue
+            component._aps_validate_lot_reassignment_allowed()
+
+            active = component.lot_reservation_ids.filtered(
+                lambda reservation:
+                    reservation.state in ('reserved', 'assigned')
+            )
+            if replace and active:
+                active.with_context(
+                    aps_allow_locked_lot_reservation_write=True
+                ).write({'state': 'released'})
+                active = Reservation.browse()
+
+            target_qty = max(
+                component.effective_required_qty or component.planned_qty,
+                0.0,
+            )
+            missing = max(
+                target_qty - sum(active.mapped('reserved_qty')),
+                0.0,
+            )
+            if missing <= 1e-6:
+                continue
+
+            production = component._aps_lot_production()
+            active_by_lot = {
+                reservation.lot_id.id: reservation
+                for reservation in active
+            }
+
+            for lot_rec, free_qty, warehouse in component._aps_lot_free_rows():
+                if missing <= 1e-6:
+                    break
+                qty = min(free_qty, missing)
+                if qty <= 1e-6:
+                    continue
+
+                existing = active_by_lot.get(lot_rec.id)
+                if existing:
+                    existing.with_context(
+                        aps_allow_locked_lot_reservation_write=True
+                    ).write({
+                        'reserved_qty': existing.reserved_qty + qty,
+                    })
+                else:
+                    vals = {
+                        'plan_id': component.plan_id.id,
+                        'planning_line_id': component.planning_line_id.id,
+                        'component_id': component.id,
+                        'warehouse_id': warehouse.id,
+                        'lot_id': lot_rec.id,
+                        'reserved_qty': qty,
+                    }
+                    if production:
+                        vals.update({
+                            'production_id': production.id,
+                            'state': 'assigned',
+                        })
+                    existing = Reservation.with_context(
+                        aps_allow_locked_lot_reservation_write=True
+                    ).create(vals)
+                    active_by_lot[lot_rec.id] = existing
+                missing -= qty
+
+            component.invalidate_recordset([
+                'reserved_lot_qty',
+                'pending_lot_qty',
+                'lot_coverage_percent',
+                'lot_reservation_count',
+                'lot_reservation_status',
+                'physical_lot_available_qty',
+                'physical_lot_candidate_count',
+            ])
+        return True
+
+    def action_complete_lot_reservations(self):
+        self._aps_allocate_available_lots(replace=False)
+        # Reopen/refresh popup; a notification left stale 0.00 values visible.
+        return self.action_open_lot_reservations()
 
 
     @api.depends(
@@ -1246,6 +1417,16 @@ class PlanningProductionComponent(models.Model):
 
 
     def write(self, vals):
+        if (
+            'planned_qty' in vals
+            and not self.env.context.get('aps_allow_component_qty_write')
+            and self
+        ):
+            raise UserError(_(
+                'La cantidad de los renglones de componentes es calculada por '
+                'la estructura y no puede modificarse manualmente. Ajuste la '
+                'Cantidad planificada total del producto y recalcule el APS.'
+            ))
         product_changed = 'product_id' in vals
         engineering_fields = {
             'product_id',

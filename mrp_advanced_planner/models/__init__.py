@@ -19,3 +19,5 @@ from . import lot_reservation
 from . import stock_rule
 
 from . import stock_lot_report
+
+from . import mrp_bom_precision

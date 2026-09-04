@@ -1,5 +1,5 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_planning_plan_user,planning plan user,model_mrp_planning_plan,group_planner_user,1,1,1,0
+access_planning_plan_user,planning plan user,model_mrp_planning_plan,group_planner_user,1,1,1,1
 access_planning_plan_line_user,planning line user,model_mrp_planning_plan_line,group_planner_user,1,1,1,1
 access_planning_demand_user,planning demand user,model_mrp_planning_demand,group_planner_user,1,1,1,1
 access_planning_requirement_user,planning requirement user,model_mrp_planning_requirement,group_planner_user,1,1,1,1
@@ -26,3 +26,4 @@ access_planning_stock_availability_wizard_line_user,mrp.planning.stock.availabil
 access_planning_sale_availability_wizard_user,sale availability wizard user,model_mrp_planning_sale_availability_wizard,base.group_user,1,1,1,1
 access_planning_sale_availability_document_user,sale availability document user,model_mrp_planning_sale_availability_document,base.group_user,1,1,1,1
 access_planning_component_lot_reservation_user,mrp.planning.component.lot.reservation user,model_mrp_planning_component_lot_reservation,group_planner_user,1,1,1,1
+access_mrp_planning_calendar_day_wizard,access.mrp.planning.calendar.day.wizard,model_mrp_planning_calendar_day_wizard,mrp_advanced_planner.group_planner_manufacturing_user,1,1,1,1

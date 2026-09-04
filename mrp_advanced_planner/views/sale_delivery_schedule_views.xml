@@ -4,11 +4,12 @@
         <field name="name">sale.order.line.aps.delivery.calendar</field>
         <field name="model">sale.order.line</field>
         <field name="arch" type="xml">
-            <calendar string="Entregas para planificación APS" date_start="planning_delivery_date" color="aps_plan_count" mode="month" create="0" quick_create="0">
+            <calendar js_class="aps_delivery_calendar" string="Entregas para planificación APS" date_start="planning_delivery_date" color="aps_planning_status" mode="month" create="0" quick_create="0">
                 <field name="order_id"/>
                 <field name="order_partner_id"/>
                 <field name="product_id"/>
                 <field name="product_uom_qty"/>
+                <field name="aps_planning_status"/>
                 <field name="aps_plan_count"/>
                 <field name="aps_plan_ids"/>
             </calendar>
@@ -27,6 +28,11 @@
                 <field name="product_uom_qty" string="Cantidad"/>
                 <field name="qty_delivered" string="Entregado"/>
                 <field name="product_uom_id" string="UdM"/>
+                <field name="aps_planning_status"
+                       string="Estado APS"
+                       widget="badge"
+                       decoration-warning="aps_planning_status == 'pending'"
+                       decoration-success="aps_planning_status == 'planned'"/>
                 <field name="aps_plan_count" string="Planes APS"/>
                 <field name="aps_plan_ids" string="Planificación APS" widget="many2many_tags"/>
             </list>
@@ -42,12 +48,23 @@
                 <field name="order_partner_id"/>
                 <field name="product_id"/>
                 <field name="planning_delivery_date"/>
-                <filter name="pending_aps" string="Pendientes de planificar" domain="[('aps_plan_count', '=', 0)]"/>
-                <filter name="planned_aps" string="Ya planificadas" domain="[('aps_plan_count', '&gt;', 0)]"/>
+                <field name="aps_planning_status"/>
+                <filter name="pending_aps"
+                        string="Sin planificación"
+                        domain="[('aps_planning_status', '=', 'pending')]"/>
+                <filter name="planned_aps"
+                        string="Dentro de planificación"
+                        domain="[('aps_planning_status', '=', 'planned')]"/>
+                <filter name="all_aps"
+                        string="Todas"
+                        domain="[]"/>
                 <separator/>
                 <filter name="group_delivery_date" string="Fecha de entrega" context="{'group_by': 'planning_delivery_date:day'}"/>
                 <filter name="group_order" string="Pedido" context="{'group_by': 'order_id'}"/>
                 <filter name="group_customer" string="Cliente" context="{'group_by': 'order_partner_id'}"/>
+                <filter name="group_status"
+                        string="Estado APS"
+                        context="{'group_by': 'aps_planning_status'}"/>
             </search>
         </field>
     </record>

@@ -22,15 +22,15 @@ export class PlanningStockTooltipField extends Component {
 
     get value() {
         return this.numericValue.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+            minimumFractionDigits: 4,
+            maximumFractionDigits: 4,
         });
     }
 
     formatQty(value) {
         return Number(value || 0).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+            minimumFractionDigits: 4,
+            maximumFractionDigits: 4,
         });
     }
 

@@ -9,7 +9,7 @@ class PlanningSupply(models.Model):
     requirement_id = fields.Many2one('mrp.planning.requirement', ondelete='cascade')
     product_id = fields.Many2one('product.product', required=True, index=True)
     supply_type = fields.Selection([('existing', 'Existing'), ('make', 'Manufacture'), ('buy', 'Buy')], required=True)
-    quantity = fields.Float(required=True)
+    quantity = fields.Float(required=True, digits=(16, 4))
     date_required = fields.Datetime(index=True)
     logical_key = fields.Char(required=True, index=True)
     production_id = fields.Many2one('mrp.production', readonly=True)

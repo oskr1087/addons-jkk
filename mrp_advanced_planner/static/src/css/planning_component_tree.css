@@ -34,7 +34,7 @@
 .aps-tree-header,
 .aps-tree-row {
     display: grid;
-    grid-template-columns: minmax(400px, 2.4fr) 125px 75px 175px 110px 155px 105px 150px;
+    grid-template-columns: minmax(300px, 2.2fr) 105px 48px 145px 105px 125px 80px minmax(190px, auto);
     align-items: center;
     min-height: 42px;
 }
@@ -164,13 +164,82 @@
     text-align: center;
     color: #6c757d;
 }
-@media (max-width: 1400px) {
+/* Compact layout: the planner normally shares the screen with the chatter.
+   Keep all operational actions visible without forcing horizontal scrolling. */
+.aps-component-tree {
+    overflow-x: hidden;
+}
+.aps-tree-header,
+.aps-tree-row {
+    column-gap: .25rem;
+}
+.aps-tree-header {
+    font-size: .82rem;
+}
+.aps-tree-row {
+    font-size: .88rem;
+}
+.aps-row-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .05rem;
+    min-width: 0;
+}
+.aps-row-actions .btn.btn-link.btn-sm {
+    padding: .18rem .28rem;
+    min-width: 24px;
+}
+.aps-row-actions .aps-change {
+    margin-right: .15rem !important;
+}
+.aps-tree-qty input {
+    width: 92px;
+    max-width: 92px;
+    padding-left: .35rem;
+    padding-right: .35rem;
+}
+.aps-status,
+.aps-supply {
+    padding-left: .38rem;
+    padding-right: .38rem;
+    font-size: .72rem;
+}
+@media (max-width: 1500px) {
+    .aps-tree-header,
+    .aps-tree-row {
+        grid-template-columns: minmax(270px, 2fr) 96px 42px 132px 92px 112px 70px minmax(185px, auto);
+        padding-left: .4rem;
+        padding-right: .4rem;
+        column-gap: .18rem;
+    }
+    .aps-tree-header {
+        font-size: .76rem;
+    }
+    .aps-tree-row {
+        font-size: .82rem;
+    }
+    .aps-tree-qty input {
+        width: 84px;
+        max-width: 84px;
+    }
+    .aps-row-actions .btn.btn-link.btn-sm {
+        padding-left: .2rem;
+        padding-right: .2rem;
+    }
+    .aps-change {
+        padding-left: .28rem;
+        padding-right: .28rem;
+        font-size: .7rem;
+    }
+}
+@media (max-width: 1150px) {
     .aps-component-tree {
         overflow-x: auto;
     }
     .aps-tree-header,
     .aps-tree-row {
-        min-width: 1250px;
+        min-width: 1040px;
     }
 }
 
@@ -204,4 +273,178 @@
     font-size: .72rem;
     font-weight: 700;
     white-space: nowrap;
+}
+
+
+/* v85.2 - Árbol de componentes más compacto.
+   Priorizamos producto y acciones; las columnas numéricas/estado usan solo
+   el ancho necesario para que el árbol sea legible con el chatter abierto. */
+.aps-tree-header,
+.aps-tree-row {
+    grid-template-columns:
+        minmax(235px, 2fr)   /* Producto / componente */
+        82px                 /* Cant. planificada */
+        38px                 /* UdM */
+        116px                /* Disponibilidad */
+        78px                 /* Faltante */
+        102px                /* Resolución */
+        62px                 /* Pend. lote */
+        minmax(176px, auto); /* Acciones */
+    column-gap: .10rem;
+    padding-left: .30rem;
+    padding-right: .30rem;
+    min-height: 38px;
+}
+.aps-tree-header {
+    font-size: .74rem;
+    line-height: 1.05;
+}
+.aps-tree-row {
+    font-size: .80rem;
+}
+.aps-tree-name {
+    padding-right: .15rem;
+}
+.aps-component-link {
+    padding-top: .12rem;
+    padding-bottom: .12rem;
+}
+.aps-expand-btn,
+.aps-tree-leaf-spacer {
+    width: 20px;
+}
+.aps-tree-connector {
+    margin-right: .18rem;
+}
+.aps-status,
+.aps-supply {
+    padding: .14rem .30rem;
+    font-size: .68rem;
+}
+.aps-status-dot {
+    width: 6px;
+    height: 6px;
+    margin-right: .20rem;
+}
+.aps-change {
+    padding: .10rem .24rem;
+    font-size: .66rem;
+}
+.aps-row-actions {
+    gap: 0;
+}
+.aps-row-actions .btn.btn-link.btn-sm {
+    padding: .12rem .18rem;
+    min-width: 21px;
+}
+.aps-tree-qty {
+    text-align: right;
+    padding-right: .12rem;
+}
+.aps-root-icon {
+    margin-right: .22rem;
+}
+.aps-subcontract-badge {
+    margin-left: .20rem;
+    padding: .08rem .24rem;
+    font-size: .65rem;
+}
+
+@media (max-width: 1500px) {
+    .aps-tree-header,
+    .aps-tree-row {
+        grid-template-columns:
+            minmax(215px, 2fr)
+            76px
+            36px
+            108px
+            72px
+            94px
+            58px
+            minmax(170px, auto);
+        column-gap: .06rem;
+        padding-left: .22rem;
+        padding-right: .22rem;
+    }
+}
+
+@media (max-width: 1150px) {
+    .aps-component-tree {
+        overflow-x: auto;
+    }
+    .aps-tree-header,
+    .aps-tree-row {
+        min-width: 900px;
+    }
+}
+
+
+/* v85.3 - Evitar superposición de valores.
+   Con 4 decimales las cantidades necesitan más ancho. Compactamos padding,
+   pero no comprimimos el contenido numérico ni los badges entre columnas. */
+.aps-tree-header,
+.aps-tree-row {
+    grid-template-columns:
+        minmax(260px, 2fr)
+        94px
+        42px
+        150px
+        92px
+        124px
+        76px
+        minmax(168px, auto);
+    column-gap: .32rem;
+    padding-left: .32rem;
+    padding-right: .32rem;
+}
+.aps-tree-header > *,
+.aps-tree-row > * {
+    min-width: 0;
+    overflow: hidden;
+}
+.aps-tree-qty {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.aps-status,
+.aps-supply {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+}
+.aps-row-actions {
+    overflow: visible !important;
+}
+.aps-tree-header > div {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 1500px) {
+    .aps-tree-header,
+    .aps-tree-row {
+        grid-template-columns:
+            minmax(235px, 2fr)
+            90px
+            40px
+            142px
+            88px
+            118px
+            72px
+            minmax(164px, auto);
+        column-gap: .24rem;
+    }
+}
+
+@media (max-width: 1250px) {
+    .aps-component-tree {
+        overflow-x: auto;
+    }
+    .aps-tree-header,
+    .aps-tree-row {
+        min-width: 1000px;
+    }
 }

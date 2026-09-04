@@ -11,8 +11,8 @@ class MrpAdvancedOperation(models.Model):
     name = fields.Char(required=True)
     date_start = fields.Datetime(required=True)
     date_end = fields.Datetime(required=True)
-    duration = fields.Float()
-    setup_duration = fields.Float()
+    duration = fields.Float(digits=(16, 4))
+    setup_duration = fields.Float(digits=(16, 4))
     sequence = fields.Integer()
     state = fields.Selection(
         [("planned", "Planned"), ("conflict", "Conflict"), ("done", "Done")],
@@ -26,11 +26,11 @@ class MrpAdvancedRoll(models.Model):
     name = fields.Char(required=True)
     product_id = fields.Many2one("product.product", required=True)
     lot_id = fields.Many2one("stock.lot")
-    length = fields.Float()
-    width = fields.Float()
-    reserved_length = fields.Float(default=0)
+    length = fields.Float(digits=(16, 4))
+    width = fields.Float(digits=(16, 4))
+    reserved_length = fields.Float(default=0, digits=(16, 4))
     plan_id = fields.Many2one("mrp.advanced.plan")
-    available_length = fields.Float(compute="_compute_available", store=True)
+    available_length = fields.Float(compute="_compute_available", store=True, digits=(16, 4))
 
     @fields.depends("length", "reserved_length")
     def _compute_available(self):

@@ -49,6 +49,16 @@ class SaleOrderLine(models.Model):
         compute_sudo=True,
         search='_search_aps_plan_count',
     )
+    aps_planning_status = fields.Selection(
+        [
+            ('pending', 'Pendiente de planificación'),
+            ('planned', 'Ya planificada'),
+        ],
+        string='Estado planificación',
+        compute='_compute_aps_traceability',
+        compute_sudo=True,
+        search='_search_aps_planning_status',
+    )
     aps_mo_count = fields.Integer(
         string='OF APS',
         compute='_compute_aps_traceability',
@@ -66,12 +76,12 @@ class SaleOrderLine(models.Model):
     aps_forecast_qty = fields.Float(
         string='Pronóstico técnico',
         compute='_compute_aps_sale_forecast',
-        digits='Product Unit of Measure',
+        digits=(16, 4),
     )
     aps_open_mo_qty = fields.Float(
         string='Fabricación pendiente técnica',
         compute='_compute_aps_sale_forecast',
-        digits='Product Unit of Measure',
+        digits=(16, 4),
     )
     aps_forecast_status = fields.Selection([
         ('available', 'Disponible'),
@@ -142,6 +152,21 @@ class SaleOrderLine(models.Model):
             )
         return result
 
+
+    @api.model
+    def _search_aps_planning_status(self, operator, value):
+        if operator not in ('=', '!='):
+            return [('id', '=', 0)]
+
+        planned = value == 'planned'
+        if operator == '!=':
+            planned = not planned
+
+        return [
+            ('aps_plan_count', '>', 0)
+            if planned
+            else ('aps_plan_count', '=', 0)
+        ]
 
     @api.model
     def _search_aps_plan_count(self, operator, value):
@@ -228,6 +253,9 @@ class SaleOrderLine(models.Model):
             )
             line.aps_picking_ids = planning_lines.mapped('created_picking_ids')
             line.aps_plan_count = len(line.aps_plan_ids)
+            line.aps_planning_status = (
+                'planned' if line.aps_plan_count else 'pending'
+            )
             line.aps_mo_count = len(line.aps_production_ids)
             line.aps_po_count = len(line.aps_purchase_order_ids)
 

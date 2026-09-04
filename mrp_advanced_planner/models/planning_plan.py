@@ -40,6 +40,16 @@ class PlanningPlan(models.Model):
     calculated_at = fields.Datetime(readonly=True)
     approved_at = fields.Datetime(readonly=True)
 
+    source_sale_line_ids = fields.Many2many(
+        'sale.order.line',
+        'mrp_planning_plan_source_sale_rel',
+        'plan_id',
+        'sale_line_id',
+        string='Líneas de venta seleccionadas',
+        readonly=True,
+        copy=False,
+        help='Cuando tiene valores, el cálculo APS se limita exactamente a estas líneas de venta.',
+    )
     line_ids = fields.One2many('mrp.planning.plan.line', 'plan_id', string='Productos planificados')
     production_component_ids = fields.One2many(
         'mrp.planning.production.component', 'plan_id',
@@ -89,13 +99,13 @@ class PlanningPlan(models.Model):
     pending_decision_count = fields.Integer(compute='_compute_execution_status')
     can_finalize_plan = fields.Boolean(compute='_compute_execution_status')
 
-    total_sales_qty = fields.Float(compute='_compute_totals', string='Pedidos pendientes')
-    total_stock_qty = fields.Float(compute='_compute_totals', string='Pronóstico disponible')
-    total_open_mo_qty = fields.Float(compute='_compute_totals', string='OF abiertas')
-    total_suggested_qty = fields.Float(compute='_compute_totals', string='Necesidad neta')
-    total_to_manufacture_qty = fields.Float(compute='_compute_totals', string='A fabricar')
-    total_to_purchase_qty = fields.Float(compute='_compute_totals', string='A comprar')
-    total_to_move_qty = fields.Float(compute='_compute_totals', string='A mover')
+    total_sales_qty = fields.Float(compute='_compute_totals', string='Pedidos pendientes', digits=(16, 4))
+    total_stock_qty = fields.Float(compute='_compute_totals', string='Pronóstico disponible', digits=(16, 4))
+    total_open_mo_qty = fields.Float(compute='_compute_totals', string='OF abiertas', digits=(16, 4))
+    total_suggested_qty = fields.Float(compute='_compute_totals', string='Necesidad neta', digits=(16, 4))
+    total_to_manufacture_qty = fields.Float(compute='_compute_totals', string='A fabricar', digits=(16, 4))
+    total_to_purchase_qty = fields.Float(compute='_compute_totals', string='A comprar', digits=(16, 4))
+    total_to_move_qty = fields.Float(compute='_compute_totals', string='A mover', digits=(16, 4))
 
     def init(self):
         # Upgrade-safe migration: preserve the warehouse selected in older versions
@@ -161,10 +171,44 @@ class PlanningPlan(models.Model):
         records._sync_legacy_warehouse()
         return records
 
+    def unlink(self):
+        blocked = self.filtered(
+            lambda plan:
+                plan.line_ids.filtered(
+                    lambda line:
+                        line.created_production_id
+                        or line.created_purchase_line_id
+                        or line.created_picking_ids
+                )
+        )
+        if blocked:
+            raise UserError(_(
+                'No puede eliminar una planificación que ya generó órdenes de '
+                'fabricación, compras o traslados. Cancele o finalice esos '
+                'documentos según corresponda y conserve la trazabilidad APS.'
+            ))
+        return super().unlink()
+
     def write(self, vals):
         res = super().write(vals)
         if 'warehouse_ids' in vals:
             self._sync_legacy_warehouse()
+
+        # A cancelled plan must never keep lots blocked for future APS plans.
+        if vals.get('state') == 'cancelled':
+            reservations = self.env[
+                'mrp.planning.component.lot.reservation'
+            ].sudo().search([
+                ('plan_id', 'in', self.ids),
+                ('state', 'in', ('reserved', 'assigned')),
+            ])
+            if reservations:
+                reservations.with_context(
+                    aps_allow_locked_lot_reservation_write=True
+                ).write({
+                    'state': 'released',
+                    'production_id': False,
+                })
         return res
 
     def _sync_legacy_warehouse(self):
@@ -261,6 +305,17 @@ class PlanningPlan(models.Model):
             if plan.warehouse_ids.filtered(lambda wh: wh.company_id != plan.company_id):
                 raise ValidationError(_('Todos los almacenes seleccionados deben pertenecer a la compañía del plan.'))
 
+    def _has_generated_documents(self):
+        self.ensure_one()
+        return bool(
+            self.line_ids.filtered(
+                lambda line:
+                    line.created_production_id
+                    or line.created_purchase_line_id
+                    or line.created_picking_ids
+            )
+        )
+
     def action_calculate(self):
         self.ensure_one()
         self._check_plan_type_permission()
@@ -278,6 +333,30 @@ class PlanningPlan(models.Model):
         # A search with no demand/results must remain reusable.  Moving the
         # plan to Calculated here used to lock date_end/warehouses in the form,
         # forcing the user to create a new plan just to try another horizon.
+        if not result_count and self._has_generated_documents():
+            # No additional proposal is required. Existing OF/PO/transfers are
+            # preserved and already cover the current demand.
+            self.write({
+                'state': 'calculated',
+                'calculated_at': fields.Datetime.now(),
+                'needs_recalculation': False,
+            })
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _('APS actualizado'),
+                    'message': _(
+                        'Se recalculó la planificación sin recrear documentos. '
+                        'Las órdenes de fabricación, compras y traslados ya '
+                        'generados se conservaron y no existen necesidades '
+                        'adicionales por generar.'
+                    ),
+                    'type': 'success',
+                    'sticky': False,
+                },
+            }
+
         if not result_count or not self.line_ids:
             self.write({
                 'state': 'draft',

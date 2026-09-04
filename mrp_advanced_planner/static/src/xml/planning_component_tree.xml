@@ -31,9 +31,9 @@
                     <div>Cant. planificada</div>
                     <div>UdM</div>
                     <div>Disponibilidad</div>
-                    <div>Necesidad neta</div>
+                    <div>Faltante abastecimiento</div>
                     <div>Resolución</div>
-                    <div>Pendiente</div>
+                    <div>Pend. lote</div>
                     <div class="aps-col-actions">Acciones</div>
                 </div>
 
@@ -110,19 +110,14 @@
                     </div>
 
                     <div class="aps-tree-qty">
-                        <input type="number"
-                               min="0"
-                               step="any"
-                               class="form-control form-control-sm"
-                               t-att-value="row.planned_qty"
-                               t-att-disabled="row.engineering_locked ? true : undefined"
-                               t-on-change="(ev) => this.saveQty(row, ev)"/>
+                        <span class="fw-semibold"
+                              t-esc="formatQty(row.planned_qty)"/>
                     </div>
                     <div t-esc="row.uom"/>
 
                     <div>
                         <button type="button"
-                                t-att-class="getStatusClass(row.availability_status)"
+                                t-att-class="getStatusClass(row.availability_status, row)"
                                 t-on-click="() => this.openAvailability(row)"
                                 title="Ver disponibilidad por bodega">
                             <span class="aps-status-dot"/>
@@ -139,8 +134,13 @@
                               t-esc="getSupplyText(row)"/>
                     </div>
 
-                    <div t-att-class="getPendingQty(row) &gt; 0 ? 'aps-need-danger' : 'aps-need-ok'">
-                        <t t-esc="formatQty(getPendingQty(row))"/>
+                    <div t-att-class="(row.product_tracking !== 'none' ? row.pending_lot_qty : getPendingQty(row)) &gt; 0 ? 'aps-need-danger' : 'aps-need-ok'">
+                        <t t-if="row.product_tracking !== 'none'">
+                            <t t-esc="formatQty(row.pending_lot_qty || 0)"/>
+                        </t>
+                        <t t-else="">
+                            <t t-esc="formatQty(getPendingQty(row))"/>
+                        </t>
                     </div>
 
                     <div class="aps-row-actions">
@@ -156,7 +156,7 @@
                         <button t-if="row.product_tracking !== 'none'"
                                 type="button"
                                 class="btn btn-link btn-sm"
-                                t-att-title="'Lotes APS: ' + (row.lot_reservation_count || 0)"
+                                t-att-title="'Reservas APS: ' + (row.lot_reservation_count || 0) + ' | Lotes físicos libres: ' + (row.physical_lot_candidate_count || 0) + ' | Cantidad física en lotes: ' + formatQty(row.physical_lot_available_qty || 0)"
                                 t-on-click="() => this.openLotReservations(row)">
                             <i class="fa fa-tags"/>
                             <small class="ms-1" t-esc="row.lot_reservation_count || 0"/>

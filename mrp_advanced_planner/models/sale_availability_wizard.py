@@ -21,28 +21,28 @@ class MrpPlanningSaleAvailabilityWizard(models.TransientModel):
         ('uncovered', 'Sin cubrir'),
     ], string='Estado', readonly=True)
 
-    requested_qty = fields.Float(string='Pedido', readonly=True)
-    delivered_qty = fields.Float(string='Entregado', readonly=True)
-    pending_qty = fields.Float(string='Pendiente', readonly=True)
-    coverage_qty = fields.Float(string='Cobertura', readonly=True)
-    shortage_qty = fields.Float(string='Faltante', readonly=True)
+    requested_qty = fields.Float(string='Pedido', readonly=True, digits=(16, 4))
+    delivered_qty = fields.Float(string='Entregado', readonly=True, digits=(16, 4))
+    pending_qty = fields.Float(string='Pendiente', readonly=True, digits=(16, 4))
+    coverage_qty = fields.Float(string='Cobertura', readonly=True, digits=(16, 4))
+    shortage_qty = fields.Float(string='Faltante', readonly=True, digits=(16, 4))
 
-    on_hand_qty = fields.Float(string='A mano', readonly=True)
-    free_qty = fields.Float(string='Libre', readonly=True)
-    incoming_qty = fields.Float(string='Entrante', readonly=True)
-    outgoing_qty = fields.Float(string='Saliente', readonly=True)
-    forecast_qty = fields.Float(string='Pronosticado', readonly=True)
+    on_hand_qty = fields.Float(string='A mano', readonly=True, digits=(16, 4))
+    free_qty = fields.Float(string='Libre', readonly=True, digits=(16, 4))
+    incoming_qty = fields.Float(string='Entrante', readonly=True, digits=(16, 4))
+    outgoing_qty = fields.Float(string='Saliente', readonly=True, digits=(16, 4))
+    forecast_qty = fields.Float(string='Pronosticado', readonly=True, digits=(16, 4))
 
-    manufacturing_qty = fields.Float(string='En fabricación', readonly=True)
-    purchase_qty = fields.Float(string='En compra', readonly=True)
-    transfer_qty = fields.Float(string='En traslado APS', readonly=True)
-    planned_qty = fields.Float(string='Planificado APS', readonly=True)
+    manufacturing_qty = fields.Float(string='En fabricación', readonly=True, digits=(16, 4))
+    purchase_qty = fields.Float(string='En compra', readonly=True, digits=(16, 4))
+    transfer_qty = fields.Float(string='En traslado APS', readonly=True, digits=(16, 4))
+    planned_qty = fields.Float(string='Planificado APS', readonly=True, digits=(16, 4))
     supply_total_qty = fields.Float(
         string='Abastecimiento total', compute='_compute_summary', readonly=True
-    )
+    , digits=(16, 4))
     coverage_percent = fields.Float(
         string='% Cobertura', compute='_compute_summary', readonly=True
-    )
+    , digits=(16, 4))
 
     @api.depends(
         'requested_qty', 'delivered_qty', 'coverage_qty',
@@ -86,7 +86,7 @@ class MrpPlanningSaleAvailabilityDocument(models.TransientModel):
         ('transfer', 'Traslado'),
     ], string='Tipo', required=True, readonly=True)
     name = fields.Char(string='Documento', readonly=True)
-    quantity = fields.Float(string='Cantidad', readonly=True)
+    quantity = fields.Float(string='Cantidad', readonly=True, digits=(16, 4))
     state_label = fields.Char(string='Estado', readonly=True)
     res_model = fields.Char(readonly=True)
     res_id = fields.Integer(readonly=True)

@@ -40,12 +40,12 @@ class MrpPlanningComponentLotReservation(models.Model):
     reserved_qty = fields.Float(
         string='Cantidad reservada',
         required=True,
-        digits='Product Unit of Measure',
+        digits=(16, 4),
     )
     available_qty = fields.Float(
         string='Disponible actual',
         compute='_compute_available_qty',
-        digits='Product Unit of Measure',
+        digits=(16, 4),
     )
     production_id = fields.Many2one(
         'mrp.production',
@@ -102,24 +102,64 @@ class MrpPlanningComponentLotReservation(models.Model):
                 'porque la Orden de Fabricación fue generada.'
             ))
 
-    @api.constrains('lot_id', 'state', 'component_id')
+    @api.constrains('lot_id', 'state', 'component_id', 'reserved_qty')
     def _check_exclusive_lot(self):
+        """Validate capacity instead of making a whole lot exclusive.
+
+        For lot-tracked products, the same physical lot can be split among
+        several APS demands while quantity remains. Serial-tracked products
+        naturally remain effectively exclusive because their available qty is 1.
+        """
+        Quant = self.env['stock.quant'].sudo()
         for reservation in self.filtered(
             lambda r: r.lot_id and r.state in ('reserved', 'assigned')
         ):
-            other = self.search([
-                ('id', '!=', reservation.id),
+            locations = self.env['stock.location'].sudo().search([
+                ('id', 'child_of', reservation.warehouse_id.view_location_id.id),
+                ('usage', '=', 'internal'),
+                ('company_id', 'in', [False, reservation.company_id.id]),
+            ])
+            quants = Quant.search([
+                ('product_id', '=', reservation.product_id.id),
                 ('lot_id', '=', reservation.lot_id.id),
+                ('location_id', 'in', locations.ids),
+            ])
+            physical_qty = sum(quants.mapped('quantity'))
+
+            active = self.search([
+                ('lot_id', '=', reservation.lot_id.id),
+                ('warehouse_id', '=', reservation.warehouse_id.id),
                 ('state', 'in', ('reserved', 'assigned')),
-            ], limit=1)
-            if other:
+                ('plan_id.state', 'in', ('calculated', 'approved')),
+            ])
+            aps_reserved_qty = sum(active.mapped('reserved_qty'))
+
+            if aps_reserved_qty > physical_qty + 1e-6:
+                others = active - reservation
+                owner = others[:1]
                 raise ValidationError(_(
-                    'El lote %s ya está reservado por %s / %s.'
-                ) % (
-                    reservation.lot_id.display_name,
-                    other.plan_id.display_name,
-                    other.component_id.product_id.display_name,
-                ))
+                    'No hay cantidad suficiente del lote %(lot)s.\n\n'
+                    'Producto: %(product)s\n'
+                    'Almacén: %(warehouse)s\n'
+                    'Cantidad física del lote: %(physical).2f\n'
+                    'Reservado APS total: %(reserved).2f\n'
+                    'Cantidad solicitada: %(requested).2f\n'
+                    'Otra planificación: %(plan)s\n'
+                    'Componente de la otra planificación: %(other_product)s\n\n'
+                    'Use "Reasignar lotes" o libere/revise la reserva anterior.'
+                ) % {
+                    'lot': reservation.lot_id.display_name,
+                    'product': reservation.product_id.display_name,
+                    'warehouse': reservation.warehouse_id.display_name,
+                    'physical': physical_qty,
+                    'reserved': aps_reserved_qty,
+                    'requested': reservation.reserved_qty,
+                    'plan': owner.plan_id.display_name if owner else '-',
+                    'other_product': (
+                        owner.component_id.product_id.display_name
+                        if owner else '-'
+                    ),
+                })
 
     @api.constrains('reserved_qty')
     def _check_positive_qty(self):
@@ -134,9 +174,17 @@ class MrpPlanningComponentLotReservation(models.Model):
         Component = self.env['mrp.planning.production.component']
         for vals in vals_list:
             component = Component.browse(vals.get('component_id')).exists()
-            if component and component.engineering_locked:
+            if (
+                component
+                and component.engineering_locked
+                and not self.env.context.get(
+                    'aps_allow_locked_lot_reservation_write'
+                )
+            ):
                 raise UserError(_(
-                    'No puede cambiar lotes después de generar la OF.'
+                    'No puede cambiar lotes después de generar la OF desde '
+                    'edición manual. Use las acciones de cargar o reasignar '
+                    'lotes APS.'
                 ))
             if component:
                 vals.setdefault('plan_id', component.plan_id.id)
@@ -323,13 +371,32 @@ class StockMoveLine(models.Model):
         if not allowed:
             owner = active[:1]
             raise UserError(_(
-                'El lote %s está reservado por la planificación %s y no '
-                'puede utilizarse en la fabricación %s.'
-            ) % (
-                lot.display_name,
-                owner.plan_id.display_name,
-                production.display_name,
-            ))
+                'Conflicto de reserva de lote.\n\n'
+                'Producto: %(product)s\n'
+                'Lote: %(lot)s\n'
+                'Cantidad reservada APS: %(qty).2f\n'
+                'Estado de la reserva: %(reservation_state)s\n'
+                'Reservado por planificación: %(plan)s\n'
+                'Producto/componente origen: %(owner_product)s\n'
+                'OF asociada a la reserva: %(owner_mo)s\n'
+                'OF actual: %(current_mo)s\n\n'
+                'Este lote tiene una reserva APS activa para otra demanda. '
+                'Revise la cantidad disponible o utilice "Reasignar lotes".'
+            ) % {
+                'product': move.product_id.display_name,
+                'lot': lot.display_name,
+                'qty': owner.reserved_qty,
+                'reservation_state': dict(
+                    owner._fields['state'].selection
+                ).get(owner.state, owner.state),
+                'plan': owner.plan_id.display_name,
+                'owner_product': owner.component_id.product_id.display_name,
+                'owner_mo': (
+                    owner.production_id.display_name
+                    if owner.production_id else '-'
+                ),
+                'current_mo': production.display_name,
+            })
 
         # For an APS raw move with a specific component, enforce its own lots.
         component = getattr(move, 'aps_planning_component_id', False)

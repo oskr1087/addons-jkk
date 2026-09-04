@@ -78,6 +78,8 @@ export class PlanningComponentTreeField extends Component {
                 "lot_reservation_status",
                 "pending_lot_qty",
                 "lot_coverage_percent",
+                "physical_lot_available_qty",
+                "physical_lot_candidate_count",
                 "product_tracking",
                 "note",
             ],
@@ -148,26 +150,6 @@ export class PlanningComponentTreeField extends Component {
         for (const key of Object.keys(this.state.expanded)) {
             this.state.expanded[key] = false;
         }
-    }
-
-    async saveQty(row, ev) {
-        if (row.engineering_locked) {
-            this.notification.add("La ingeniería está bloqueada porque ya se generó la OF.", { type: "warning" });
-            await this.load();
-            return;
-        }
-        const value = Number(ev.target.value || 0);
-        if (value < 0) {
-            this.notification.add("La cantidad no puede ser negativa.", { type: "warning" });
-            ev.target.value = row.planned_qty;
-            return;
-        }
-        await this.orm.write(
-            "mrp.planning.production.component",
-            [row.id],
-            { planned_qty: value }
-        );
-        await this.load();
     }
 
     async toggleActive(row) {
@@ -314,15 +296,45 @@ export class PlanningComponentTreeField extends Component {
         }
     }
 
-    getStatusClass(status) {
+    getStatusClass(status, row = null) {
+        if (row?.product_tracking !== "none") {
+            if ((row.pending_lot_qty || 0) <= 0 && (row.reserved_lot_qty || 0) > 0) {
+                return "aps-status aps-status-success";
+            }
+            if ((row.physical_lot_available_qty || 0) > 0) {
+                return "aps-status aps-status-warning";
+            }
+            if (status === "sufficient") {
+                return "aps-status aps-status-warning";
+            }
+        }
         if (status === "sufficient") return "aps-status aps-status-success";
         if (status === "partial") return "aps-status aps-status-warning";
         return "aps-status aps-status-danger";
     }
 
     getStatusText(row) {
-        if (row.availability_status === "sufficient") return `Suficiente (${this.formatQty(row.availability_qty)})`;
-        if (row.availability_status === "partial") return `Parcial (${this.formatQty(row.availability_qty)})`;
+        if (row.product_tracking !== "none") {
+            if ((row.pending_lot_qty || 0) <= 0 && (row.reserved_lot_qty || 0) > 0) {
+                return `Lotes asignados (${this.formatQty(row.reserved_lot_qty)})`;
+            }
+            if ((row.physical_lot_available_qty || 0) > 0) {
+                return `Lotes por asignar (${this.formatQty(row.physical_lot_available_qty)})`;
+            }
+            if (row.availability_status === "sufficient") {
+                return "Cubierto, esperando lote";
+            }
+            if (row.availability_status === "partial") {
+                return "Parcial, sin lote";
+            }
+            return "Sin lote disponible";
+        }
+        if (row.availability_status === "sufficient") {
+            return `Suficiente (${this.formatQty(row.availability_qty)})`;
+        }
+        if (row.availability_status === "partial") {
+            return `Parcial (${this.formatQty(row.availability_qty)})`;
+        }
         return "Sin disponibilidad";
     }
 
@@ -353,6 +365,15 @@ export class PlanningComponentTreeField extends Component {
             move_subcontract: "Mover + Subcontratación",
             review: "Revisar",
         };
+        if (row.product_tracking !== "none" && row.supply_resolution === "available") {
+            if ((row.pending_lot_qty || 0) <= 0 && (row.reserved_lot_qty || 0) > 0) {
+                return "Disponible + lote";
+            }
+            if ((row.physical_lot_available_qty || 0) > 0) {
+                return "Asignar lote";
+            }
+            return "Cubierto / sin lote";
+        }
         return labels[row.supply_resolution] || "Revisar";
     }
 
@@ -375,8 +396,8 @@ export class PlanningComponentTreeField extends Component {
 
     formatQty(value) {
         return Number(value || 0).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+            minimumFractionDigits: 4,
+            maximumFractionDigits: 4,
         });
     }
 

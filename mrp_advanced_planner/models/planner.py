@@ -124,7 +124,7 @@ class MrpAdvancedExecution(models.Model):
     started_at = fields.Datetime()
     finished_at = fields.Datetime()
     message = fields.Text()
-    progress = fields.Float(default=0)
+    progress = fields.Float(default=0, digits=(16, 4))
 
 
 class MrpAdvancedConflict(models.Model):

@@ -45,7 +45,7 @@ class ManufacturingSnapshotBuilder:
             for bl in bom.bom_line_ids:
                 component = bl.product_id
                 cqty = self._qty(bom, bl, current_product, current_qty)
-                if cqty <= 1e-6:
+                if cqty <= 1e-9:
                     continue
                 cpath = list(current_path) + [component.display_name]
                 row = {
@@ -92,7 +92,7 @@ class ManufacturingSnapshotBuilder:
             for bl in bom.bom_line_ids:
                 child_product = bl.product_id
                 child_qty = self._qty(bom, bl, product, qty)
-                if child_qty <= 1e-6:
+                if child_qty <= 1e-9:
                     continue
                 child_path = list(path) + [child_product.display_name]
                 child = Component.with_context(
@@ -171,7 +171,7 @@ class ManufacturingSnapshotBuilder:
             for bl in bom.bom_line_ids:
                 component = bl.product_id
                 cqty = self._qty(bom, bl, product, qty)
-                if cqty <= 1e-6:
+                if cqty <= 1e-9:
                     continue
 
                 subcontract_bom = self.graph.subcontract_bom(component)

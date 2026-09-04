@@ -78,12 +78,12 @@ class MrpProduction(models.Model):
             return self.env['mrp.planning.production.component']
         if self.aps_planning_component_id:
             return self.aps_planning_component_id.child_line_ids.filtered(
-                lambda c: c.include_in_mo and c.planned_qty > 1e-6
+                lambda c: c.include_in_mo and c.planned_qty > 1e-9
             )
         return self.planning_plan_line_id.production_component_ids.filtered(
             lambda c: not c.parent_line_id
             and c.include_in_mo
-            and c.planned_qty > 1e-6
+            and c.planned_qty > 1e-9
         )
 
     def _aps_raw_move_values(self):
@@ -118,7 +118,7 @@ class MrpProduction(models.Model):
         values = []
         for component in components:
             qty = component.planned_qty * factor
-            if qty <= 1e-6:
+            if qty <= 1e-9:
                 continue
 
             source_line = component.source_bom_line_id
@@ -228,11 +228,10 @@ class MrpProduction(models.Model):
             ).action_confirm()
 
             expected_products = set(snapshot.mapped('product_id').ids)
-            actual_products = set(
-                mo.move_raw_ids.filtered(
-                    lambda move: move.state != 'cancel'
-                ).mapped('product_id').ids
+            actual_moves = mo.move_raw_ids.filtered(
+                lambda move: move.state != 'cancel'
             )
+            actual_products = set(actual_moves.mapped('product_id').ids)
             if actual_products != expected_products:
                 raise UserError(
                     _('La OF APS %s generó componentes distintos al snapshot. '
@@ -247,6 +246,39 @@ class MrpProduction(models.Model):
                         ),
                     )
                 )
+
+            # Quantity-level integrity: every active snapshot row must produce a
+            # raw move with a positive quantity. This catches small four-decimal
+            # BoM factors that previously disappeared as 0.00.
+            for component in snapshot:
+                expected_qty = component.planned_qty * (
+                    (mo.product_qty or 0.0)
+                    / (
+                        (
+                            mo.aps_planning_component_id.planned_qty
+                            if mo.aps_planning_component_id
+                            else mo.planning_plan_line_id.planner_production_qty
+                        )
+                        or mo.product_qty
+                        or 1.0
+                    )
+                )
+                component_moves = actual_moves.filtered(
+                    lambda move:
+                        move.aps_planning_component_id == component
+                )
+                actual_qty = sum(component_moves.mapped('product_uom_qty'))
+                if expected_qty > 1e-9 and actual_qty <= 1e-9:
+                    raise UserError(_(
+                        'La OF APS %(mo)s quedó incompleta: el componente '
+                        '%(component)s requiere %(qty).4f %(uom)s y no se '
+                        'generó en los movimientos de materia prima.'
+                    ) % {
+                        'mo': mo.display_name,
+                        'component': component.product_id.display_name,
+                        'qty': expected_qty,
+                        'uom': component.product_uom_id.display_name,
+                    })
         return result
 
 
@@ -289,7 +321,7 @@ class MrpProduction(models.Model):
                 lambda component:
                     component.product_id.tracking != 'none'
                     and component.include_in_mo
-                    and component.planned_qty > 1e-6
+                    and component.planned_qty > 1e-9
             )
             incomplete = components.filtered(
                 lambda component:
@@ -546,7 +578,7 @@ class StockMove(models.Model):
     planning_purchase_qty = fields.Float(
         string='Cantidad a comprar (legacy)',
         help='Campo conservado únicamente por compatibilidad con versiones anteriores.',
-    )
+     digits=(16, 4))
     planning_can_purchase_component = fields.Boolean(
         string='Puede comprar componente',
         compute='_compute_planning_can_purchase_component',
@@ -652,7 +684,7 @@ class StockMove(models.Model):
             ):
                 continue
             move.planning_can_purchase_component = (
-                move._planning_forecast_shortage() > 1e-6
+                move._planning_forecast_shortage() > 1e-9
             )
 
     def action_create_component_purchase(self):

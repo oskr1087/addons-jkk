@@ -76,3 +76,29 @@ from . import test_v84_1_delivery_menu
 from . import test_v84_2_delivery_view_fields
 
 from . import test_v84_3_searchable_plan_count
+
+from . import test_v84_4_calendar_status_dates
+
+from . import test_v84_5_calendar_plan_day
+
+from . import test_v84_6_click_calendar_day
+
+from . import test_v84_7_pending_day_real_traceability
+
+from . import test_v84_8_day_and_previous_pending
+
+from . import test_v84_9_explicit_sale_shortage
+
+from . import test_v84_10_detail_create_fields
+
+from . import test_v84_11_lot_reassign_reload
+
+from . import test_v84_12_lot_physical_visibility
+
+from . import test_v84_13_compact_component_tree
+
+from . import test_v84_14_lot_states_capacity
+
+from . import test_v84_15_direct_lot_assignment
+
+from . import test_v85_planning_observations

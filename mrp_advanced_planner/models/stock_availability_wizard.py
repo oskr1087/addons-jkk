@@ -12,9 +12,9 @@ class PlanningStockAvailabilityWizard(models.TransientModel):
         'mrp.planning.production.component', readonly=True
     )
     product_id = fields.Many2one('product.product', required=True, readonly=True)
-    required_qty = fields.Float(string='Necesidad total', readonly=True)
-    total_available_qty = fields.Float(string='Disponible total', readonly=True)
-    net_need_qty = fields.Float(string='Necesidad neta', readonly=True)
+    required_qty = fields.Float(string='Necesidad total', readonly=True, digits=(16, 4))
+    total_available_qty = fields.Float(string='Disponible total', readonly=True, digits=(16, 4))
+    net_need_qty = fields.Float(string='Necesidad neta', readonly=True, digits=(16, 4))
     availability_status = fields.Selection([
         ('sufficient', 'Suficiente'),
         ('partial', 'Parcial'),
@@ -158,11 +158,11 @@ class PlanningStockAvailabilityWizardLine(models.TransientModel):
         'mrp.planning.stock.availability.wizard', required=True, ondelete='cascade'
     )
     warehouse_id = fields.Many2one('stock.warehouse', required=True, readonly=True)
-    on_hand_qty = fields.Float(string='A mano', readonly=True)
-    reserved_qty = fields.Float(string='Reservado', readonly=True)
-    available_qty = fields.Float(string='Disponible', readonly=True)
-    confirmed_po_qty = fields.Float(string='PO confirmadas en tránsito', readonly=True)
-    available_with_incoming_qty = fields.Float(string='Disponible + tránsito', readonly=True)
+    on_hand_qty = fields.Float(string='A mano', readonly=True, digits=(16, 4))
+    reserved_qty = fields.Float(string='Reservado', readonly=True, digits=(16, 4))
+    available_qty = fields.Float(string='Disponible', readonly=True, digits=(16, 4))
+    confirmed_po_qty = fields.Float(string='PO confirmadas en tránsito', readonly=True, digits=(16, 4))
+    available_with_incoming_qty = fields.Float(string='Disponible + tránsito', readonly=True, digits=(16, 4))
     availability_status = fields.Selection([
         ('sufficient', 'Suficiente'),
         ('partial', 'Parcial'),

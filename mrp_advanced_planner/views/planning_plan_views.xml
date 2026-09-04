@@ -3,11 +3,12 @@
         <field name="name">mrp.planning.plan.list.procurement</field>
         <field name="model">mrp.planning.plan</field>
         <field name="arch" type="xml">
-            <list decoration-success="state == 'approved'">
+            <list delete="1" decoration-success="state == 'approved'">
                 <field name="name"/>
                 <field name="plan_type"/>
                 <field name="plan_type" readonly="state != 'draft'"/>
                             <field name="warehouse_ids" widget="many2many_tags"/>
+                <field name="create_date" string="Fecha creación" readonly="1"/>
                 <field name="date_end" string="Planificar hasta"/>
                 <field name="total_sales_qty" string="Demanda"/>
                 <field name="total_to_manufacture_qty" string="Fabricar" column_invisible="context.get('default_plan_type') == 'purchase'"/>
@@ -111,6 +112,7 @@
                             <field name="company_id" readonly="state != 'draft'" groups="base.group_multi_company"/>
                         </group>
                         <group>
+                            <field name="create_date" string="Fecha creación APS" readonly="1"/>
                             <field name="date_end" string="Planificar hasta" readonly="state != 'draft'"/>
                             <field name="user_id" readonly="1"/>
                             <field name="calculated_at" readonly="1" invisible="not calculated_at"/>
@@ -240,7 +242,7 @@
                               name="manufacturing_component_snapshot"
                               invisible="plan_type != 'manufacturing'">
                             <div class="alert alert-info" role="alert">
-                                Componentes cargados automáticamente al calcular. El APS clasifica cada nodo como <strong>Disponible, Mover, Fabricar o Comprar</strong>. Puede sustituir productos, ajustar cantidades, omitir líneas o agregar insumos. El APS <strong>no crea OF separadas para componentes fabricables</strong>; esos componentes permanecen en la OF principal para que Odoo gestione su abastecimiento mediante el flujo estándar de MRP. Los componentes comprables faltantes sí generan un Plan de Compras relacionado.
+                                Componentes cargados automáticamente al calcular. El APS clasifica cada nodo como <strong>Disponible, Mover, Fabricar o Comprar</strong>. Puede sustituir productos, omitir líneas o agregar insumos. Las cantidades de los componentes se calculan desde la LdM y no se editan por renglón; la cantidad total se ajusta en la línea principal. El APS <strong>no crea OF separadas para componentes fabricables</strong>; esos componentes permanecen en la OF principal para que Odoo gestione su abastecimiento mediante el flujo estándar de MRP. Los componentes comprables faltantes sí generan un Plan de Compras relacionado.
                             </div>
                             <field name="production_component_ids"
                                    widget="planning_component_tree"

@@ -42,8 +42,8 @@ export class PlanningSaleOrdersPopoverField extends Component {
 
     formatQty(qty) {
         return Number(qty || 0).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+            minimumFractionDigits: 4,
+            maximumFractionDigits: 4,
         });
     }
 
