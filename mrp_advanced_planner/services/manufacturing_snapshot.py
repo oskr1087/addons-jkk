@@ -131,6 +131,160 @@ class ManufacturingSnapshotBuilder:
             (component.path or component.product_id.display_name).split(' → '),
         )
 
+    def ensure_complete(self, planning_lines):
+        """Repair missing BoM nodes in an existing APS engineering snapshot.
+
+        This is intentionally additive: it NEVER rebuilds the complete snapshot
+        and therefore does not erase substitutions, omissions or manual
+        components already reviewed by the planner.
+
+        Identity for native engineering rows is ``source_bom_line_id``.  If a
+        BoM line is missing because an older calculation rounded/skipped a small
+        factor, APS adds that row and recursively completes its descendants.
+        """
+        Component = self.env['mrp.planning.production.component']
+        created = Component
+
+        self.graph.preload(planning_lines.mapped('product_id'))
+
+        def ensure_children(
+            planning_line,
+            current_product,
+            current_qty,
+            parent=False,
+            level=0,
+            path=None,
+            bom_override=False,
+            visiting=None,
+        ):
+            nonlocal created
+            if level > self.MAX_DEPTH:
+                raise UserError(
+                    'La validación de la estructura superó %s niveles.'
+                    % self.MAX_DEPTH
+                )
+
+            visiting = set(visiting or ())
+            visit_key = (
+                current_product.id,
+                bom_override.id if bom_override else False,
+            )
+            if visit_key in visiting:
+                raise UserError(
+                    'Se detectó una referencia circular de LdM en %s.'
+                    % current_product.display_name
+                )
+            visiting.add(visit_key)
+
+            bom = bom_override or self.graph.bom(current_product)
+            if not bom:
+                return
+
+            direct = planning_line.production_component_ids.filtered(
+                lambda component:
+                    component.parent_line_id == parent
+            )
+            base_path = list(
+                path or [planning_line.product_id.display_name]
+            )
+
+            for bl in bom.bom_line_ids:
+                child_product = bl.product_id
+                child_qty = self._qty(
+                    bom, bl, current_product, current_qty
+                )
+
+                # A genuinely zero engineering quantity is not an executable
+                # component.  Any positive factor, however small, must survive.
+                if child_qty <= 0.0:
+                    continue
+
+                component = direct.filtered(
+                    lambda row:
+                        row.source_bom_line_id == bl
+                )[:1]
+
+                if not component:
+                    subcontract_bom = self.graph.subcontract_bom(
+                        child_product
+                    )
+                    child_path = base_path + [
+                        child_product.display_name
+                    ]
+                    component = Component.with_context(
+                        aps_skip_sourcing_refresh=True,
+                        aps_skip_subtree_rebuild=True,
+                    ).create({
+                        'plan_id': self.plan.id,
+                        'planning_line_id': planning_line.id,
+                        'parent_line_id': parent.id if parent else False,
+                        'root_product_id': planning_line.product_id.id,
+                        'product_id': child_product.id,
+                        'original_product_id': child_product.id,
+                        'product_uom_id': child_product.uom_id.id,
+                        'original_qty': child_qty,
+                        'planned_qty': child_qty,
+                        'level': level + 1,
+                        'sequence': bl.sequence,
+                        'path': ' → '.join(child_path),
+                        'source_bom_id': bom.id,
+                        'source_bom_line_id': bl.id,
+                        'change_type': 'original',
+                        'include_in_mo': True,
+                        'is_subcontracted': bool(subcontract_bom),
+                        'subcontract_bom_id': (
+                            subcontract_bom.id
+                            if subcontract_bom else False
+                        ),
+                    })
+                    direct |= component
+                    created |= component
+                else:
+                    child_path = (
+                        component.path.split(' → ')
+                        if component.path
+                        else base_path + [
+                            component.product_id.display_name
+                        ]
+                    )
+
+                # Respect an intentional omission: keep it in the snapshot for
+                # traceability, but do not create executable descendants.
+                if not component.include_in_mo:
+                    continue
+
+                # Replaced/manual engineering follows the CURRENT product.
+                next_product = component.product_id
+                subcontract_bom = self.graph.subcontract_bom(
+                    next_product
+                )
+                next_bom = subcontract_bom or self.graph.bom(
+                    next_product
+                )
+                if next_bom:
+                    ensure_children(
+                        planning_line,
+                        next_product,
+                        component.planned_qty,
+                        parent=component,
+                        level=component.level,
+                        path=child_path,
+                        bom_override=(
+                            subcontract_bom
+                            if subcontract_bom else False
+                        ),
+                        visiting=visiting,
+                    )
+
+        for line in planning_lines:
+            ensure_children(
+                line,
+                line.product_id,
+                line.planner_production_qty,
+            )
+
+        return created
+
     def build(self, planning_lines):
         Component = self.env['mrp.planning.production.component']
         Component.with_context(

@@ -102,3 +102,15 @@ from . import test_v84_14_lot_states_capacity
 from . import test_v84_15_direct_lot_assignment
 
 from . import test_v85_planning_observations
+
+from . import test_v85_4_resolution_required
+
+from . import test_v85_5_supply_labels
+
+from . import test_v85_6_tags_and_flow
+
+from . import test_v85_7_customer_mo_regression
+
+from . import test_v85_8_lot_move_compatibility
+
+from . import test_v90_process_hardening

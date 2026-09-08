@@ -11,6 +11,11 @@ class StockRule(models.Model):
         modified. Component manufacturing launched later by MRP is unaffected
         because it does not run with the sale-specific APS context.
         """
-        if self.env.context.get('aps_hold_sale_mto_manufacturing'):
+        if (
+            self.env.context.get('aps_hold_sale_mto_manufacturing')
+            or self.env.context.get(
+                'aps_explicit_component_manufacturing'
+            )
+        ):
             return True
         return super()._run_manufacture(procurements)

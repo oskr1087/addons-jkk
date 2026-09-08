@@ -102,22 +102,31 @@ class MrpPlanningComponentLotReservation(models.Model):
                 'porque la Orden de Fabricación fue generada.'
             ))
 
-    @api.constrains('lot_id', 'state', 'component_id', 'reserved_qty')
+    @api.constrains(
+        'lot_id', 'state', 'component_id', 'reserved_qty', 'warehouse_id'
+    )
     def _check_exclusive_lot(self):
-        """Validate capacity instead of making a whole lot exclusive.
+        """APS reservations cannot invade stock already reserved by Odoo.
 
-        For lot-tracked products, the same physical lot can be split among
-        several APS demands while quantity remains. Serial-tracked products
-        naturally remain effectively exclusive because their available qty is 1.
+        Capacity = physical lot quantity - Odoo reservations unrelated to APS.
+        Odoo reservations belonging to APS MOs are already represented by the
+        logical APS reservation and therefore are not counted twice.
         """
         Quant = self.env['stock.quant'].sudo()
+        MoveLine = self.env['stock.move.line'].sudo()
+
         for reservation in self.filtered(
-            lambda r: r.lot_id and r.state in ('reserved', 'assigned')
+            lambda row:
+                row.lot_id
+                and row.warehouse_id
+                and row.state in ('reserved', 'assigned')
         ):
             locations = self.env['stock.location'].sudo().search([
-                ('id', 'child_of', reservation.warehouse_id.view_location_id.id),
+                ('id', 'child_of',
+                 reservation.warehouse_id.view_location_id.id),
                 ('usage', '=', 'internal'),
-                ('company_id', 'in', [False, reservation.company_id.id]),
+                ('company_id', 'in',
+                 [False, reservation.company_id.id]),
             ])
             quants = Quant.search([
                 ('product_id', '=', reservation.product_id.id),
@@ -125,6 +134,10 @@ class MrpPlanningComponentLotReservation(models.Model):
                 ('location_id', 'in', locations.ids),
             ])
             physical_qty = sum(quants.mapped('quantity'))
+            odoo_reserved_total = sum(
+                getattr(quant, 'reserved_quantity', 0.0) or 0.0
+                for quant in quants
+            )
 
             active = self.search([
                 ('lot_id', '=', reservation.lot_id.id),
@@ -134,30 +147,69 @@ class MrpPlanningComponentLotReservation(models.Model):
             ])
             aps_reserved_qty = sum(active.mapped('reserved_qty'))
 
-            if aps_reserved_qty > physical_qty + 1e-6:
+            aps_productions = active.mapped('production_id')
+            odoo_reserved_by_aps = 0.0
+            if aps_productions:
+                move_lines = MoveLine.search([
+                    ('product_id', '=', reservation.product_id.id),
+                    ('lot_id', '=', reservation.lot_id.id),
+                    ('location_id', 'in', locations.ids),
+                    ('move_id.raw_material_production_id',
+                     'in', aps_productions.ids),
+                    ('move_id.state', 'not in', ('done', 'cancel')),
+                ])
+                for line in move_lines:
+                    qty = (
+                        getattr(line, 'quantity', 0.0)
+                        or getattr(line, 'qty_done', 0.0)
+                        or 0.0
+                    )
+                    uom = (
+                        getattr(line, 'product_uom_id', False)
+                        or getattr(line, 'product_uom', False)
+                    )
+                    if uom and uom != reservation.product_id.uom_id:
+                        qty = uom._compute_quantity(
+                            qty, reservation.product_id.uom_id
+                        )
+                    odoo_reserved_by_aps += qty
+
+            unrelated_odoo_reserved = max(
+                odoo_reserved_total - odoo_reserved_by_aps,
+                0.0,
+            )
+            capacity_for_aps = max(
+                physical_qty - unrelated_odoo_reserved,
+                0.0,
+            )
+
+            if aps_reserved_qty > capacity_for_aps + 1e-6:
                 others = active - reservation
                 owner = others[:1]
                 raise ValidationError(_(
-                    'No hay cantidad suficiente del lote %(lot)s.\n\n'
+                    'No hay capacidad disponible para reservar el lote '
+                    '%(lot)s.\n\n'
                     'Producto: %(product)s\n'
                     'Almacén: %(warehouse)s\n'
-                    'Cantidad física del lote: %(physical).2f\n'
-                    'Reservado APS total: %(reserved).2f\n'
-                    'Cantidad solicitada: %(requested).2f\n'
-                    'Otra planificación: %(plan)s\n'
-                    'Componente de la otra planificación: %(other_product)s\n\n'
-                    'Use "Reasignar lotes" o libere/revise la reserva anterior.'
+                    'Cantidad física: %(physical).4f\n'
+                    'Reservas Odoo ajenas al APS: %(odoo).4f\n'
+                    'Capacidad utilizable por APS: %(capacity).4f\n'
+                    'Reservado APS total: %(aps).4f\n'
+                    'Cantidad solicitada: %(requested).4f\n'
+                    'Otra planificación: %(plan)s\n\n'
+                    'Revise las reservas/movimientos existentes o utilice '
+                    '"Reasignar lotes".'
                 ) % {
                     'lot': reservation.lot_id.display_name,
                     'product': reservation.product_id.display_name,
                     'warehouse': reservation.warehouse_id.display_name,
                     'physical': physical_qty,
-                    'reserved': aps_reserved_qty,
+                    'odoo': unrelated_odoo_reserved,
+                    'capacity': capacity_for_aps,
+                    'aps': aps_reserved_qty,
                     'requested': reservation.reserved_qty,
-                    'plan': owner.plan_id.display_name if owner else '-',
-                    'other_product': (
-                        owner.component_id.product_id.display_name
-                        if owner else '-'
+                    'plan': (
+                        owner.plan_id.display_name if owner else '-'
                     ),
                 })
 
@@ -273,10 +325,7 @@ class MrpPlanningComponentLotReservation(models.Model):
                 lambda reservation:
                     reservation.state in ('reserved', 'assigned')
             )
-            target_qty = max(
-                component.effective_required_qty or component.planned_qty,
-                0.0,
-            )
+            target_qty = component._aps_effective_lot_target_qty()
             missing = max(
                 target_qty - sum(active.mapped('reserved_qty')),
                 0.0,
@@ -297,10 +346,10 @@ class MrpPlanningComponentLotReservation(models.Model):
                     'lot_id': lot.id,
                     'reserved_qty': qty,
                 }
-                if component.planning_line_id.created_production_id:
+                production = component._aps_lot_production()
+                if production:
                     vals.update({
-                        'production_id':
-                            component.planning_line_id.created_production_id.id,
+                        'production_id': production.id,
                         'state': 'assigned',
                     })
                 created |= self.with_context(
@@ -340,13 +389,95 @@ class StockPicking(models.Model):
 class StockMoveLine(models.Model):
     _inherit = 'stock.move.line'
 
+    def _aps_source_warehouse(self, move):
+        """Warehouse from which the move consumes stock."""
+        location = move.location_id
+        if not location or location.usage != 'internal':
+            return self.env['stock.warehouse']
+
+        warehouse = getattr(location, 'warehouse_id', False)
+        if warehouse:
+            return warehouse
+
+        warehouses = self.env['stock.warehouse'].sudo().search([
+            ('company_id', '=', move.company_id.id),
+        ])
+        Location = self.env['stock.location'].sudo()
+        for candidate in warehouses:
+            if Location.search_count([
+                ('id', '=', location.id),
+                ('id', 'child_of', candidate.view_location_id.id),
+            ]):
+                return candidate
+        return self.env['stock.warehouse']
+
+    def _aps_operation_lot_qty(self, move, lot, warehouse):
+        """Quantity this production/picking currently reserves on the lot."""
+        MoveLine = self.env['stock.move.line'].sudo()
+        domain = [
+            ('product_id', '=', move.product_id.id),
+            ('lot_id', '=', lot.id),
+            ('location_id', 'child_of', warehouse.view_location_id.id),
+            ('move_id.state', 'not in', ('done', 'cancel')),
+        ]
+        production = move.raw_material_production_id
+        if production:
+            domain.append(
+                ('move_id.raw_material_production_id', '=', production.id)
+            )
+        elif move.picking_id:
+            domain.append(('move_id.picking_id', '=', move.picking_id.id))
+        else:
+            domain.append(('move_id', '=', move.id))
+
+        total = 0.0
+        for line in MoveLine.search(domain):
+            qty = (
+                getattr(line, 'quantity', 0.0)
+                or getattr(line, 'qty_done', 0.0)
+                or 0.0
+            )
+            uom = (
+                getattr(line, 'product_uom_id', False)
+                or getattr(line, 'product_uom', False)
+            )
+            if uom and uom != move.product_id.uom_id:
+                qty = uom._compute_quantity(
+                    qty, move.product_id.uom_id
+                )
+            total += qty
+        return total
+
+    def _aps_lot_physical_qty(self, move, lot, warehouse):
+        locations = self.env['stock.location'].sudo().search([
+            ('id', 'child_of', warehouse.view_location_id.id),
+            ('usage', '=', 'internal'),
+            ('company_id', 'in', [False, move.company_id.id]),
+        ])
+        quants = self.env['stock.quant'].sudo().search([
+            ('product_id', '=', move.product_id.id),
+            ('lot_id', '=', lot.id),
+            ('location_id', 'in', locations.ids),
+        ])
+        return sum(quants.mapped('quantity'))
+
     def _aps_validate_reserved_lot(self, move=False, lot=False):
+        """Protect only the APS-reserved QUANTITY, never the whole lot.
+
+        A direct/non-APS MO or internal transfer may use the remainder of a lot
+        while enough physical quantity remains outside active APS reservations.
+        This prevents the previous false conflict where any APS reservation
+        made the complete lot unusable.
+        """
+        self.ensure_one()
         move = move or self.move_id
         lot = lot or self.lot_id
         if not move or not lot:
             return True
-        production = move.raw_material_production_id
-        if not production:
+
+        warehouse = self._aps_source_warehouse(move)
+        if not warehouse:
+            # Incoming/supplier/customer moves do not consume internal stock.
             return True
 
         Reservation = self.env[
@@ -354,84 +485,129 @@ class StockMoveLine(models.Model):
         ].sudo()
         active = Reservation.search([
             ('lot_id', '=', lot.id),
+            ('warehouse_id', '=', warehouse.id),
             ('state', 'in', ('reserved', 'assigned')),
+            ('plan_id.state', 'in', ('calculated', 'approved')),
         ])
         if not active:
             return True
 
-        # A lot reserved for another APS demand may not be consumed by this MO.
-        allowed = active.filtered(
-            lambda reservation:
-                reservation.production_id == production
-                or (
-                    production.advanced_plan_id
-                    and reservation.plan_id == production.advanced_plan_id
-                )
+        production = move.raw_material_production_id
+        component = getattr(move, 'aps_planning_component_id', False)
+
+        # APS component MOs must use one of the lots explicitly selected for
+        # that component. This remains strict even though lots are shareable by
+        # quantity across plans.
+        if (
+            production
+            and component
+            and component.product_id.tracking != 'none'
+        ):
+            own_reservations = component.lot_reservation_ids.filtered(
+                lambda reservation:
+                    reservation.state in ('reserved', 'assigned')
+            )
+            own_lots = own_reservations.mapped('lot_id')
+            if not own_lots:
+                raise UserError(_(
+                    'El componente %(component)s requiere lote, pero APS '
+                    'todavía no tiene ningún lote reservado para esta OF. '
+                    'Complete la asignación de lotes antes de consumir.'
+                ) % {
+                    'component': component.product_id.display_name,
+                })
+            if lot not in own_lots:
+                raise UserError(_(
+                    'El lote %(lot)s no está asignado al componente '
+                    '%(component)s de la OF %(mo)s.'
+                ) % {
+                    'lot': lot.display_name,
+                    'component': component.product_id.display_name,
+                    'mo': production.display_name,
+                })
+
+        # Reservations owned by this exact APS component/production do not
+        # reduce the quantity available to that same operation.
+        owned = Reservation
+        if production:
+            owned |= active.filtered(
+                lambda reservation:
+                    reservation.production_id == production
+            )
+        if component:
+            owned |= active.filtered(
+                lambda reservation:
+                    reservation.component_id == component
+            )
+
+        protected = active - owned
+        protected_qty = sum(protected.mapped('reserved_qty'))
+        physical_qty = self._aps_lot_physical_qty(
+            move, lot, warehouse
         )
-        if not allowed:
-            owner = active[:1]
+        operation_qty = self._aps_operation_lot_qty(
+            move, lot, warehouse
+        )
+        usable_outside_other_aps = max(
+            physical_qty - protected_qty, 0.0
+        )
+
+        if operation_qty > usable_outside_other_aps + 1e-6:
+            owner = protected[:1] or active[:1]
             raise UserError(_(
-                'Conflicto de reserva de lote.\n\n'
+                'Conflicto de cantidad reservada por APS.\n\n'
                 'Producto: %(product)s\n'
                 'Lote: %(lot)s\n'
-                'Cantidad reservada APS: %(qty).2f\n'
-                'Estado de la reserva: %(reservation_state)s\n'
-                'Reservado por planificación: %(plan)s\n'
-                'Producto/componente origen: %(owner_product)s\n'
-                'OF asociada a la reserva: %(owner_mo)s\n'
-                'OF actual: %(current_mo)s\n\n'
-                'Este lote tiene una reserva APS activa para otra demanda. '
-                'Revise la cantidad disponible o utilice "Reasignar lotes".'
+                'Almacén: %(warehouse)s\n'
+                'Cantidad física del lote: %(physical).4f\n'
+                'Reservado por otros APS: %(aps_reserved).4f\n'
+                'Disponible fuera de esas reservas: %(free).4f\n'
+                'Cantidad de esta operación: %(operation).4f\n'
+                'Planificación que protege la cantidad: %(plan)s\n'
+                'OF asociada a esa reserva: %(owner_mo)s\n'
+                'Operación actual: %(current)s\n\n'
+                'Puede utilizar este lote mientras la operación no invada '
+                'la cantidad protegida por APS. Si necesita esa cantidad, '
+                'libere o reasigne primero la reserva correspondiente.'
             ) % {
                 'product': move.product_id.display_name,
                 'lot': lot.display_name,
-                'qty': owner.reserved_qty,
-                'reservation_state': dict(
-                    owner._fields['state'].selection
-                ).get(owner.state, owner.state),
-                'plan': owner.plan_id.display_name,
-                'owner_product': owner.component_id.product_id.display_name,
+                'warehouse': warehouse.display_name,
+                'physical': physical_qty,
+                'aps_reserved': protected_qty,
+                'free': usable_outside_other_aps,
+                'operation': operation_qty,
+                'plan': owner.plan_id.display_name if owner else '-',
                 'owner_mo': (
                     owner.production_id.display_name
-                    if owner.production_id else '-'
+                    if owner and owner.production_id else '-'
                 ),
-                'current_mo': production.display_name,
+                'current': (
+                    production.display_name
+                    if production
+                    else (
+                        move.picking_id.display_name
+                        if move.picking_id
+                        else move.display_name
+                    )
+                ),
             })
-
-        # For an APS raw move with a specific component, enforce its own lots.
-        component = getattr(move, 'aps_planning_component_id', False)
-        if component and component.product_id.tracking != 'none':
-            component_lots = component.lot_reservation_ids.filtered(
-                lambda reservation:
-                    reservation.state in ('reserved', 'assigned')
-            ).mapped('lot_id')
-            if not component_lots:
-                raise UserError(_(
-                    'El componente %s requiere lote, pero APS todavía no tiene '
-                    'ningún lote reservado. Reciba/disponga material y complete '
-                    'la reserva antes de consumir.'
-                ) % component.product_id.display_name)
-            if lot not in component_lots:
-                raise UserError(_(
-                    'El lote %s no está reservado para el componente %s de '
-                    'esta planificación APS.'
-                ) % (lot.display_name, component.product_id.display_name))
         return True
 
     @api.model_create_multi
     def create(self, vals_list):
-        Move = self.env['stock.move']
-        Lot = self.env['stock.lot']
-        for vals in vals_list:
-            move = Move.browse(vals.get('move_id')).exists()
-            lot = Lot.browse(vals.get('lot_id')).exists()
-            if move and lot:
-                self._aps_validate_reserved_lot(move=move, lot=lot)
-        return super().create(vals_list)
+        records = super().create(vals_list)
+        for line in records.filtered(lambda row: row.move_id and row.lot_id):
+            line._aps_validate_reserved_lot()
+        return records
 
     def write(self, vals):
         result = super().write(vals)
-        if 'lot_id' in vals or 'move_id' in vals:
-            for line in self:
+        if {
+            'lot_id', 'move_id', 'quantity', 'qty_done'
+        } & set(vals):
+            for line in self.filtered(
+                lambda row: row.move_id and row.lot_id
+            ):
                 line._aps_validate_reserved_lot()
         return result

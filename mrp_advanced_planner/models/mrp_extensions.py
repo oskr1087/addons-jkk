@@ -86,6 +86,42 @@ class MrpProduction(models.Model):
             and c.planned_qty > 1e-9
         )
 
+    def _aps_validate_snapshot_against_bom(self):
+        """Ensure direct APS snapshot rows represent every positive BoM line."""
+        self.ensure_one()
+        if (
+            not self.aps_component_snapshot
+            or not self.planning_plan_line_id
+            or not self.bom_id
+        ):
+            return True
+
+        snapshot = self._aps_snapshot_components()
+        represented_bom_lines = snapshot.mapped(
+            'source_bom_line_id'
+        )
+
+        missing = self.bom_id.bom_line_ids.filtered(
+            lambda bom_line:
+                bom_line.product_qty > 0.0
+                and bom_line not in represented_bom_lines
+        )
+        if missing:
+            raise UserError(_(
+                'No se puede confirmar la OF APS %(mo)s porque su snapshot '
+                'está incompleto respecto de la LdM %(bom)s.\n\n'
+                'Componentes faltantes:\n- %(components)s\n\n'
+                'Recalcule la planificación o vuelva a ejecutar Fabricar '
+                'para que APS repare la estructura antes de continuar.'
+            ) % {
+                'mo': self.display_name,
+                'bom': self.bom_id.display_name,
+                'components': '\n- '.join(
+                    missing.mapped('product_id.display_name')
+                ),
+            })
+        return True
+
     def _aps_raw_move_values(self):
         """Build raw move vals with Odoo 19's complete native structure.
 
@@ -211,6 +247,7 @@ class MrpProduction(models.Model):
             result = super(MrpProduction, regular).action_confirm()
 
         for mo in aps:
+            mo._aps_validate_snapshot_against_bom()
             snapshot = mo._aps_snapshot_components()
             if not snapshot:
                 raise UserError(
@@ -331,7 +368,7 @@ class MrpProduction(models.Model):
                 details = []
                 for component in incomplete:
                     details.append(
-                        '%s: requerido %.2f / reservado %.2f / pendiente %.2f'
+                        '%s: requerido %.4f / reservado %.4f / pendiente %.4f'
                         % (
                             component.product_id.display_name,
                             component.effective_required_qty
@@ -379,6 +416,25 @@ class MrpProduction(models.Model):
                     reservations.with_context(
                         aps_allow_locked_lot_reservation_write=True
                     ).write({'state': 'consumed'})
+
+            # A completed manufacturing order may create new lot-tracked stock
+            # required by another APS component. Refresh only APS logical
+            # reservations; this does not create or alter stock moves/quants.
+            done_productions = self.filtered(
+                lambda production:
+                    production.state == 'done'
+                    and production.product_id.tracking != 'none'
+            )
+            if done_productions:
+                Reservation = self.env[
+                    'mrp.planning.component.lot.reservation'
+                ].sudo()
+                for production in done_productions:
+                    warehouse = production.picking_type_id.warehouse_id
+                    Reservation._aps_auto_complete_pending_for_products(
+                        production.product_id,
+                        warehouse=warehouse,
+                    )
         return result
 
 

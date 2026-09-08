@@ -79,9 +79,9 @@ class PlanningPlanLine(models.Model):
     action_move = fields.Boolean(string='Mover')
     action_type = fields.Selection(
         [
-            ('manufacture', 'Fabricar'),
-            ('purchase', 'Comprar'),
-            ('move', 'Mover'),
+            ('manufacture', 'Fabricar faltante'),
+            ('purchase', 'Comprar faltante'),
+            ('move', 'Trasladar desde otro almacén'),
             ('none', 'Sin definir'),
         ],
         string='Acción',
@@ -656,9 +656,9 @@ class PlanningProductionComponent(models.Model):
         string='Necesidad neta', compute='_compute_availability', digits=(16, 4)
     )
     availability_status = fields.Selection([
-        ('pending', 'Seleccione componente'),
-        ('sufficient', 'Suficiente'),
-        ('partial', 'Parcial'),
+        ('pending', 'Pendiente de evaluar'),
+        ('sufficient', 'Disponibilidad suficiente'),
+        ('partial', 'Disponibilidad parcial'),
         ('none', 'Sin disponibilidad'),
     ], string='Disponibilidad', compute='_compute_availability')
     availability_label = fields.Char(
@@ -681,16 +681,16 @@ class PlanningProductionComponent(models.Model):
         string='A comprar', digits=(16, 4), readonly=True, copy=False
     )
     supply_resolution = fields.Selection([
-        ('not_required', 'No requerido'),
-        ('available', 'Disponible'),
+        ('not_required', 'No requiere abastecimiento'),
+        ('available', 'Cubierto con disponibilidad'),
         ('move', 'Mover'),
         ('manufacture', 'Fabricar'),
         ('purchase', 'Comprar'),
-        ('move_manufacture', 'Mover + Fabricar'),
-        ('move_purchase', 'Mover + Comprar'),
+        ('move_manufacture', 'Trasladar + fabricar faltante'),
+        ('move_purchase', 'Trasladar + comprar faltante'),
         ('subcontract', 'Subcontratación'),
         ('move_subcontract', 'Mover + Subcontratación'),
-        ('review', 'Revisar'),
+        ('review', 'Revisar abastecimiento'),
     ], string='Resolución', default='not_required', readonly=True, copy=False, index=True)
     generated_production_id = fields.Many2one(
         'mrp.production', string='OF de componente', readonly=True, copy=False, ondelete='set null'
@@ -742,17 +742,37 @@ class PlanningProductionComponent(models.Model):
     )
     lot_reservation_status = fields.Selection([
         ('not_tracked', 'Sin seguimiento'),
-        ('none', 'Sin lotes disponibles'),
-        ('available_to_assign', 'Disponible para asignar'),
-        ('pending_supply', 'Pendiente de abastecimiento'),
-        ('partial', 'Reserva parcial'),
-        ('reserved', 'Reservado'),
-        ('locked', 'Asignado a OF'),
+        ('none', 'Sin lote físico disponible'),
+        ('available_to_assign', 'Lote disponible para asignar'),
+        ('pending_supply', 'Abastecimiento pendiente'),
+        ('partial', 'Lote parcialmente reservado'),
+        ('reserved', 'Lote reservado'),
+        ('locked', 'Lote asignado a OF'),
     ], string='Reserva de lotes', compute='_compute_lot_reservation_summary')
 
     hierarchy_label = fields.Char(
         string='Jerarquía', compute='_compute_hierarchy_label'
     )
+
+    def _aps_effective_lot_target_qty(self):
+        """Quantity that actually needs an APS lot reservation.
+
+        ``planned_qty`` is the gross engineering quantity from the exploded
+        BoM. ``effective_required_qty`` is the quantity that this APS really
+        needs after considering stock/supply at every parent level.
+
+        A zero effective requirement is meaningful: e.g. a parent component
+        is already covered by stock, an incoming PO/MO, or is subcontracted.
+        In those cases descendants remain visible for engineering traceability
+        but must NOT appear as pending lot demand.
+        """
+        self.ensure_one()
+        if (
+            not self.include_in_mo
+            or self.supply_resolution == 'not_required'
+        ):
+            return 0.0
+        return max(self.effective_required_qty or 0.0, 0.0)
 
     @api.depends(
         'lot_reservation_ids.reserved_qty',
@@ -761,6 +781,8 @@ class PlanningProductionComponent(models.Model):
         'engineering_locked',
         'effective_required_qty',
         'planned_qty',
+        'include_in_mo',
+        'supply_resolution',
     )
     def _compute_lot_reservation_summary(self):
         for component in self:
@@ -768,10 +790,7 @@ class PlanningProductionComponent(models.Model):
                 lambda reservation:
                     reservation.state in ('reserved', 'assigned')
             )
-            target_qty = max(
-                component.effective_required_qty or component.planned_qty,
-                0.0,
-            )
+            target_qty = component._aps_effective_lot_target_qty()
             qty = sum(active.mapped('reserved_qty'))
             pending = max(target_qty - qty, 0.0)
             coverage = (
@@ -787,7 +806,10 @@ class PlanningProductionComponent(models.Model):
 
             free_rows = (
                 component._aps_lot_free_rows()
-                if component.product_id.tracking != 'none'
+                if (
+                    component.product_id.tracking != 'none'
+                    and target_qty > 1e-9
+                )
                 else []
             )
             component.physical_lot_available_qty = sum(
@@ -817,10 +839,7 @@ class PlanningProductionComponent(models.Model):
         self.ensure_one()
         if self.product_id.tracking == 'none':
             return True
-        required = max(
-            self.effective_required_qty or self.planned_qty,
-            0.0,
-        )
+        required = self._aps_effective_lot_target_qty()
         reserved = sum(
             self.lot_reservation_ids.filtered(
                 lambda reservation:
@@ -831,10 +850,15 @@ class PlanningProductionComponent(models.Model):
 
 
     def _aps_lot_free_rows(self):
-        """Available lot quantities in the component destination warehouse.
+        """Lot capacity available to THIS APS component.
 
-        Lots actively reserved by another APS component are excluded entirely.
-        This intentionally makes a lot exclusive to one APS demand.
+        Reconciles two reservation layers:
+        * Odoo stock reservations (stock.quant.reserved_quantity);
+        * logical APS lot reservations.
+
+        Odoo reservations already created by APS MOs are NOT subtracted twice,
+        and reservations of this component's own MO are added back because that
+        quantity is already physically secured for this same demand.
         """
         self.ensure_one()
         if not self.product_id or self.product_id.tracking == 'none':
@@ -858,52 +882,134 @@ class PlanningProductionComponent(models.Model):
             ('location_id', 'in', locations.ids),
             ('quantity', '>', 0),
         ])
+        lot_ids = quants.mapped('lot_id').ids
+        if not lot_ids:
+            return []
 
-        # APS reservations are quantitative. A lot may serve more than one
-        # plan/component while it still has enough physical quantity available.
-        # The previous implementation excluded the COMPLETE lot as soon as
-        # another APS plan reserved any quantity, which produced false
-        # "no lots available" situations.
-        other_reservations = self.env[
+        Reservation = self.env[
             'mrp.planning.component.lot.reservation'
-        ].sudo().search([
+        ].sudo()
+        other_reservations = Reservation.search([
             ('component_id', '!=', self.id),
+            ('warehouse_id', '=', warehouse.id),
             ('state', 'in', ('reserved', 'assigned')),
-            ('lot_id', 'in', quants.mapped('lot_id').ids),
+            ('lot_id', 'in', lot_ids),
             ('plan_id.state', 'in', ('calculated', 'approved')),
         ])
-        reserved_elsewhere_qty = {}
+
+        other_aps_by_lot = {}
         for reservation in other_reservations:
-            reserved_elsewhere_qty[reservation.lot_id.id] = (
-                reserved_elsewhere_qty.get(reservation.lot_id.id, 0.0)
+            other_aps_by_lot[reservation.lot_id.id] = (
+                other_aps_by_lot.get(reservation.lot_id.id, 0.0)
                 + reservation.reserved_qty
             )
 
-        physical_free_by_lot = {}
-        for quant in quants:
-            lot = quant.lot_id
-            free = max(
-                (quant.quantity or 0.0)
-                - (getattr(quant, 'reserved_quantity', 0.0) or 0.0),
-                0.0,
+        current_production = self._aps_lot_production()
+        other_productions = other_reservations.mapped('production_id')
+
+        MoveLine = self.env['stock.move.line'].sudo()
+        move_lines = MoveLine.search([
+            ('product_id', '=', self.product_id.id),
+            ('lot_id', 'in', lot_ids),
+            ('location_id', 'in', locations.ids),
+            ('move_id.state', 'not in', ('done', 'cancel')),
+        ])
+
+        own_odoo_by_lot = {}
+        other_aps_odoo_by_lot = {}
+        for line in move_lines:
+            qty = (
+                getattr(line, 'quantity', 0.0)
+                or getattr(line, 'qty_done', 0.0)
+                or 0.0
             )
-            physical_free_by_lot[lot.id] = (
-                physical_free_by_lot.get(lot.id, 0.0) + free
+            uom = (
+                getattr(line, 'product_uom_id', False)
+                or getattr(line, 'product_uom', False)
+            )
+            if uom and uom != self.product_id.uom_id:
+                qty = uom._compute_quantity(
+                    qty, self.product_id.uom_id
+                )
+
+            production = line.move_id.raw_material_production_id
+            move_component = getattr(
+                line.move_id, 'aps_planning_component_id', False
+            )
+            if (
+                move_component == self
+                or (
+                    current_production
+                    and production == current_production
+                    and not move_component
+                )
+            ):
+                own_odoo_by_lot[line.lot_id.id] = (
+                    own_odoo_by_lot.get(line.lot_id.id, 0.0) + qty
+                )
+            elif production and production in other_productions:
+                other_aps_odoo_by_lot[line.lot_id.id] = (
+                    other_aps_odoo_by_lot.get(
+                        line.lot_id.id, 0.0
+                    ) + qty
+                )
+
+        physical_by_lot = {}
+        odoo_reserved_by_lot = {}
+        for quant in quants:
+            lot_id = quant.lot_id.id
+            physical_by_lot[lot_id] = (
+                physical_by_lot.get(lot_id, 0.0)
+                + (quant.quantity or 0.0)
+            )
+            odoo_reserved_by_lot[lot_id] = (
+                odoo_reserved_by_lot.get(lot_id, 0.0)
+                + (
+                    getattr(quant, 'reserved_quantity', 0.0)
+                    or 0.0
+                )
             )
 
         free_by_lot = {}
-        for lot_id, physical_free in physical_free_by_lot.items():
-            aps_other = reserved_elsewhere_qty.get(lot_id, 0.0)
-            free = max(physical_free - aps_other, 0.0)
+        for lot_id, physical_qty in physical_by_lot.items():
+            total_odoo_reserved = odoo_reserved_by_lot.get(
+                lot_id, 0.0
+            )
+            own_odoo = own_odoo_by_lot.get(lot_id, 0.0)
+            other_aps = other_aps_by_lot.get(lot_id, 0.0)
+            other_aps_odoo = other_aps_odoo_by_lot.get(
+                lot_id, 0.0
+            )
+
+            unrelated_odoo_reserved = max(
+                total_odoo_reserved
+                - own_odoo
+                - other_aps_odoo,
+                0.0,
+            )
+            logical_other_not_materialized = max(
+                other_aps - other_aps_odoo,
+                0.0,
+            )
+            free = max(
+                physical_qty
+                - unrelated_odoo_reserved
+                - other_aps_odoo
+                - logical_other_not_materialized,
+                0.0,
+            )
             if free > 1e-6:
                 free_by_lot[lot_id] = free
 
         lots = self.env['stock.lot'].browse(list(free_by_lot))
+
         def lot_order(lot):
             removal = (
                 getattr(lot, 'removal_date', False)
                 or getattr(lot, 'expiration_date', False)
-                or fields.Datetime.to_datetime('9999-12-31 00:00:00')
+                or fields.Datetime.to_datetime(
+                    '9999-12-31 00:00:00'
+                )
             )
             return (removal, lot.name or '', lot.id)
 
@@ -929,10 +1035,7 @@ class PlanningProductionComponent(models.Model):
                 lambda reservation:
                     reservation.state in ('reserved', 'assigned')
             )
-            target_qty = max(
-                component.effective_required_qty or component.planned_qty,
-                0.0,
-            )
+            target_qty = component._aps_effective_lot_target_qty()
             current_qty = sum(active.mapped('reserved_qty'))
             missing = max(target_qty - current_qty, 0.0)
             if missing <= 1e-6:
@@ -1061,10 +1164,7 @@ class PlanningProductionComponent(models.Model):
                 ).write({'state': 'released'})
                 active = Reservation.browse()
 
-            target_qty = max(
-                component.effective_required_qty or component.planned_qty,
-                0.0,
-            )
+            target_qty = component._aps_effective_lot_target_qty()
             missing = max(
                 target_qty - sum(active.mapped('reserved_qty')),
                 0.0,

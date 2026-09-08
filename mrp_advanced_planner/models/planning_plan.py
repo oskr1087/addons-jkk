@@ -693,12 +693,54 @@ class PlanningPlan(models.Model):
         ) % purchase_plan.name)
         return purchase_plan
 
+    def _aps_validate_created_mo_lot_links(self, productions):
+        """Validate logical APS lot ownership after MO confirmation.
+
+        We intentionally do NOT rewrite stock.move.line reservations here.
+        Odoo remains owner of physical stock reservation; APS only validates
+        that each tracked direct component has its logical reservation linked
+        to the correct MO. This avoids affecting non-APS MRP behavior.
+        """
+        for production in productions.filtered(
+            lambda mo:
+                mo.aps_component_snapshot
+                and mo.state not in ('done', 'cancel')
+        ):
+            for component in production._aps_snapshot_components().filtered(
+                lambda row:
+                    row.include_in_mo
+                    and row.product_id.tracking != 'none'
+                    and row._aps_effective_lot_target_qty() > 1e-9
+            ):
+                reservations = component.lot_reservation_ids.filtered(
+                    lambda reservation:
+                        reservation.state in ('reserved', 'assigned')
+                )
+                wrong_owner = reservations.filtered(
+                    lambda reservation:
+                        reservation.production_id
+                        and reservation.production_id != production
+                )
+                if wrong_owner:
+                    raise UserError(_(
+                        'La reserva APS del componente %(component)s quedó '
+                        'asociada a una OF diferente.\n\n'
+                        'OF actual: %(current)s\n'
+                        'OF de la reserva: %(owner)s\n\n'
+                        'Reasigne los lotes antes de continuar.'
+                    ) % {
+                        'component': component.product_id.display_name,
+                        'current': production.display_name,
+                        'owner': wrong_owner[:1].production_id.display_name,
+                    })
+        return True
+
     def _create_component_manufacturing_orders(self):
         """Create sub-MOs for fabricable components not covered by supply."""
         self.ensure_one()
         components = self.production_component_ids.filtered(
             lambda c: c.include_in_mo
-            and c.to_manufacture_qty > 1e-6
+            and c.to_manufacture_qty > 1e-9
             and not c.generated_production_id
         )
         if not components:
@@ -748,8 +790,28 @@ class PlanningPlan(models.Model):
             mo = Production.with_context(
                 skip_compute_move_raw_ids=True
             ).create(vals)
-            mo.action_confirm()
+
+            # The component MO must own the reservations of ITS direct raw
+            # materials before confirmation. Otherwise Odoo can reserve a lot
+            # and APS sees it as owned by another MO/plan during action_confirm.
             component.sudo().write({'generated_production_id': mo.id})
+            direct_components = mo._aps_snapshot_components()
+            direct_components.mapped(
+                'lot_reservation_ids'
+            ).filtered(
+                lambda reservation:
+                    reservation.state in ('reserved', 'assigned')
+            ).with_context(
+                aps_allow_locked_lot_reservation_write=True
+            ).write({
+                'production_id': mo.id,
+                'state': 'assigned',
+            })
+
+            mo.with_context(
+                aps_explicit_component_manufacturing=True
+            ).action_confirm()
+            self._aps_validate_created_mo_lot_links(mo)
             created |= mo
         return created
 
@@ -795,21 +857,34 @@ class PlanningPlan(models.Model):
                 missing_bom.mapped('product_id.display_name')
             ))
 
-        # Re-evaluate the edited snapshot immediately before execution.
+        # Validate/repair the engineering snapshot immediately before
+        # execution. This catches BoM lines lost by old rounding/precision
+        # logic without deleting substitutions or manual APS edits.
+        from ..services.manufacturing_snapshot import ManufacturingSnapshotBuilder
+        repaired = ManufacturingSnapshotBuilder(self).ensure_complete(lines)
+        if repaired:
+            self.message_post(body=_(
+                'APS corrigió %s componente(s) faltante(s) de la estructura '
+                'antes de generar fabricación.'
+            ) % len(repaired))
+
+        # Re-evaluate sourcing after repairing the complete exploded structure.
         self._refresh_component_sourcing()
 
         # Internal transfers are OPTIONAL recommendations.  They never block
         # manufacturing.  If the user executes one, action_create_transfer()
         # marks the plan as requiring recalculation so the new incoming stock
         # is considered before creating subsequent supply documents.
-        # Create/update procurement plan first, then sub-MOs and finished MOs.
+        # Create/update procurement plan first. Then create every fabricable
+        # semiterminated component detected by APS, deepest level first, and
+        # finally create the finished-product OF. This guarantees a complete
+        # PT -> semiterminado -> subcomponente manufacturing chain.
         self._sync_component_purchase_plan()
+        component_productions = (
+            self._create_component_manufacturing_orders()
+        )
 
-        # APS does NOT create manufacturing orders for fabricable components.
-        # The finished-product MO keeps those components in its raw material
-        # snapshot and Odoo's standard MRP/replenishment flow resolves their
-        # manufacturing supply.
-        productions = self.env['mrp.production']
+        productions = component_productions
         for line in lines:
             if line.created_production_id:
                 productions |= line.created_production_id
@@ -833,19 +908,26 @@ class PlanningPlan(models.Model):
             mo = self.env['mrp.production'].with_context(
                 skip_compute_move_raw_ids=True
             ).create(vals)
-            mo.action_confirm()
 
-            # Transfer the planner lot allocation to the generated MO.
-            line.production_component_ids.mapped(
+            # The finished-product MO owns ONLY its direct snapshot
+            # components. Descendant reservations belong to the corresponding
+            # semiterminated/component MOs created above.
+            mo._aps_snapshot_components().mapped(
                 'lot_reservation_ids'
             ).filtered(
-                lambda reservation: reservation.state == 'reserved'
+                lambda reservation:
+                    reservation.state in ('reserved', 'assigned')
             ).with_context(
                 aps_allow_locked_lot_reservation_write=True
             ).write({
                 'production_id': mo.id,
                 'state': 'assigned',
             })
+
+            mo.with_context(
+                aps_explicit_component_manufacturing=True
+            ).action_confirm()
+            self._aps_validate_created_mo_lot_links(mo)
 
             line.write({
                 'created_production_id': mo.id,

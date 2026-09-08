@@ -297,6 +297,12 @@ export class PlanningComponentTreeField extends Component {
     }
 
     getStatusClass(status, row = null) {
+        if (
+            row?.supply_resolution === "not_required"
+            && (row?.effective_required_qty || 0) <= 0.000000001
+        ) {
+            return "aps-status aps-status-neutral";
+        }
         if (row?.product_tracking !== "none") {
             if ((row.pending_lot_qty || 0) <= 0 && (row.reserved_lot_qty || 0) > 0) {
                 return "aps-status aps-status-success";
@@ -314,6 +320,13 @@ export class PlanningComponentTreeField extends Component {
     }
 
     getStatusText(row) {
+        if (
+            row.product_tracking !== "none"
+            && row.supply_resolution === "not_required"
+            && (row.effective_required_qty || 0) <= 0.000000001
+        ) {
+            return "Lote no requerido";
+        }
         if (row.product_tracking !== "none") {
             if ((row.pending_lot_qty || 0) <= 0 && (row.reserved_lot_qty || 0) > 0) {
                 return `Lotes asignados (${this.formatQty(row.reserved_lot_qty)})`;
@@ -322,28 +335,28 @@ export class PlanningComponentTreeField extends Component {
                 return `Lotes por asignar (${this.formatQty(row.physical_lot_available_qty)})`;
             }
             if (row.availability_status === "sufficient") {
-                return "Cubierto, esperando lote";
+                return "Abastecimiento cubierto - lote pendiente";
             }
             if (row.availability_status === "partial") {
-                return "Parcial, sin lote";
+                return "Cobertura parcial - lote pendiente";
             }
-            return "Sin lote disponible";
+            return "Sin disponibilidad de lote";
         }
         if (row.availability_status === "sufficient") {
-            return `Suficiente (${this.formatQty(row.availability_qty)})`;
+            return `Disponible (${this.formatQty(row.availability_qty)})`;
         }
         if (row.availability_status === "partial") {
-            return `Parcial (${this.formatQty(row.availability_qty)})`;
+            return `Cobertura parcial (${this.formatQty(row.availability_qty)})`;
         }
-        return "Sin disponibilidad";
+        return "Sin disponibilidad para cubrir";
     }
 
     getChangeText(value) {
         return {
-            original: "Original",
+            original: "LdM original",
             modified: "Modificado",
             replaced: "Sustituido",
-            manual: "Manual",
+            manual: "Agregado",
             omitted: "Omitido",
         }[value] || value || "";
     }
@@ -353,26 +366,38 @@ export class PlanningComponentTreeField extends Component {
     }
 
     getSupplyText(row) {
+        if (row.supply_resolution === "not_required") {
+            if (!row.include_in_mo) {
+                return "Omitido";
+            }
+            if (
+                (row.planned_qty || 0) > 0.000000001
+                && (row.effective_required_qty || 0) <= 0.000000001
+            ) {
+                return "No abastecer - padre cubierto";
+            }
+            return "Sin abastecimiento requerido";
+        }
         const labels = {
-            not_required: "No requerido",
-            available: "Disponible",
-            move: "Mover",
-            manufacture: "Fabricar",
-            purchase: "Comprar",
-            move_manufacture: "Mover + Fabricar",
-            move_purchase: "Mover + Comprar",
+            not_required: "Sin abastecimiento requerido",
+            available: "Cubierto",
+            move: "Trasladar",
+            manufacture: "Fabricar faltante",
+            purchase: "Comprar faltante",
+            move_manufacture: "Trasladar + fabricar",
+            move_purchase: "Trasladar + comprar",
             subcontract: "Subcontratación",
-            move_subcontract: "Mover + Subcontratación",
-            review: "Revisar",
+            move_subcontract: "Trasladar + subcontratación",
+            review: "Revisar abastecimiento",
         };
         if (row.product_tracking !== "none" && row.supply_resolution === "available") {
             if ((row.pending_lot_qty || 0) <= 0 && (row.reserved_lot_qty || 0) > 0) {
-                return "Disponible + lote";
+                return "Disponible - lote reservado";
             }
             if ((row.physical_lot_available_qty || 0) > 0) {
-                return "Asignar lote";
+                return "Lote disponible - asignar";
             }
-            return "Cubierto / sin lote";
+            return "Abastecimiento cubierto - lote pendiente";
         }
         return labels[row.supply_resolution] || "Revisar";
     }
@@ -390,7 +415,23 @@ export class PlanningComponentTreeField extends Component {
         return "aps-supply aps-supply-review";
     }
 
+    getSupplyShortage(row) {
+        if (
+            row.supply_resolution === "not_required"
+            && (row.effective_required_qty || 0) <= 0.000000001
+        ) {
+            return 0;
+        }
+        return Math.max(row.effective_required_qty || 0, 0);
+    }
+
     getPendingQty(row) {
+        if (
+            row.supply_resolution === "not_required"
+            && (row.effective_required_qty || 0) <= 0.000000001
+        ) {
+            return 0;
+        }
         return (row.to_manufacture_qty || 0) + (row.to_purchase_qty || 0);
     }
 
