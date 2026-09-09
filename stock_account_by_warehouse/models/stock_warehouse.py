@@ -23,6 +23,29 @@ class StockWarehouse(models.Model):
         ),
     )
 
+    warehouse_valuation_mode = fields.Selection(
+        selection=[
+            ("periodic", "Periódica"),
+            ("real_time", "Perpetua"),
+        ],
+        string="Tipo de valoración",
+        default="periodic",
+        required=True,
+        help=(
+            "Define cuándo se generan los asientos contables de inventario para "
+            "este almacén. 'Usar configuración general' conserva la política "
+            "contable definida de forma general; 'Periódica' no genera asientos "
+            "automáticos al validar movimientos; 'Perpetua' genera los asientos "
+            "automáticamente cuando el movimiento lo requiere."
+        ),
+    )
+
+    warehouse_cost_method = fields.Selection(
+        [("standard", "Costo estándar"), ("average", "Costo promedio (AVCO)"), ("fifo", "FIFO")],
+        string="Método de costeo", default="standard", required=True,
+        help="Método de costeo propio del almacén, independiente de la categoría del producto.",
+    )
+
     warehouse_stock_valuation_account_id = fields.Many2one(
         "account.account",
         string="Cuenta de valoración de inventario",

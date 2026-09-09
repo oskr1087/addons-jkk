@@ -117,3 +117,62 @@ ubicación del inventario.
 - Corregido el XML ID de la vista lista de `stock.quant` para Odoo 19.
 - Se hereda `stock.view_stock_quant_tree_editable`; el XML ID
   `stock_account.view_stock_quant_tree` no existe en esta versión.
+
+
+## 19.0.10.0.0 - Cobertura integral de procesos
+
+Se reforzó la lógica para cubrir los principales procesos de inventario:
+
+- Recepciones de proveedor.
+- Entregas a cliente.
+- Devoluciones de cliente.
+- Devoluciones a proveedor.
+- Ajustes de inventario.
+- Consumos/entradas de fabricación y otras ubicaciones especiales.
+- Scrap y ubicaciones especiales con cuenta propia.
+- Transferencias internas dentro del mismo almacén, sin asiento adicional.
+- Transferencias entre almacenes con cuentas de valoración diferentes:
+  genera reclasificación entre las cuentas de valoración de origen y destino.
+- Valoración periódica: conserva el comportamiento periódico y no fuerza
+  asientos inmediatos.
+- Valoración perpetua: genera asiento al validar cuando corresponde.
+
+Prioridad de contrapartida:
+1. Cuenta de valoración configurada en la ubicación especial.
+2. Cuenta de entrada/salida configurada en el almacén.
+
+El cálculo de costo de entradas/salidas sigue siendo el estándar. Para una
+transferencia entre almacenes, donde el valor total de la compañía no cambia,
+la reclasificación utiliza el valor unitario actual del inventario.
+
+
+## 19.0.11.0.0 - Política de valoración por almacén
+
+Se agrega **Tipo de valoración** en la pestaña de Contabilidad de Inventario
+del almacén:
+
+- Usar configuración general
+- Periódica
+- Perpetua
+
+Prioridad:
+1. Si la contabilidad por almacén está activa y se selecciona Periódica o
+   Perpetua, se utiliza la política del almacén.
+2. Si se selecciona Usar configuración general, se conserva la política
+   general del producto/categoría.
+
+Transferencias entre almacenes:
+- Perpetua -> Perpetua: genera reclasificación entre cuentas de valoración.
+- Periódica -> Periódica: no genera asiento inmediato.
+- Políticas diferentes: la transferencia se bloquea para evitar un tratamiento
+  contable inconsistente.
+
+El método de costo continúa siendo general y no se modifica por almacén.
+
+## 19.0.12.0.0
+Se agrega método de costeo por almacén (Estándar, AVCO, FIFO) y la valoración
+(Periódica/Perpetua) pasa a ser propia del almacén cuando la opción está activa.
+
+Se crea un libro auxiliar de costo por producto/almacén y capas FIFO por almacén.
+Esto evita mezclar costos entre almacenes. Antes de producción se requiere
+inicializar saldos/costos existentes por almacén y ejecutar la suite funcional.

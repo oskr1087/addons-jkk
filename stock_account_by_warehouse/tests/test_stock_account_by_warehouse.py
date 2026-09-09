@@ -348,3 +348,442 @@ class TestStockAccountByWarehouse(TestStockValuationCommon):
         self.assertIn(self.warehouse.id, warehouse_ids)
         self.assertIn(self.other_warehouse.id, warehouse_ids)
 
+    def _create_and_done_move(self, product, source, destination, qty=1, reference="TEST"):
+        move = self.env["stock.move"].create({
+            "reference": reference,
+            "product_id": product.id,
+            "location_id": source.id,
+            "location_dest_id": destination.id,
+            "product_uom": product.uom_id.id,
+            "product_uom_qty": qty,
+        })
+        move._action_confirm()
+        move._action_assign()
+        move.quantity = qty
+        move.picked = True
+        move._action_done()
+        return move
+
+    def test_12_customer_return_uses_output_account_as_reverse_delivery(self):
+        self._enable_warehouse_accounting()
+        self._make_in_move(self.product_standard_auto, 4, unit_cost=10)
+
+        delivery = self._make_out_move(self.product_standard_auto, 1)
+
+        returned = self.env["stock.move"].create({
+            "reference": "CUSTOMER RETURN",
+            "product_id": self.product_standard_auto.id,
+            "location_id": self.customer_location.id,
+            "location_dest_id": self.stock_location.id,
+            "product_uom": self.product_standard_auto.uom_id.id,
+            "product_uom_qty": 1,
+            "origin_returned_move_id": delivery.id,
+        })
+        returned._action_confirm()
+        returned._action_assign()
+        returned.quantity = 1
+        returned.picked = True
+        returned._action_done()
+
+        accounts = returned.account_move_id.line_ids.account_id
+        self.assertIn(self.account_wh_valuation, accounts)
+        self.assertIn(self.account_wh_output, accounts)
+
+    def test_13_supplier_return_uses_input_account_as_reverse_receipt(self):
+        self._enable_warehouse_accounting()
+
+        receipt = self._make_in_move(
+            self.product_standard_auto,
+            3,
+            unit_cost=10,
+        )
+
+        returned = self.env["stock.move"].create({
+            "reference": "SUPPLIER RETURN",
+            "product_id": self.product_standard_auto.id,
+            "location_id": self.stock_location.id,
+            "location_dest_id": self.supplier_location.id,
+            "product_uom": self.product_standard_auto.uom_id.id,
+            "product_uom_qty": 1,
+            "origin_returned_move_id": receipt.id,
+        })
+        returned._action_confirm()
+        returned._action_assign()
+        returned.quantity = 1
+        returned.picked = True
+        returned._action_done()
+
+        accounts = returned.account_move_id.line_ids.account_id
+        self.assertIn(self.account_wh_valuation, accounts)
+        self.assertIn(self.account_wh_input, accounts)
+
+    def test_14_special_location_account_has_priority_for_inventory_adjustment(self):
+        self._enable_warehouse_accounting()
+
+        adjustment_account = self.env["account.account"].create({
+            "name": "Inventory Adjustment Test",
+            "code": "WHADJ",
+            "account_type": "expense",
+        })
+        inventory_location = self.env["stock.location"].create({
+            "name": "Inventory Adjustment Test",
+            "usage": "inventory",
+            "company_id": self.company.id,
+            "valuation_account_id": adjustment_account.id,
+        })
+
+        move = self._create_and_done_move(
+            self.product_standard_auto,
+            inventory_location,
+            self.stock_location,
+            qty=2,
+            reference="INVENTORY GAIN",
+        )
+
+        self.assertTrue(move.account_move_id)
+        accounts = move.account_move_id.line_ids.account_id
+        self.assertIn(self.account_wh_valuation, accounts)
+        self.assertIn(adjustment_account, accounts)
+        self.assertNotIn(self.account_wh_input, accounts)
+
+    def test_15_production_location_account_has_priority(self):
+        self._enable_warehouse_accounting()
+
+        production_account = self.env["account.account"].create({
+            "name": "Production WIP Test",
+            "code": "WHWIP",
+            "account_type": "asset_current",
+        })
+        production_location = self.env["stock.location"].create({
+            "name": "Production Test",
+            "usage": "production",
+            "company_id": self.company.id,
+            "valuation_account_id": production_account.id,
+        })
+
+        self._make_in_move(self.product_standard_auto, 3, unit_cost=10)
+
+        consumption = self._create_and_done_move(
+            self.product_standard_auto,
+            self.stock_location,
+            production_location,
+            qty=1,
+            reference="PRODUCTION CONSUMPTION",
+        )
+
+        self.assertTrue(consumption.account_move_id)
+        accounts = consumption.account_move_id.line_ids.account_id
+        self.assertIn(self.account_wh_valuation, accounts)
+        self.assertIn(production_account, accounts)
+
+    def test_16_same_warehouse_internal_transfer_still_has_no_accounting(self):
+        self._enable_warehouse_accounting()
+
+        location_b = self.env["stock.location"].create({
+            "name": "Second Internal Location",
+            "usage": "internal",
+            "location_id": self.warehouse.view_location_id.id,
+            "company_id": self.company.id,
+        })
+        self._make_in_move(self.product_standard_auto, 2, unit_cost=10)
+
+        move = self._create_and_done_move(
+            self.product_standard_auto,
+            self.stock_location,
+            location_b,
+            qty=1,
+            reference="SAME WH",
+        )
+        self.assertFalse(move.account_move_id)
+
+    def test_17_interwarehouse_transfer_reclassifies_valuation_account(self):
+        self._use_multi_warehouses()
+        self._enable_warehouse_accounting(self.warehouse)
+
+        other_variation = self.env["account.account"].create({
+            "name": "Other WH Variation",
+            "code": "OWHV2",
+            "account_type": "expense",
+        })
+        other_valuation = self.env["account.account"].create({
+            "name": "Other WH Valuation 2",
+            "code": "OWHVL",
+            "account_type": "asset_current",
+            "account_stock_variation_id": other_variation.id,
+        })
+        other_input = self.env["account.account"].create({
+            "name": "Other WH Input 2",
+            "code": "OWHIN2",
+            "account_type": "asset_current",
+        })
+        other_output = self.env["account.account"].create({
+            "name": "Other WH Output 2",
+            "code": "OWHOU2",
+            "account_type": "expense",
+        })
+        other_journal = self.env["account.journal"].create({
+            "name": "Other WH Journal 2",
+            "code": "OWHJ2",
+            "type": "general",
+            "company_id": self.company.id,
+        })
+        self.other_warehouse.write({
+            "warehouse_stock_valuation_account_id": other_valuation.id,
+            "warehouse_stock_input_account_id": other_input.id,
+            "warehouse_stock_output_account_id": other_output.id,
+            "warehouse_stock_journal_id": other_journal.id,
+            "use_warehouse_stock_accounts": True,
+        })
+
+        self._make_in_move(self.product_standard_auto, 3, unit_cost=10)
+
+        move = self._create_and_done_move(
+            self.product_standard_auto,
+            self.warehouse.lot_stock_id,
+            self.other_warehouse.lot_stock_id,
+            qty=1,
+            reference="WH TO WH",
+        )
+
+        self.assertTrue(move.account_move_id)
+        accounts = move.account_move_id.line_ids.account_id
+        self.assertIn(self.account_wh_valuation, accounts)
+        self.assertIn(other_valuation, accounts)
+
+        source_line = move.account_move_id.line_ids.filtered(
+            lambda line: line.account_id == self.account_wh_valuation
+        )
+        destination_line = move.account_move_id.line_ids.filtered(
+            lambda line: line.account_id == other_valuation
+        )
+        self.assertTrue(source_line.credit > 0)
+        self.assertTrue(destination_line.debit > 0)
+
+    def test_18_periodic_valuation_does_not_force_immediate_entry(self):
+        self._enable_warehouse_accounting()
+
+        category = self.product_standard_auto.categ_id
+        old_valuation = category.property_valuation
+        category.property_valuation = "periodic"
+        try:
+            move = self._make_in_move(
+                self.product_standard_auto,
+                1,
+                unit_cost=10,
+            )
+            self.assertFalse(
+                move.account_move_id,
+                "Periodic valuation must not be converted into perpetual valuation by this module.",
+            )
+        finally:
+            category.property_valuation = old_valuation
+
+    def test_19_special_location_without_account_uses_warehouse_fallback(self):
+        self._enable_warehouse_accounting()
+
+        special_location = self.env["stock.location"].create({
+            "name": "Special Location Without Account",
+            "usage": "inventory",
+            "company_id": self.company.id,
+        })
+
+        move = self._create_and_done_move(
+            self.product_standard_auto,
+            special_location,
+            self.stock_location,
+            qty=1,
+            reference="SPECIAL FALLBACK",
+        )
+
+        self.assertTrue(move.account_move_id)
+        accounts = move.account_move_id.line_ids.account_id
+        self.assertIn(self.account_wh_valuation, accounts)
+        self.assertIn(self.account_wh_input, accounts)
+
+    def test_20_warehouse_valuation_mode_defaults_to_general(self):
+        self.assertEqual(
+            self.warehouse.warehouse_valuation_mode,
+            "general",
+        )
+
+    def test_21_periodic_warehouse_override_prevents_immediate_entry(self):
+        self._enable_warehouse_accounting()
+        self.warehouse.warehouse_valuation_mode = "periodic"
+
+        move = self._make_in_move(
+            self.product_standard_auto,
+            1,
+            unit_cost=10,
+        )
+
+        self.assertFalse(
+            move.account_move_id,
+            "Periodic warehouse valuation must not create an immediate journal entry.",
+        )
+
+    def test_22_perpetual_warehouse_override_creates_entry_even_if_general_is_periodic(self):
+        category = self.product_standard_auto.categ_id
+        old_valuation = category.property_valuation
+
+        category.property_valuation = "periodic"
+        try:
+            self._enable_warehouse_accounting()
+            self.warehouse.warehouse_valuation_mode = "real_time"
+
+            move = self._make_in_move(
+                self.product_standard_auto,
+                1,
+                unit_cost=12,
+            )
+
+            self.assertTrue(
+                move.account_move_id,
+                "Perpetual warehouse valuation must create an immediate journal entry.",
+            )
+            self.assertEqual(
+                move.account_move_id.journal_id,
+                self.journal_wh,
+            )
+        finally:
+            category.property_valuation = old_valuation
+
+    def test_23_general_warehouse_mode_follows_product_category_policy(self):
+        self._enable_warehouse_accounting()
+        self.warehouse.warehouse_valuation_mode = "general"
+
+        category = self.product_standard_auto.categ_id
+        old_valuation = category.property_valuation
+
+        category.property_valuation = "periodic"
+        try:
+            move = self._make_in_move(
+                self.product_standard_auto,
+                1,
+                unit_cost=9,
+            )
+            self.assertFalse(move.account_move_id)
+        finally:
+            category.property_valuation = old_valuation
+
+    def test_24_interwarehouse_mixed_valuation_modes_are_blocked(self):
+        self._use_multi_warehouses()
+        self._enable_warehouse_accounting(self.warehouse)
+        self.warehouse.warehouse_valuation_mode = "real_time"
+
+        other_variation = self.env["account.account"].create({
+            "name": "Other WH Variation Mixed",
+            "code": "OWHMXV",
+            "account_type": "expense",
+        })
+        other_valuation = self.env["account.account"].create({
+            "name": "Other WH Valuation Mixed",
+            "code": "OWHMX",
+            "account_type": "asset_current",
+            "account_stock_variation_id": other_variation.id,
+        })
+        other_input = self.env["account.account"].create({
+            "name": "Other WH Input Mixed",
+            "code": "OWHMXI",
+            "account_type": "asset_current",
+        })
+        other_output = self.env["account.account"].create({
+            "name": "Other WH Output Mixed",
+            "code": "OWHMXO",
+            "account_type": "expense",
+        })
+        other_journal = self.env["account.journal"].create({
+            "name": "Other WH Journal Mixed",
+            "code": "OWHMXJ",
+            "type": "general",
+            "company_id": self.company.id,
+        })
+
+        self.other_warehouse.write({
+            "warehouse_stock_valuation_account_id": other_valuation.id,
+            "warehouse_stock_input_account_id": other_input.id,
+            "warehouse_stock_output_account_id": other_output.id,
+            "warehouse_stock_journal_id": other_journal.id,
+            "warehouse_valuation_mode": "periodic",
+            "use_warehouse_stock_accounts": True,
+        })
+
+        self._make_in_move(
+            self.product_standard_auto,
+            2,
+            unit_cost=10,
+        )
+
+        move = self.env["stock.move"].create({
+            "reference": "MIXED VALUATION",
+            "product_id": self.product_standard_auto.id,
+            "location_id": self.warehouse.lot_stock_id.id,
+            "location_dest_id": self.other_warehouse.lot_stock_id.id,
+            "product_uom": self.product_standard_auto.uom_id.id,
+            "product_uom_qty": 1,
+        })
+        move._action_confirm()
+        move._action_assign()
+        move.quantity = 1
+        move.picked = True
+
+        with self.assertRaises(ValidationError):
+            move._action_done()
+
+    def test_25_interwarehouse_periodic_both_sides_creates_no_entry(self):
+        self._use_multi_warehouses()
+        self._enable_warehouse_accounting(self.warehouse)
+        self.warehouse.warehouse_valuation_mode = "periodic"
+
+        other_variation = self.env["account.account"].create({
+            "name": "Other WH Variation Periodic",
+            "code": "OWHPV",
+            "account_type": "expense",
+        })
+        other_valuation = self.env["account.account"].create({
+            "name": "Other WH Valuation Periodic",
+            "code": "OWHP",
+            "account_type": "asset_current",
+            "account_stock_variation_id": other_variation.id,
+        })
+        other_input = self.env["account.account"].create({
+            "name": "Other WH Input Periodic",
+            "code": "OWHPI",
+            "account_type": "asset_current",
+        })
+        other_output = self.env["account.account"].create({
+            "name": "Other WH Output Periodic",
+            "code": "OWHPO",
+            "account_type": "expense",
+        })
+        other_journal = self.env["account.journal"].create({
+            "name": "Other WH Journal Periodic",
+            "code": "OWHPJ",
+            "type": "general",
+            "company_id": self.company.id,
+        })
+
+        self.other_warehouse.write({
+            "warehouse_stock_valuation_account_id": other_valuation.id,
+            "warehouse_stock_input_account_id": other_input.id,
+            "warehouse_stock_output_account_id": other_output.id,
+            "warehouse_stock_journal_id": other_journal.id,
+            "warehouse_valuation_mode": "periodic",
+            "use_warehouse_stock_accounts": True,
+        })
+
+        self._make_in_move(
+            self.product_standard_auto,
+            2,
+            unit_cost=10,
+        )
+
+        move = self._create_and_done_move(
+            self.product_standard_auto,
+            self.warehouse.lot_stock_id,
+            self.other_warehouse.lot_stock_id,
+            qty=1,
+            reference="PERIODIC WH TO WH",
+        )
+
+        self.assertFalse(move.account_move_id)
+

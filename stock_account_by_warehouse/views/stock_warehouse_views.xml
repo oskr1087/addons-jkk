@@ -10,15 +10,18 @@
                     <group>
                         <group string="Configuración">
                             <field name="use_warehouse_stock_accounts"/>
+                            <field name="warehouse_cost_method" invisible="not use_warehouse_stock_accounts"/>
+                            <field name="warehouse_valuation_mode" invisible="not use_warehouse_stock_accounts"/>
                         </group>
                     </group>
 
                     <div class="alert alert-info mb-3" role="alert">
                         <strong>Configuración contable del almacén.</strong>
-                        Al activar esta opción, los movimientos de inventario asociados
-                        al almacén utilizarán las cuentas y el diario definidos en esta
-                        pestaña. Si permanece desactivada, se utilizará la configuración
-                        contable general del inventario.
+                        Al activar esta opción, los movimientos valorados asociados al
+                        almacén utilizarán el método de costeo, la valoración, las cuentas y el diario
+                        definidos en esta pestaña, de forma independiente a las categorías. Las cuentas específicas
+                        configuradas en ubicaciones especiales tendrán prioridad cuando
+                        correspondan.
                     </div>
 
                     <group invisible="not use_warehouse_stock_accounts">

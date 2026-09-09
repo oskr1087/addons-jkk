@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+wh_cost_user,wh cost user,model_stock_warehouse_product_cost,stock.group_stock_user,1,0,0,0
+wh_cost_manager,wh cost manager,model_stock_warehouse_product_cost,stock.group_stock_manager,1,1,1,1
+wh_layer_user,wh layer user,model_stock_warehouse_cost_layer,stock.group_stock_user,1,0,0,0
+wh_layer_manager,wh layer manager,model_stock_warehouse_cost_layer,stock.group_stock_manager,1,1,1,1
