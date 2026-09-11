@@ -113,6 +113,10 @@ class StockInventoryCountBackendDashboard(models.Model):
             "difference": difference,
             "has_difference": is_difference,
             "duplicate": bool(duplicate),
+            "has_observation": bool(lines and any(getattr(line, "has_observation", False) for line in lines)),
+            "observation": "\n".join(
+                filter(None, [getattr(line, "observation", False) for line in (lines or self.env["setu.inventory.count.session.line"])])
+            ),
             "session_line_ids": lines.ids if lines else [],
         }
 
@@ -136,6 +140,8 @@ class StockInventoryCountBackendDashboard(models.Model):
                 "difference", "zero", "unexpected", "duplicate"
             ),
             "duplicate": snapshot.duplicate,
+            "has_observation": bool(getattr(snapshot, "has_observation", False)),
+            "observation": getattr(snapshot, "observation_note", False) or "",
             "unexpected": snapshot.unexpected,
             "status": snapshot.status,
         }
@@ -198,6 +204,11 @@ class StockInventoryCountBackendDashboard(models.Model):
         )
         active_users = active_sessions.mapped("user_ids")
 
+        observed_events = self.env["setu.inventory.count.scan.event"].sudo().search([
+            ("count_id", "=", self.id),
+            ("has_observation", "=", True),
+        ], order="scanned_at desc, id desc", limit=100)
+
         return {
             "count": {
                 "id": self.id,
@@ -224,7 +235,24 @@ class StockInventoryCountBackendDashboard(models.Model):
                 "active_sessions": len(active_sessions),
                 "completed_sessions": len(completed_sessions),
                 "active_users": len(active_users),
+                "observations": len(observed_events),
+                "review": len(self.snapshot_line_ids.filtered("review_required")),
+                "location_progress": self.location_global_progress_percent,
+                "locations_done": self.location_done_count,
+                "locations_total": self.location_total_count,
             },
+            "observations": [{
+                "id": event.id,
+                "product": event.product_id.display_name or "",
+                "default_code": event.product_id.default_code or "",
+                "lot": event.lot_id.name or "",
+                "location": event.location_id.display_name or "",
+                "quantity": event.quantity,
+                "session": event.session_id.display_name or "",
+                "user": event.user_id.display_name or "",
+                "observation": event.observation or "",
+                "scanned_at": fields.Datetime.to_string(event.scanned_at) if event.scanned_at else "",
+            } for event in observed_events],
             "pending": [
                 self._snapshot_dashboard_row(line) for line in pending_lines
             ],

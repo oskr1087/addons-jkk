@@ -631,6 +631,16 @@ class InventoryCountLocationFlow(models.Model):
         compute="_compute_location_flow_metrics",
         string="Ubicaciones finalizadas",
     )
+    location_total_count = fields.Integer(
+        compute="_compute_location_flow_metrics",
+        string="Ubicaciones relevantes",
+    )
+    location_global_progress_percent = fields.Float(
+        compute="_compute_location_flow_metrics",
+        string="Avance de ubicaciones (%)",
+        digits=(16, 2),
+        help="Porcentaje de ubicaciones relevantes que ya fueron finalizadas.",
+    )
 
     def _compute_location_flow_metrics(self):
         for count in self:
@@ -650,17 +660,70 @@ class InventoryCountLocationFlow(models.Model):
             count.location_done_count = len(
                 progress.filtered(lambda line: line.state == "done")
             )
+            count.location_total_count = len(progress)
+            count.location_global_progress_percent = (
+                count.location_done_count * 100.0 / len(progress)
+                if progress else 0.0
+            )
 
     def _ensure_location_progress_records(self):
+        """Crea avance solo para ubicaciones realmente relevantes.
+
+        No se muestran todos los nodos internos del almacén. Se incluyen:
+        - ubicaciones con posiciones esperadas en el snapshot;
+        - ubicaciones donde ya hubo una lectura física;
+        - ubicaciones actualmente activas en una sesión.
+        """
         Progress = self.env["setu.inventory.count.location.progress"].sudo()
+        SessionLine = self.env["setu.inventory.count.session.line"].sudo()
+        Context = self.env["setu.inventory.count.session.user.context"].sudo()
+
         for count in self:
             if not count.location_id:
                 continue
-            locations = count._snapshot_scope_locations()
+
+            relevant_locations = count.snapshot_line_ids.filtered(
+                lambda line: (
+                    (not line.unexpected and not float_is_zero(
+                        line.expected_qty,
+                        precision_rounding=line.uom_id.rounding or 0.01,
+                    ))
+                    or line.scan_count > 0
+                    or line.unexpected
+                )
+            ).mapped("location_id")
+
+            scanned_locations = SessionLine.search([
+                ("inventory_count_id", "=", count.id),
+                ("product_scanned", "=", True),
+                ("session_id.state", "!=", "Cancel"),
+            ]).mapped("location_id")
+            relevant_locations |= scanned_locations
+
+            active_locations = Context.search([
+                ("session_id", "in", count.session_ids.ids),
+                ("current_location_id", "!=", False),
+                ("finished", "=", False),
+            ]).mapped("current_location_id")
+            relevant_locations |= active_locations
+
             existing = Progress.search([
                 ("count_id", "=", count.id),
             ])
-            missing = locations - existing.mapped("location_id")
+
+            # Elimina únicamente filas vacías que nunca participaron en el conteo.
+            obsolete = existing.filtered(
+                lambda progress: (
+                    progress.location_id not in relevant_locations
+                    and not progress.started_at
+                    and not progress.last_scan_at
+                    and not progress.finished_at
+                )
+            )
+            if obsolete:
+                obsolete.unlink()
+
+            missing = relevant_locations - existing.mapped("location_id")
             if missing:
                 Progress.create([
                     {

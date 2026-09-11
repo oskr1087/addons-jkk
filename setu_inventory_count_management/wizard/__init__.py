@@ -5,3 +5,5 @@ from . import setu_inventory_session_validate_wizard
 from . import setu_inventory_warning_message_wizard
 from . import setu_inventory_count_pivot_wizard
 from . import pda_session_creator
+
+from . import inventory_count_financial_preview_wizard

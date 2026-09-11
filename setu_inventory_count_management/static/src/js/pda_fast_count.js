@@ -108,18 +108,6 @@ export class PDAFastCount extends Component {
         }
     }
 
-    async confirmQuantity() {
-        if (!this.state.data.can_set_qty || this.state.busy) {
-            return;
-        }
-        const qty = Number(this.state.quantity);
-        if (!Number.isFinite(qty) || qty < 0) {
-            this.notification.add(_t("Ingrese una cantidad válida."), { type: "warning" });
-            return;
-        }
-        await this.callServer("pda_fast_confirm_qty", [qty]);
-    }
-
     async clearItem() {
         await this.callServer("pda_fast_clear_item");
     }
@@ -140,26 +128,6 @@ export class PDAFastCount extends Component {
         await this.callServer("pda_fast_finish_location");
     }
 
-    setQuantity(value) {
-        this.state.quantity = Math.max(0, Number(value) || 0);
-    }
-
-    quantityMinus() {
-        this.setQuantity(this.state.quantity - 1);
-    }
-
-    quantityPlus() {
-        this.setQuantity(this.state.quantity + 1);
-    }
-
-    quantityZero() {
-        this.setQuantity(0);
-    }
-
-    onQuantityInput(event) {
-        this.state.quantity = event.target.value;
-    }
-
     onManualBarcodeInput(event) {
         this.state.manualBarcode = event.target.value;
     }
@@ -178,6 +146,31 @@ export class PDAFastCount extends Component {
         }
         this.state.manualBarcode = "";
         this.enqueueBarcode(barcode);
+    }
+
+    async onObservationToggle(event) {
+        if (this.state.busy) {
+            return;
+        }
+        const eventId = Number(event.currentTarget.dataset.eventId);
+        const checked = Boolean(event.currentTarget.checked);
+        const row = (this.state.data.recent || []).find((item) => item.id === eventId);
+        await this.callServer(
+            "pda_fast_set_observation",
+            [eventId, checked, checked ? (row?.observation || "") : false]
+        );
+    }
+
+    async onObservationTextChange(event) {
+        if (this.state.busy) {
+            return;
+        }
+        const eventId = Number(event.currentTarget.dataset.eventId);
+        const value = String(event.currentTarget.value || "").trim();
+        await this.callServer(
+            "pda_fast_set_observation",
+            [eventId, true, value]
+        );
     }
 
     async control(operation) {

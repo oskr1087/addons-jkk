@@ -48,3 +48,31 @@ from . import test_count_security_profiles
 from . import test_count_operator_ui_permissions
 
 from . import test_permission_view_alignment
+
+from . import test_pda_auto_scan_observations
+
+from . import test_admin_approver_candidates
+
+from . import test_observation_views_visible
+
+from . import test_controller_observations_and_locations
+
+from . import test_observation_realtime_sync
+
+from . import test_pending_zero_bulk
+
+from . import test_background_jobs_single_session_and_financial_popup
+
+from . import test_sql_fast_approval_no_queue
+
+from . import test_definitive_count_workflow
+
+from . import test_snapshot_metrics_regression
+
+from . import test_recount_warehouse_lock_regression
+
+from . import test_review_mass_selection
+
+from . import test_recount_finalize_flow
+
+from . import test_review_approve_action

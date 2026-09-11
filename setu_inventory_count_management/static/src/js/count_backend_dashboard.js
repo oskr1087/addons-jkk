@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, onWillStart, useState } from "@odoo/owl";
+import { Component, onMounted, onWillStart, onWillUnmount, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { _t } from "@web/core/l10n/translation";
@@ -12,7 +12,9 @@ export class CountBackendDashboard extends Component {
         this.orm = useService("orm");
         this.action = useService("action");
         this.notification = useService("notification");
+        this.busService = useService("bus_service");
         this.countId = this.props.action.params.count_id;
+        this.realtimeChannel = `setu_inventory_count_${this.countId}`;
 
         this.state = useState({
             loading: true,
@@ -22,6 +24,7 @@ export class CountBackendDashboard extends Component {
                 kpis: {},
                 pending: [],
                 differences: [],
+                observations: [],
             },
             tab: "pending",
             pendingPage: 1,
@@ -30,6 +33,35 @@ export class CountBackendDashboard extends Component {
         });
 
         onWillStart(() => this.loadData());
+        onMounted(() => {
+            this.busService.addChannel(this.realtimeChannel);
+            this.busHandler = ({ detail: notifications }) => {
+                const relevant = (notifications || []).some(
+                    (notification) =>
+                        ["COUNT_SCANNED", "COUNT_REVIEW_UPDATED", "SESSION_CLOSED", "COUNT_APPROVED"].includes(
+                            notification.type
+                        )
+                );
+                if (relevant) {
+                    this.refresh(true);
+                }
+            };
+            this.busService.addEventListener("notification", this.busHandler);
+
+            // Solo respaldo: el flujo normal se actualiza por eventos.
+            this.autoRefreshTimer = window.setInterval(
+                () => this.refresh(true),
+                30000
+            );
+        });
+        onWillUnmount(() => {
+            if (this.busHandler) {
+                this.busService.removeEventListener("notification", this.busHandler);
+            }
+            if (this.autoRefreshTimer) {
+                window.clearInterval(this.autoRefreshTimer);
+            }
+        });
     }
 
     async loadData() {
@@ -48,7 +80,7 @@ export class CountBackendDashboard extends Component {
         }
     }
 
-    async refresh() {
+    async refresh(silent = false) {
         if (this.state.refreshing) {
             return;
         }
@@ -57,7 +89,9 @@ export class CountBackendDashboard extends Component {
             const data = await this.fetchData();
             this.state.data = data;
             this.syncPages(data);
-            this.notification.add(_t("Información actualizada."), { type: "success" });
+            if (!silent) {
+                this.notification.add(_t("Información actualizada."), { type: "success" });
+            }
         } finally {
             this.state.refreshing = false;
         }
@@ -133,6 +167,10 @@ export class CountBackendDashboard extends Component {
 
     setDifferenceTab() {
         this.state.tab = "differences";
+    }
+
+    setObservationTab() {
+        this.state.tab = "observations";
     }
 
     async openSessions() {

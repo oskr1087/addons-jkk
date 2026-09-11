@@ -122,6 +122,15 @@
                                         <field name="is_multi_session" column_invisible="True"/>
                                         <field name="scanned_qty" string="Cantidad contada" force_save="1" readonly="product_scanned or parent.current_state in ['Created','Pause','End'] or not product_id or not location_id"/>
                                         <field name="difference_qty" readonly="1" groups="setu_inventory_count_management.group_setu_inventory_count_manager"/>
+                                        <field name="has_observation"
+                                               string="Tiene observaciones"
+                                               readonly="1"
+                                               optional="show"/>
+                                        <field name="observation"
+                                               string="Observación"
+                                               readonly="1"
+                                               optional="show"/>
+
 <!--                                        <field name="discrepancy_value" readonly="1"/>-->
                                         <field name="state" readonly="1" column_invisible="parent.type == 'Multi Session' or parent.state not in ['Submitted', 'Done']" style="text-align:center !important;"/>
                                         <field name="user_calculation_mistake" groups="setu_inventory_count_management.group_setu_inventory_count_manager" style="text-align:center !important;" force_save="1" column_invisible="parent.type == 'Multi Session'"/>

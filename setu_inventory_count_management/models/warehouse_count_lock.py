@@ -68,39 +68,66 @@ class StockInventoryCountWarehouseLock(models.Model):
         help="Permite al administrador desactivar temporalmente el bloqueo del almacén durante un conteo activo.",
     )
 
-    @api.depends("warehouse_id", "state")
+    @api.depends("warehouse_id", "state", "count_id", "root_count_id")
     def _compute_warehouse_lock_info(self):
+        owners = self._warehouse_lock_owners()
         locks = self.env["setu.inventory.count.warehouse.lock"].sudo().search([
-            ("count_id", "in", self.ids)
-        ]) if self.ids else self.env["setu.inventory.count.warehouse.lock"]
+            ("count_id", "in", owners.ids)
+        ]) if owners else self.env["setu.inventory.count.warehouse.lock"]
         by_count = {lock.count_id.id: lock for lock in locks}
         for count in self:
-            lock = by_count.get(count.id)
+            owner = count._warehouse_lock_owner()
+            lock = by_count.get(owner.id)
             count.warehouse_lock_active = bool(lock)
             count.warehouse_lock_started_at = lock.started_at if lock else False
 
+    def _warehouse_lock_owner(self):
+        """Devuelve el conteo principal que debe poseer el único lock del almacén.
+
+        Un reconteo forma parte del mismo proceso físico que su conteo raíz, por
+        lo que nunca debe crear un segundo bloqueo ni competir con el principal.
+        """
+        self.ensure_one()
+        return self.root_count_id or self.count_id or self
+
+    def _warehouse_lock_owners(self):
+        owners = self.env["setu.stock.inventory.count"]
+        for count in self:
+            owners |= count._warehouse_lock_owner()
+        return owners
+
     def _warehouse_lock_record(self):
         self.ensure_one()
+        owner = self._warehouse_lock_owner()
         return self.env["setu.inventory.count.warehouse.lock"].sudo().search([
-            ("count_id", "=", self.id)
+            ("count_id", "=", owner.id)
         ], limit=1)
 
     def _activate_warehouse_lock(self):
         Lock = self.env["setu.inventory.count.warehouse.lock"].sudo()
         for count in self:
-            if count.warehouse_lock_manual_disabled and not self.env.context.get("force_warehouse_lock"):
+            owner = count._warehouse_lock_owner()
+
+            # La decisión manual de bloqueo pertenece al conteo principal y se
+            # comparte con todos sus reconteos.
+            if owner.warehouse_lock_manual_disabled and not self.env.context.get("force_warehouse_lock"):
                 continue
             if not count.warehouse_id:
                 raise ValidationError(
                     _("Debe seleccionar un almacén antes de iniciar el conteo.")
                 )
+            if owner.warehouse_id and owner.warehouse_id != count.warehouse_id:
+                raise ValidationError(_(
+                    "El reconteo debe usar el mismo almacén que su conteo principal."
+                ))
 
-            own_lock = count._warehouse_lock_record()
+            own_lock = Lock.search([("count_id", "=", owner.id)], limit=1)
             if own_lock:
                 if own_lock.warehouse_id != count.warehouse_id:
                     raise ValidationError(
-                        _("El conteo ya bloquea otro almacén. No puede cambiar el alcance.")
+                        _("El conteo principal ya bloquea otro almacén. No puede cambiar el alcance.")
                     )
+                # El conteo y cualquiera de sus reconteos comparten este lock.
                 continue
 
             # Serializa activaciones concurrentes para el mismo almacén.
@@ -111,9 +138,13 @@ class StockInventoryCountWarehouseLock(models.Model):
 
             other = Lock.search([
                 ("warehouse_id", "=", count.warehouse_id.id),
-                ("count_id", "!=", count.id),
+                ("count_id", "!=", owner.id),
             ], limit=1)
             if other:
+                other_owner = other.count_id._warehouse_lock_owner()
+                if other_owner == owner:
+                    # Compatibilidad defensiva con datos previos de la misma familia.
+                    continue
                 raise ValidationError(_(
                     "No puede iniciar este conteo porque el almacén %(warehouse)s "
                     "ya está bloqueado por el conteo %(count)s."
@@ -123,7 +154,7 @@ class StockInventoryCountWarehouseLock(models.Model):
                 })
 
             Lock.create({
-                "count_id": count.id,
+                "count_id": owner.id,
                 "warehouse_id": count.warehouse_id.id,
                 "started_at": fields.Datetime.now(),
             })
@@ -231,39 +262,49 @@ class StockInventoryCountWarehouseLock(models.Model):
 
     @api.model
     def _backfill_warehouse_count_locks(self):
-        """Reconstruye locks de conteos activos al actualizar el módulo."""
+        """Reconstruye un único lock por familia de conteo activa y almacén."""
         Lock = self.env["setu.inventory.count.warehouse.lock"].sudo()
         active_counts = self.search([
             ("state", "in", list(ACTIVE_COUNT_STATES)),
             ("warehouse_id", "!=", False),
         ], order="inventory_count_date, id")
 
+        processed_owners = set()
         for count in active_counts:
-            own = Lock.search([("count_id", "=", count.id)], limit=1)
+            owner = count._warehouse_lock_owner()
+            if owner.id in processed_owners:
+                continue
+            processed_owners.add(owner.id)
+
+            own = Lock.search([("count_id", "=", owner.id)], limit=1)
             if own:
                 continue
 
+            warehouse = owner.warehouse_id or count.warehouse_id
             self.env.cr.execute(
                 "SELECT id FROM stock_warehouse WHERE id = %s FOR UPDATE",
-                [count.warehouse_id.id],
+                [warehouse.id],
             )
             other = Lock.search([
-                ("warehouse_id", "=", count.warehouse_id.id),
-                ("count_id", "!=", count.id),
+                ("warehouse_id", "=", warehouse.id),
+                ("count_id", "!=", owner.id),
             ], limit=1)
             if other:
+                other_owner = other.count_id._warehouse_lock_owner()
+                if other_owner == owner:
+                    continue
                 raise ValidationError(_(
-                    "Existen dos conteos activos para el mismo almacén %(warehouse)s: "
+                    "Existen dos conteos independientes activos para el mismo almacén %(warehouse)s: "
                     "%(count1)s y %(count2)s. Finalice uno antes de actualizar el módulo."
                 ) % {
-                    "warehouse": count.warehouse_id.display_name,
+                    "warehouse": warehouse.display_name,
                     "count1": other.count_id.display_name,
-                    "count2": count.display_name,
+                    "count2": owner.display_name,
                 })
 
             Lock.create({
-                "count_id": count.id,
-                "warehouse_id": count.warehouse_id.id,
+                "count_id": owner.id,
+                "warehouse_id": warehouse.id,
                 "started_at": fields.Datetime.now(),
             })
         return True

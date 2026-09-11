@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
+from odoo.tools.float_utils import float_is_zero
 
 
 class StockInventoryCountPDA(models.Model):
@@ -231,11 +232,10 @@ class InventoryCountSessionPDA(models.Model):
             ('session_id', '=', self.id),
             ('pda_status', '=', 'zero'),
         ])
-        recent = Line.search(
-            [('session_id', '=', self.id), ('product_id', '!=', False)],
-            order='date_of_scanning desc, id desc',
-            limit=3,
-        )
+        recent = self.env['setu.inventory.count.scan.event'].search([
+            ('session_id', '=', self.id),
+            ('user_id', '=', self.env.user.id),
+        ], order='scanned_at desc, id desc', limit=20)
 
         scan_context = self._get_user_scan_context(create=True)
         product = self.current_scanning_product_id
@@ -246,12 +246,7 @@ class InventoryCountSessionPDA(models.Model):
             tracking_label = dict(
                 product._fields['tracking']._description_selection(self.env)
             ).get(tracking, tracking or '')
-        can_set_qty = bool(
-            product
-            and tracking != 'serial'
-            and (tracking != 'lot' or lot)
-            and self.current_state in ('Start', 'Resume')
-        )
+        can_set_qty = False
 
         return {
             'id': self.id,
@@ -313,17 +308,19 @@ class InventoryCountSessionPDA(models.Model):
                 if tracking == 'serial'
                 else _('Escanee el lote.')
                 if tracking == 'lot' and not lot
-                else _('Ingrese la cantidad física y confirme.')
-                if can_set_qty
-                else _('Escanee el lote, serie o producto de la ubicación activa.')
+                else _('Escanee el QR del producto; la cantidad se registrará automáticamente.')
             ),
             'recent': [{
-                'id': line.id,
-                'product': line.product_id.display_name or '',
-                'lot': line.lot_id.name or '',
-                'qty': line.scanned_qty,
-                'status': line.pda_status or 'counted',
-            } for line in recent],
+                'id': event.id,
+                'product': event.product_id.display_name or '',
+                'lot': event.lot_id.name or '',
+                'location': event.location_id.display_name or '',
+                'qty': event.quantity,
+                'user': event.user_id.display_name or '',
+                'scanned_at': fields.Datetime.to_string(event.scanned_at) if event.scanned_at else '',
+                'has_observation': event.has_observation,
+                'observation': event.observation or '',
+            } for event in recent],
         }
 
     def pda_fast_get_state(self):
@@ -334,33 +331,6 @@ class InventoryCountSessionPDA(models.Model):
         self.on_barcode_scanned(barcode)
         return self._get_pda_fast_state()
 
-    def pda_fast_confirm_qty(self, quantity):
-        self.ensure_one()
-        product = self.current_scanning_product_id
-        lot = self.current_scanning_lot_id
-
-        if product and product.tracking == 'lot' and lot:
-            existing_line = self._find_scanned_product_lot_line(product, lot)
-            if existing_line:
-                self.messege_return(
-                    "Advertencia",
-                    "El producto %s con lote %s ya fue escaneado en esta sesión. Cantidad registrada: %s."
-                    % (product.display_name, lot.name, existing_line.scanned_qty),
-                )
-                return self._get_pda_fast_state()
-
-        scan_context = self._get_user_scan_context(create=True)
-        scan_context.mobile_count_qty = quantity
-        self.invalidate_recordset(['mobile_count_qty'])
-        self.action_mobile_confirm_qty()
-        scan_context.write({
-            'qr_payload': False,
-            'qr_quantity': 0.0,
-            'qr_detected': False,
-            'last_feedback': _('Cantidad registrada correctamente.'),
-            'last_feedback_type': 'success',
-        })
-        return self._get_pda_fast_state()
 
     def pda_fast_finish_location(self):
         """Finaliza la ubicación SOLO para el usuario actual."""
@@ -429,6 +399,30 @@ class InventoryCountSessionPDA(models.Model):
         ])
         return self._get_pda_fast_state()
 
+    def _validate_single_session_locations_before_finish(self):
+        """La única sesión debe cubrir todas las ubicaciones relevantes."""
+        self.ensure_one()
+        if self.type != "Single Session":
+            return True
+
+        count = self.inventory_count_id
+        count._ensure_location_progress_records()
+        progress = count.location_progress_ids
+        not_done = progress.filtered(lambda item: item.state != "done")
+        if not_done:
+            names = not_done.mapped("location_id.display_name")
+            preview = ", ".join(names[:10])
+            if len(names) > 10:
+                preview += _(" y %s más") % (len(names) - 10)
+            raise ValidationError(_(
+                "No puede finalizar la sesión única. Faltan %(qty)s ubicaciones "
+                "por procesar/finalizar: %(locations)s."
+            ) % {
+                "qty": len(not_done),
+                "locations": preview,
+            })
+        return True
+
     def pda_fast_control(self, operation):
         self.ensure_one()
         scan_context = self._get_user_scan_context(create=True)
@@ -456,10 +450,11 @@ class InventoryCountSessionPDA(models.Model):
             else:
                 self.pause()
         elif operation == 'submit':
+            if self.current_scanning_location_id:
+                self.pda_fast_finish_location()
+                scan_context = self._get_user_scan_context(create=True)
+
             if multiuser:
-                if self.current_scanning_location_id:
-                    self.pda_fast_finish_location()
-                    scan_context = self._get_user_scan_context(create=True)
                 scan_context.write({
                     'finished': True,
                     'finished_at': fields.Datetime.now(),
@@ -476,9 +471,22 @@ class InventoryCountSessionPDA(models.Model):
                 ])
                 finished_users = contexts.mapped('user_id')
                 if assigned and not (assigned - finished_users):
-                    self.submit()
+                    self._validate_single_session_locations_before_finish()
+                    self._finalize_pda_session_fast()
+                    scan_context.write({
+                        'last_feedback': _('Sesión finalizada y sincronizada.'),
+                        'last_feedback_type': 'success',
+                    })
             else:
-                self.submit()
+                self._validate_single_session_locations_before_finish()
+                self._finalize_pda_session_fast()
+                scan_context.write({
+                    'finished': True,
+                    'finished_at': fields.Datetime.now(),
+                    'paused': False,
+                    'last_feedback': _('Sesión finalizada y sincronizada.'),
+                    'last_feedback_type': 'success',
+                })
         else:
             raise ValidationError(_('Operación PDA no válida.'))
         return self._get_pda_fast_state()
@@ -649,12 +657,127 @@ class InventoryCountSessionPDA(models.Model):
             )
         )[:1]
 
-    def _scan_enriched_lot_qr(self, barcode):
-        """Handle ARTICULO/LOTE/CANTIDAD QR in one read.
+    def _find_duplicate_qr_event(self, product, lot, quantity):
+        """Evita repetir exactamente producto+lote+cantidad en la misma ubicación."""
+        self.ensure_one()
+        events = self.env['setu.inventory.count.scan.event'].sudo().search([
+            ('count_id', '=', self.inventory_count_id.id),
+            ('location_id', '=', self.current_scanning_location_id.id),
+            ('product_id', '=', product.id),
+            ('lot_id', '=', lot.id if lot else False),
+            ('session_id.state', '!=', 'Cancel'),
+        ], order='id desc')
+        rounding = product.uom_id.rounding or 0.01
+        return events.filtered(
+            lambda event: float_is_zero(
+                event.quantity - quantity,
+                precision_rounding=rounding,
+            )
+        )[:1]
 
-        The QR quantity is proposed in the physical quantity field, but the
-        operator still confirms it. Nothing is posted merely by scanning.
-        """
+    def _register_enriched_qr(self, qr, product, lot):
+        """Registra físicamente el QR en una sola operación, sin confirmación manual."""
+        self.ensure_one()
+        duplicate = self._find_duplicate_qr_event(
+            product, lot, qr['quantity']
+        )
+        if duplicate:
+            self._clear_current_user_scan_context(keep_location=True)
+            self.messege_return(
+                "Advertencia",
+                _(
+                    "Ya se escaneó este producto/lote/cantidad: %s | Lote %s | Cantidad %s."
+                ) % (
+                    product.display_name,
+                    lot.name if lot else _("Sin lote"),
+                    qr['quantity'],
+                ),
+            )
+            return duplicate
+
+        line = self._find_scanned_product_lot_line(product, lot)
+        now = fields.Datetime.now()
+
+        if line:
+            line.write({
+                'scanned_qty': line.scanned_qty + qr['quantity'],
+                'product_scanned': True,
+                'date_of_scanning': now,
+                'user_ids': [(4, self.env.user.id)],
+                'pda_status': 'counted' if qr['quantity'] > 0 else 'zero',
+            })
+        else:
+            quant_domain = [
+                ('location_id', '=', self.current_scanning_location_id.id),
+                ('product_id', '=', product.id),
+            ]
+            if lot:
+                quant_domain.append(('lot_id', '=', lot.id))
+            theoretical = sum(
+                self.env['stock.quant'].sudo().search(
+                    quant_domain
+                ).mapped('quantity')
+            )
+            line = self.env['setu.inventory.count.session.line'].create({
+                'session_id': self.id,
+                'inventory_count_id': self.inventory_count_id.id,
+                'location_id': self.current_scanning_location_id.id,
+                'product_id': product.id,
+                'lot_id': lot.id if lot else False,
+                'scanned_qty': qr['quantity'],
+                'theoretical_qty': theoretical,
+                'product_scanned': True,
+                'date_of_scanning': now,
+                'user_ids': [(4, self.env.user.id)],
+                'pda_status': 'counted' if qr['quantity'] > 0 else 'zero',
+            })
+
+        self.env['setu.inventory.count.scan.event'].create({
+            'count_id': self.inventory_count_id.id,
+            'session_id': self.id,
+            'session_line_id': line.id,
+            'product_id': product.id,
+            'lot_id': lot.id if lot else False,
+            'location_id': self.current_scanning_location_id.id,
+            'quantity': qr['quantity'],
+            'payload': qr['payload'],
+            'user_id': self.env.user.id,
+            'scanned_at': now,
+        })
+
+        # Sincronización inmediata con la fotografía persistente del conteo.
+        # Si producto/lote no estaba previsto en esta ubicación, se crea como
+        # snapshot inesperado y aparece al instante en "Por resolver".
+        snapshots = self.inventory_count_id._ensure_snapshot_lines_for_session_line(line)
+        if snapshots:
+            snapshots._refresh_from_session_lines()
+
+        scan_context = self._get_user_scan_context(create=True)
+        scan_context.write({
+            'current_product_id': False,
+            'current_lot_id': False,
+            'mobile_count_qty': 1.0,
+            'qr_payload': False,
+            'qr_quantity': 0.0,
+            'qr_detected': False,
+            'last_feedback': _(
+                "Registrado automáticamente: %s | Lote %s | Cantidad %s."
+            ) % (
+                product.display_name,
+                lot.name if lot else _("Sin lote"),
+                qr['quantity'],
+            ),
+            'last_feedback_type': 'success',
+        })
+        self.invalidate_recordset([
+            'current_scanning_product_id',
+            'current_scanning_lot_id',
+            'mobile_count_qty',
+        ])
+        return line
+
+    def _scan_enriched_lot_qr(self, barcode):
+        """ARTICULO/LOTE/CANTIDAD se valida y registra en una sola lectura."""
         self.ensure_one()
         qr = self._parse_lot_qr(barcode)
         if not qr:
@@ -686,54 +809,33 @@ class InventoryCountSessionPDA(models.Model):
             )
             return True
 
-        # Same QR/product+lot currently loaded but not yet confirmed.
-        if (
-            self.current_scanning_product_id == product
-            and self.current_scanning_lot_id == lot
-        ):
-            self.messege_return(
-                "Advertencia",
-                "El producto %s con lote %s ya fue escaneado y está pendiente de confirmar."
-                % (product.display_name, lot.name),
-            )
-            return True
-
-        # Already confirmed in this session/location: never duplicate.
-        existing_line = self._find_scanned_product_lot_line(product, lot)
-        if existing_line:
-            self.write({
-                'current_scanning_product_id': False,
-                'current_scanning_lot_id': False,
-                'mobile_qr_payload': False,
-                'mobile_qr_quantity': 0.0,
-                'mobile_qr_detected': False,
-                'mobile_count_qty': 1.0,
-            })
-            self.messege_return(
-                "Advertencia",
-                "El producto %s con lote %s ya fue escaneado en esta sesión. Cantidad registrada: %s."
-                % (
-                    product.display_name,
-                    lot.name,
-                    existing_line.scanned_qty,
-                ),
-            )
-            return True
-
-        self.write({
-            'current_scanning_product_id': product.id,
-            'current_scanning_lot_id': lot.id,
-            'mobile_count_qty': qr['quantity'],
-            'mobile_qr_payload': qr['payload'],
-            'mobile_qr_quantity': qr['quantity'],
-            'mobile_qr_detected': True,
-        })
-        self.messege_return(
-            "Correcto",
-            "QR leído: %s | Lote %s | Cantidad %s. Verifique y confirme la cantidad física."
-            % (product.display_name, lot.name, qr['quantity']),
-        )
+        self._register_enriched_qr(qr, product, lot)
         return True
+
+    def pda_fast_set_observation(self, event_id, has_observation, observation=False):
+        """Actualiza la observación de una lectura del operador actual."""
+        self.ensure_one()
+        event = self.env['setu.inventory.count.scan.event'].search([
+            ('id', '=', int(event_id)),
+            ('session_id', '=', self.id),
+            ('user_id', '=', self.env.user.id),
+        ], limit=1)
+        if not event:
+            raise ValidationError(_("No se encontró la lectura o no pertenece al usuario actual."))
+        event.write({
+            'has_observation': bool(has_observation),
+            'observation': observation or False,
+        })
+        scan_context = self._get_user_scan_context(create=True)
+        scan_context.write({
+            'last_feedback': (
+                _("Observación registrada. Este producto irá a reconteo.")
+                if has_observation
+                else _("Observación retirada.")
+            ),
+            'last_feedback_type': 'warning' if has_observation else 'success',
+        })
+        return self._get_pda_fast_state()
 
     def on_barcode_scanned(self, barcode):
         """Flujo principal de lectura para PDA.
@@ -791,7 +893,7 @@ class InventoryCountSessionPDA(models.Model):
             if product.tracking == 'none':
                 return self.messege_return(
                     "Información",
-                    "%s identificado. Ingrese la cantidad física y confirme." % product.display_name
+                    "%s identificado. Para registrar cantidad, escanee el QR ARTÍCULO/LOTE/CANTIDAD." % product.display_name
                 )
             if product.tracking == 'lot':
                 return self.messege_return(
@@ -875,7 +977,7 @@ class InventoryCountSessionPDA(models.Model):
                 ):
                     return self.messege_return(
                         "Advertencia",
-                        "El producto %s con lote %s ya fue escaneado y está pendiente de confirmar."
+                        "El producto %s con lote %s ya fue leído. Escanee el QR completo con cantidad."
                         % (product.display_name, lot.name),
                     )
 
@@ -897,7 +999,7 @@ class InventoryCountSessionPDA(models.Model):
                 })
                 return self.messege_return(
                     "Información",
-                    "Lote %s identificado. Ingrese la cantidad física y confirme." % lot.name
+                    "Lote %s identificado. Para registrar cantidad, escanee el QR ARTÍCULO/LOTE/CANTIDAD." % lot.name
                 )
 
         return self.messege_return(

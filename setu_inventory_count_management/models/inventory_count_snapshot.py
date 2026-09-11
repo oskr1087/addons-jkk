@@ -514,9 +514,11 @@ class StockInventoryCountPersistentSnapshot(models.Model):
         "count_id",
         string="Por resolver",
         readonly=True,
-        domain=[
-            ("status", "in", ("difference", "zero", "unexpected", "duplicate")),
-        ],
+        domain=[("review_required", "=", True)],
+        help=(
+            "Incluye diferencias, cantidades cero, no previstos, duplicados y "
+            "cualquier producto/lote marcado con observación desde la PDA."
+        ),
     )
 
     snapshot_ready = fields.Boolean(
@@ -635,9 +637,10 @@ class StockInventoryCountPersistentSnapshot(models.Model):
             unresolved_relocations = count.relocation_issue_ids.filtered(
                 lambda issue: issue.state != "resolved"
             )
+            observed_snapshots = count.snapshot_line_ids.filtered("has_observation")
             count.blocking_issue_count = (
                 (header.pending_item_count + header.duplicate_item_count) if header else 0
-            ) + len(open_sessions) + len(pending_decisions) + len(unresolved_relocations)
+            ) + len(open_sessions) + len(pending_decisions) + len(unresolved_relocations) + len(observed_snapshots)
             count.adjustment_ready = bool(
                 header and count.state == "To Be Approved" and not count.blocking_issue_count
             )
@@ -984,6 +987,121 @@ class StockInventoryCountPersistentSnapshot(models.Model):
                 "dashboard_last_update",
             ])
         return True
+
+    def _refresh_snapshot_metrics(self):
+        """Refresca los KPI persistentes de la fotografía sin invalidar campos inexistentes."""
+        self._refresh_persistent_kpis()
+        return True
+
+    def _ensure_missing_snapshots_from_scans_fast(self):
+        """Crea en lote snapshots faltantes para lecturas históricas/finalizadas."""
+        Snapshot = self.env["setu.inventory.count.snapshot.line"].sudo()
+        SessionLine = self.env["setu.inventory.count.session.line"].sudo()
+
+        for count in self:
+            header = count._get_snapshot_header(create=True)
+            scanned = SessionLine.search([
+                ("inventory_count_id", "=", count.id),
+                ("product_scanned", "=", True),
+                ("session_id.state", "!=", "Cancel"),
+            ])
+            if not scanned:
+                continue
+
+            existing = Snapshot.search([("count_id", "=", count.id)])
+            keys = {
+                (
+                    line.product_id.id,
+                    line.location_id.id,
+                    line.lot_id.id if line.lot_id else False,
+                )
+                for line in existing
+            }
+
+            vals_list = []
+            for line in scanned:
+                if line.product_id.tracking == "serial":
+                    lot_ids = line.serial_number_ids.ids
+                    if not lot_ids and line.lot_id:
+                        lot_ids = [line.lot_id.id]
+                else:
+                    lot_ids = [line.lot_id.id if line.lot_id else False]
+
+                for lot_id in lot_ids:
+                    key = (line.product_id.id, line.location_id.id, lot_id)
+                    if key in keys:
+                        continue
+                    keys.add(key)
+                    vals_list.append({
+                        "snapshot_id": header.id,
+                        "product_id": line.product_id.id,
+                        "lot_id": lot_id,
+                        "location_id": line.location_id.id,
+                        "uom_id": line.product_id.uom_id.id,
+                        "expected_qty": 0.0,
+                        "unit_cost": line.product_id.standard_price or 0.0,
+                        "unexpected": True,
+                        "status": "unexpected",
+                    })
+
+            if vals_list:
+                Snapshot.with_context(setu_bulk_count=True).create(vals_list)
+        return True
+
+    def _close_unscanned_as_zero_fast(self):
+        """Al cerrar físicamente el conteo, pendientes sin lectura pasan a No encontrado."""
+        for count in self:
+            Snapshot = self.env["setu.inventory.count.snapshot.line"].sudo()
+            pending = Snapshot.search([
+                ("count_id", "=", count.id),
+                ("status", "=", "pending"),
+            ])
+            if not pending:
+                continue
+
+            pending.flush_recordset(["expected_qty"])
+            self.env.cr.execute(
+                """
+                UPDATE setu_inventory_count_snapshot_line
+                   SET counted_qty = 0,
+                       difference_qty = -expected_qty,
+                       status = 'zero',
+                       closed_as_zero = TRUE,
+                       review_decision = 'pending'
+                 WHERE count_id = %s
+                   AND status = 'pending'
+                """,
+                [count.id],
+            )
+            pending.invalidate_recordset([
+                "counted_qty", "difference_qty", "status",
+                "closed_as_zero", "review_decision",
+            ])
+            count._refresh_persistent_kpis()
+            count._notify_count_event("COUNT_REVIEW_UPDATED", {"count_id": count.id})
+        return True
+
+    def action_sync_sessions_fast(self):
+        """Sincroniza inmediatamente todas las sesiones mediante agregación en lote."""
+        self.ensure_one()
+        self._ensure_missing_snapshots_from_scans_fast()
+        snapshots = self.snapshot_line_ids.sudo()
+        if snapshots:
+            snapshots._refresh_from_session_lines_bulk()
+        self._sync_observation_recount_flags()
+        self._ensure_location_progress_records()
+        self._refresh_persistent_kpis()
+        self.message_post(body=_("Sesiones sincronizadas inmediatamente con el conteo."))
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Sincronización completada"),
+                "message": _("Las sesiones, incluidas las finalizadas, ya están reflejadas en el conteo."),
+                "type": "success",
+                "sticky": False,
+            },
+        }
 
     def action_refresh_inventory_snapshot(self):
         for count in self:

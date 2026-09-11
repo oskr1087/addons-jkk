@@ -44,11 +44,14 @@ class StockInvCountPlanner(models.Model):
         manager_group = self.env.ref(
             'setu_inventory_count_management.group_setu_inventory_count_manager'
         )
+        admin_group = self.env.ref(
+            'setu_inventory_count_management.group_setu_inventory_count_admin'
+        )
         company = company or self.env.company
         domain = [
             ('active', '=', True),
             ('share', '=', False),
-            ('group_ids', 'in', manager_group.id),
+            ('group_ids', 'in', [manager_group.id, admin_group.id]),
         ]
         if company:
             domain.append(('company_ids', 'in', company.id))
@@ -57,7 +60,14 @@ class StockInvCountPlanner(models.Model):
         if (
             current.active
             and not current.share
-            and manager_group in current.group_ids
+            and (
+                current.has_group(
+                    'setu_inventory_count_management.group_setu_inventory_count_manager'
+                )
+                or current.has_group(
+                    'setu_inventory_count_management.group_setu_inventory_count_admin'
+                )
+            )
             and (not company or company in current.company_ids)
         ):
             users |= current

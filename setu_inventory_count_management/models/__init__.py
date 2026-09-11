@@ -31,3 +31,7 @@ from . import view_repair_diagnostics
 from . import inventory_count_executive_report
 
 from . import inventory_count_location_flow
+
+from . import inventory_count_scan_event
+
+from . import inventory_count_background_job

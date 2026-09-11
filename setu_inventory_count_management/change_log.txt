@@ -1,3 +1,176 @@
+19.0.7.9.25
+- Añade la acción «Aprobar revisión» en la bandeja «Para revisión».
+- Permite al Controlador resolver observaciones o novedades informativas sin reconteo ni ajuste.
+- La decisión se guarda como resolved, limpia recount_required y registra usuario/fecha.
+- Mantiene «Descartar» como acción separada para casos que realmente deban ignorarse.
+- Con esto el conteo puede cerrarse cuando las observaciones fueron revisadas y aprobadas por el Controlador.
+
+19.0.7.9.24
+- Añade el botón «Finalizar reconteo», visible tanto En progreso como Por aprobar.
+- El cierre automático solo finaliza sesiones cuyas líneas fueron completamente escaneadas.
+- Bloquea el cierre si quedan líneas sin escanear, pendientes, duplicadas o sin decisión.
+- Consolida al conteo principal la cantidad obtenida y la decisión del Controlador.
+- Una línea corregida en el reconteo queda Resuelta en el conteo principal.
+- Una diferencia confirmada como «Aprobar para ajuste» conserva esa decisión en el conteo principal.
+- El reconteo queda Aprobado/Finalizado y nunca genera ajuste de inventario.
+- Si las sesiones del conteo principal ya terminaron, este vuelve automáticamente a «Por aprobar».
+
+19.0.7.9.23
+- Añade selección masiva en la pestaña «Para revisión».
+- Nuevo botón «Seleccionar todos»: marca todas las líneas pendientes de decisión, incluso fuera del área visible de la lista.
+- Nuevo botón «Quitar selección»: limpia la selección masiva sin alterar decisiones.
+- Las acciones Reconteo/Ajuste/Descartar operan solamente sobre líneas pendientes seleccionadas, evitando reprocesar líneas ya decididas.
+
+19.0.7.9.22
+- Los reconteos comparten el bloqueo de almacén con su conteo principal.
+- Iniciar una sesión de reconteo ya no falla si el almacén está bloqueado por el conteo raíz de la misma familia.
+- Se mantiene un único lock físico por almacén y familia de conteo; otros conteos independientes continúan bloqueados.
+- El backfill de locks reconoce conteos principales y reconteos como una misma familia.
+- Se completa la corrección de observaciones: sincronizar observaciones no activa recount_required; el Controlador decide el reconteo.
+
+19.0.7.9.21
+- Corrige _refresh_snapshot_metrics(): elimina invalidación de last_snapshot_update, campo que no existe en el modelo.
+- El refresco de métricas usa únicamente _refresh_persistent_kpis().
+- Mantiene la corrección de v9.20: una observación no fuerza reconteo automático.
+
+19.0.7.9.20
+- Corrección de _refresh_snapshot_metrics(): ya no llama al método inexistente _recompute_snapshot_aggregates().
+- Las métricas se refrescan con _refresh_persistent_kpis(), que es la implementación vigente.
+- Una observación PDA ya no fuerza automáticamente recount_required.
+- Las observaciones ingresan a «Para revisión» y el Controlador decide si requieren reconteo.
+
+19.0.7.9.19
+- Flujo alineado con la especificación funcional definitiva.
+- Snapshot convertido en bandeja única «Para revisión».
+- Campos de revisión: motivo, selección, decisión, usuario y fecha.
+- Decisiones por línea: Aprobar para ajuste, Mandar a reconteo y Descartar.
+- Reconteo materializa únicamente las posiciones seleccionadas.
+- Al finalizar todas las sesiones, lotes/posiciones nunca escaneados pasan automáticamente a «No encontrado».
+- Botón manual Pendientes = 0 oculto del flujo normal.
+- Nuevo cierre global «Aprobar conteo»: exige que toda revisión tenga decisión.
+- El ajuste final toma únicamente posiciones marcadas «Aprobar para ajuste».
+- Reconteo aprobado devuelve la posición al padre como Resuelto o Pendiente.
+- Eventos en tiempo real con bus nativo Odoo: COUNT_SCANNED, COUNT_REVIEW_UPDATED, SESSION_CLOSED y COUNT_APPROVED.
+- Dashboard OWL registrado y actualizado por eventos; polling queda solo como respaldo a 30 segundos.
+- KPI principal del dashboard orientado a avance de ubicaciones.
+- Dependencia explícita del módulo bus.
+
+19.0.7.9.18
+- Corregido error de instalación por inherit_id cargado fuera de orden.
+- inventory_count_location_flow_views.xml ya no hereda de layout_finalizer, que se carga al final del manifest.
+- La vista de ubicaciones hereda directamente de setu_stock_inventory_count_snapshot_form_extension, disponible previamente y que ya contiene snapshot_all.
+- Auditoría de orden de carga de inherit_id locales añadida durante la validación estática.
+
+19.0.7.9.17
+- Eliminada efectivamente la generación de nuevas colas del flujo de conteo.
+- Trabajos pending/running heredados se cierran automáticamente al actualizar el módulo.
+- El cron legado queda inactivo y su procesador ya no ejecuta trabajos.
+- Métodos antiguos de cola redirigen al flujo inmediato por compatibilidad.
+- «Aceptar y generar ajuste» procesa estados legacy mediante SQL masivo.
+- La aprobación ya no materializa una setu.stock.inventory.count.line por cada diferencia.
+- El ajuste se genera directamente desde snapshot mediante create(vals_list) de líneas.
+- El ajuste queda en estado listo para validar; no se aplican miles de stock.quant dentro del mismo RPC de aprobación.
+- create_inventory_adj usa snapshot como fuente de verdad cuando existen divergencias.
+- Pruebas de regresión para aprobación SQL, ajuste masivo y ausencia de nuevas colas.
+
+19.0.7.9.16
+- Flujo normal cambiado de colas/cron a procesamiento síncrono optimizado.
+- «Pendientes = 0» usa una sola actualización SQL sobre el snapshot y ya no crea miles de líneas legacy.
+- «Sincronizar sesiones» ejecuta inmediatamente la agregación en lote del snapshot.
+- La sincronización incluye sesiones finalizadas; solo excluye sesiones canceladas.
+- Se crean en lote únicamente snapshots faltantes para lecturas históricas/no previstas.
+- Finalización PDA usa ruta rápida y sincroniza snapshot directamente.
+- El cron de procesos en segundo plano queda desactivado y fuera del flujo normal.
+- Se mantiene validación obligatoria de ubicaciones relevantes para Sesión única.
+- Se mantienen KPI global de ubicaciones e Impacto económico en popup.
+- Pruebas actualizadas a la metodología síncrona.
+
+19.0.7.9.15
+- Corregido nombre de tabla relacional Many2many del popup Impacto económico.
+- preview_line_ids usa ahora setu_fin_preview_line_rel.
+- Definidos wizard_id y snapshot_line_id explícitamente.
+- Evita superar el límite de 63 caracteres de PostgreSQL.
+
+19.0.7.9.14
+- Nuevo motor interno de procesos en segundo plano por lotes, sin dependencia de queue_job.
+- «Pendientes = 0» ya no procesa miles de registros en el RPC; encola lotes de 400 mediante ir.cron.
+- Finalización PDA de sesiones grandes se encola en segundo plano.
+- Sincronización de sesiones por lotes de 500, incluyendo sesiones Submitted y Done; solo se excluyen Cancel.
+- Botón «Sincronizar sesiones» en el conteo y sincronización automática al enviar/validar sesión.
+- Sesión única: antes de finalizar se exige que todas las ubicaciones relevantes estén finalizadas.
+- Al finalizar desde PDA se finaliza primero la ubicación activa.
+- Nuevo KPI «Avance de ubicaciones» basado en ubicaciones relevantes finalizadas / total relevante.
+- El bloque grande Impacto económico se retiró del formulario principal.
+- Impacto económico ahora abre popup con la vista previa real del ajuste y sus líneas.
+- Banner de progreso para procesos ejecutándose en segundo plano.
+- Pruebas de regresión para lotes, sesiones finalizadas, sesión única, popup financiero y KPI de ubicaciones.
+
+19.0.7.9.13
+- Optimizado «Marcar pendientes como cero» para conteos masivos.
+- Eliminado create() individual por cada snapshot pendiente.
+- Las líneas nuevas se crean mediante un único create(vals_list).
+- Las líneas existentes se actualizan en una sola operación.
+- Snapshot pendiente se actualiza en bloque y difference_qty mediante una única sentencia SQL.
+- Se evita el patrón que podía agotar/cerrar el cursor procesando miles de pendientes.
+- Añadida prueba de regresión para impedir volver al procesamiento uno por uno.
+
+19.0.7.9.12
+- Corregida sincronización en tiempo real de observaciones PDA hacia snapshot.
+- Al marcar/quitar «Tiene observaciones», el snapshot se actualiza inmediatamente.
+- Se sincronizan has_observation, observation_note y recount_required por producto/lote/ubicación.
+- Las líneas observadas que coinciden en cantidad aparecen igualmente en «Por resolver».
+- Los productos/lotes no previstos conservan creación automática de snapshot inesperado.
+- Se refrescan métricas/cache del conteo después de modificar observaciones.
+- Bloqueos para cerrar incluyen también líneas con observaciones.
+- Añadidas pruebas de regresión específicas de sincronización en tiempo real.
+
+19.0.7.9.11
+- Columnas «Tiene observaciones» y «Observación» visibles en la pestaña Todos.
+- Mismas columnas visibles en Por resolver, junto con «No previsto en ubicación».
+- Por resolver incluye observaciones incluso cuando la cantidad coincide.
+- Todo producto/lote escaneado en una ubicación no prevista crea/sincroniza inmediatamente su snapshot como inesperado y aparece en Por resolver.
+- Ubicaciones muestra solo ubicaciones relevantes: con stock esperado, lecturas reales o actividad de sesión.
+- Se eliminan del control de avance ubicaciones vacías que nunca participaron en el conteo.
+- Texto funcional de las pestañas actualizado.
+- Pruebas de regresión para observaciones, no previstos y filtro de ubicaciones.
+
+19.0.7.9.10
+- Observaciones visibles en la vista real de Líneas de sesión.
+- Se muestran columnas «Tiene observaciones» y «Observación».
+- Filas observadas resaltadas visualmente para revisión.
+- Panel del Controlador expone observación dentro de las tablas operativas, no solo en la pestaña específica.
+- Backend del dashboard devuelve has_observation y observation por línea/snapshot.
+- Añadidas pruebas de regresión de visibilidad de observaciones.
+
+19.0.7.9.9
+- Corregido selector Controlador/Aprobador cuando el usuario tiene perfil Administrador de conteo.
+- Los candidatos ahora incluyen explícitamente miembros directos de Controlador y Administrador.
+- El usuario actual se valida también mediante has_group(), respetando la herencia de grupos de Odoo.
+- Misma corrección aplicada al Planificador de conteos.
+- Añadidas pruebas de regresión para administrador asignado únicamente al grupo Administrador.
+
+19.0.7.9.8
+- Ajustado directamente el componente PDA real mostrado por la acción pda_fast_count.
+- Paso 2 ahora indica explícitamente QR de producto con artículo/lote/cantidad y registro automático.
+- Productos escaneados quedan visibles debajo del lector con cantidad y control «Tiene observaciones».
+- Al marcar observación se informa en la PDA que la lectura será enviada a reconteo.
+- Mensaje de duplicado aclara que no se registra nuevamente y permite continuar con el siguiente producto.
+- Eliminado el RPC obsoleto pda_fast_confirm_qty del backend; ya no existe flujo manual de confirmación.
+- Se conserva sincronización de observaciones con panel del Controlador y reconteo automático.
+
+19.0.7.9.7
+- PDA sin botón Confirmar cantidad.
+- QR ARTICULO/LOTE/CANTIDAD se registra automáticamente en una sola lectura.
+- Detección de duplicado exacto por ubicación + producto + lote + cantidad; la segunda lectura no suma.
+- Historial persistente de cada lectura QR mediante setu.inventory.count.scan.event.
+- Parte inferior de la PDA muestra hasta 20 lecturas propias con check «Tiene observaciones» y detalle.
+- Observaciones sincronizadas al panel del Controlador; actualización automática cada 5 segundos.
+- KPI y pestaña Observaciones en panel del Controlador con producto, lote, ubicación, cantidad, usuario, sesión y detalle.
+- Al cerrar el conteo, las líneas con observaciones se marcan automáticamente para reconteo.
+- Al generar reconteo, las observaciones tienen prioridad y se seleccionan exclusivamente; si no existen observaciones se conserva el flujo anterior por divergencias.
+- Campos de observación visibles en líneas de sesión y snapshot para trazabilidad.
+- ACL y reglas específicas para eventos de escaneo.
+
 19.0.7.9.6
 - Compatibilidad Odoo 19: eliminado groups_id de ir.actions.act_window.
 - Seguridad conservada mediante menús, ACL, reglas, vistas/botones y validaciones backend.

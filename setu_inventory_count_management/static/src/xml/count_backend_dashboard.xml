@@ -58,7 +58,7 @@
                         <button class="setu_count_kpi is-info" t-on-click="openScanned">
                             <span>Contados</span>
                             <strong t-esc="state.data.kpis.counted || 0"/>
-                            <small t-esc="(state.data.kpis.progress || 0) + '% del alcance'"/>
+                            <small t-esc="(state.data.kpis.location_progress || 0) + '% de ubicaciones'"/>
                         </button>
                         <button class="setu_count_kpi is-warning" t-on-click="setPendingTab">
                             <span>Pendientes</span>
@@ -80,7 +80,7 @@
                     <section class="setu_count_dashboard_progress">
                         <div class="setu_count_dashboard_progress_head">
                             <div>
-                                <span>AVANCE GENERAL</span>
+                                <span>AVANCE GENERAL DE UBICACIONES</span>
                                 <strong t-esc="(state.data.kpis.progress || 0) + '%'"/>
                             </div>
                             <div class="setu_count_dashboard_progress_meta">
@@ -122,6 +122,12 @@
                             <button class="btn btn-link" t-on-click="setDifferenceTab">Revisar</button>
                         </div>
                         <div class="setu_count_dashboard_management_card">
+                            <span>OBSERVACIONES EN CAMPO</span>
+                            <strong t-esc="state.data.kpis.observations || 0"/>
+                            <small>Marcadas por los operadores desde la PDA</small>
+                            <button class="btn btn-link" t-on-click="setObservationTab">Ver en tiempo real</button>
+                        </div>
+                        <div class="setu_count_dashboard_management_card">
                             <span>POSIBLES DUPLICADOS</span>
                             <strong t-esc="state.data.kpis.duplicates || 0"/>
                             <small>Producto + lote + ubicación registrados más de una vez</small>
@@ -140,6 +146,11 @@
                                     t-on-click="setDifferenceTab">
                                 Divergencias
                                 <span t-esc="state.data.kpis.differences || 0"/>
+                            </button>
+                            <button t-att-class="state.tab === 'observations' ? 'active' : ''"
+                                    t-on-click="setObservationTab">
+                                Observaciones
+                                <span t-esc="state.data.kpis.observations || 0"/>
                             </button>
                         </div>
 
@@ -164,7 +175,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr t-foreach="state.data.pending" t-as="row" t-key="row.key">
+                                    <tr t-foreach="state.data.pending" t-att-class="row.has_observation ? 'table-warning' : ''" t-as="row" t-key="row.key">
                                         <td>
                                             <strong t-esc="row.product"/>
                                             <small t-if="row.default_code" t-esc="row.default_code"/>
@@ -220,6 +231,57 @@
                                     </button>
                                 </div>
                             </div>
+                        </div>
+
+                        <div t-if="state.tab === 'observations'" class="setu_count_dashboard_table_wrap">
+                            <div class="setu_count_dashboard_table_title">
+                                <div>
+                                    <h3>Observaciones reportadas desde la PDA</h3>
+                                    <span>
+                                        Esta información se actualiza automáticamente cada 5 segundos.
+                                        Las líneas observadas serán candidatas a reconteo al cerrar el conteo.
+                                    </span>
+                                </div>
+                            </div>
+                            <table class="table table-hover setu_count_dashboard_table">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Lote</th>
+                                        <th>Ubicación</th>
+                                        <th class="text-end">Cantidad</th>
+                                        <th>Operador</th>
+                                        <th>Sesión</th>
+                                        <th>Observación</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="state.data.observations" t-as="row" t-key="row.id">
+                                        <td>
+                                            <strong t-esc="row.product"/>
+                                            <small t-if="row.default_code" t-esc="row.default_code"/>
+                                        </td>
+                                        <td t-esc="row.lot || 'Sin lote'"/>
+                                        <td t-esc="row.location"/>
+                                        <td class="text-end"><b t-esc="row.quantity"/></td>
+                                        <td t-esc="row.user"/>
+                                        <td t-esc="row.session"/>
+                                        <td>
+                                            <span class="badge text-bg-warning">Requiere revisión</span>
+                                            <div t-esc="row.observation || 'Sin detalle escrito'"/>
+                                        </td>
+                                        <td t-esc="row.scanned_at"/>
+                                    </tr>
+                                    <tr t-if="!state.data.observations.length">
+                                        <td colspan="8" class="setu_count_dashboard_empty">
+                                            <i class="fa fa-check-circle" title="Sin observaciones"/>
+                                            <strong>Sin observaciones</strong>
+                                            <span>Los operadores no han marcado incidencias.</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
 
                         <div t-if="state.tab === 'differences'" class="setu_count_dashboard_table_wrap">

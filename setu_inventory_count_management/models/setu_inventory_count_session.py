@@ -1216,6 +1216,53 @@ class SetuInventoryCountSession(models.Model):
                      ('location_id', '=', line.location_id.id)
                      ]).unlink()
 
+    def _finalize_pda_session_fast(self):
+        """Finaliza la sesión PDA usando el snapshot como fuente de verdad."""
+        self.ensure_one()
+        if self.state in ("Done", "Cancel"):
+            return True
+
+        count = self.inventory_count_id
+
+        if self.current_state in ("Start", "Resume"):
+            self.end()
+
+        self.scan_user_context_ids.sudo().write({
+            "current_location_id": False,
+            "current_product_id": False,
+            "current_lot_id": False,
+            "mobile_count_qty": 1.0,
+            "paused": False,
+            "finished": True,
+            "finished_at": fields.Datetime.now(),
+        })
+        self.session_submit_date = fields.Datetime.now()
+        self.state = "Done"
+
+        count._ensure_missing_snapshots_from_scans_fast()
+        if count.snapshot_line_ids:
+            count.snapshot_line_ids.sudo()._refresh_from_session_lines_bulk()
+        count._sync_observation_recount_flags()
+        count._ensure_location_progress_records()
+        count._refresh_persistent_kpis()
+
+        sessions = count.session_ids.filtered(lambda s: s.state != "Cancel")
+        all_done = bool(sessions) and not sessions.filtered(lambda s: s.state != "Done")
+        if all_done:
+            count._close_unscanned_as_zero_fast()
+            count._refresh_persistent_kpis()
+            if not count.pending_item_count and not count.duplicate_item_count:
+                count.state = "To Be Approved"
+
+        count.message_post(body=_(
+            "Sesión %s finalizada y sincronizada directamente con el conteo."
+        ) % self.display_name)
+        count._notify_count_event("SESSION_CLOSED", {
+            "count_id": count.id,
+            "session_id": self.id,
+        })
+        return True
+
     def validate_session(self):
         session_lines = self.session_line_ids
 

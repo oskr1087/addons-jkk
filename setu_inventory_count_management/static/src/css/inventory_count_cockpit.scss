@@ -561,3 +561,36 @@
         }
     }
 }
+
+
+.setu_pda_mobile_recent_title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: .75rem;
+}
+.setu_pda_mobile_recent_line {
+    display: grid;
+    gap: .55rem;
+    padding: .8rem 0;
+    border-bottom: 1px solid rgba(128, 128, 128, .2);
+}
+.setu_pda_mobile_recent_product {
+    display: grid;
+    gap: .2rem;
+}
+.setu_pda_mobile_observation_check {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-weight: 600;
+}
+.setu_pda_mobile_observation_check input {
+    width: 1.2rem;
+    height: 1.2rem;
+}
+.setu_pda_mobile_observation_text {
+    width: 100%;
+    min-height: 3.5rem;
+    resize: vertical;
+}

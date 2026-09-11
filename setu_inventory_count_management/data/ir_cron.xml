@@ -11,5 +11,16 @@
             <field name="nextcall" eval="(datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="active" eval="False"/>
         </record>
+    
+        <record id="ir_cron_inventory_count_background_jobs" model="ir.cron">
+            <field name="name">Conteos: procesar trabajos en segundo plano</field>
+            <field name="model_id" ref="model_setu_inventory_count_background_job"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_process_inventory_jobs()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">minutes</field>
+            <field name="active">False</field>
+        </record>
+
     </data>
 </odoo>

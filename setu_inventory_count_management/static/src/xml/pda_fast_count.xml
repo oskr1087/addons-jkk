@@ -66,7 +66,7 @@
                         <div>
                             <span>YA ESCANEADO</span>
                             <strong t-esc="state.data.feedback"/>
-                            <small>No se creó una nueva línea. Continúe con el siguiente lote.</small>
+                            <small>No se registró nuevamente. Continúe con el siguiente producto.</small>
                         </div>
                     </section>
 
@@ -108,11 +108,10 @@
                             <i class="fa fa-qrcode" title="QR o código de barras"/>
                         </div>
                         <span>PASO 2 · CONTEO</span>
-                        <strong>Escanee el lote, serie o producto</strong>
+                        <strong>Escanee el QR del producto</strong>
                         <small>
-                            Todos los registros se guardarán en
-                            <b t-esc="state.data.location.name"/>.
-                            Para cambiar de ubicación, escanee directamente el código de la nueva ubicación.
+                            El QR debe contener artículo, lote y cantidad. Se registra automáticamente
+                            en <b t-esc="state.data.location.name"/> y queda listo para la siguiente lectura.
                         </small>
                         <div class="setu_pda_mobile_reader_status">
                             <span class="setu_pda_mobile_reader_dot"/>
@@ -148,45 +147,9 @@
                             </div>
                         </div>
 
-                        <div t-if="state.data.can_set_qty" class="setu_pda_mobile_qty">
-                            <div class="setu_pda_mobile_qty_header">
-                                <span>CANTIDAD FÍSICA</span>
-                                <small t-if="state.data.qr_detected">
-                                    QR: <b t-esc="state.data.qr_quantity"/>
-                                </small>
-                            </div>
-
-                            <input type="number"
-                                   min="0"
-                                   inputmode="decimal"
-                                   enterkeyhint="done"
-                                   class="setu_pda_mobile_qty_input"
-                                   t-att-value="state.quantity"
-                                   t-on-input="onQuantityInput"/>
-
-                            <div class="setu_pda_mobile_qty_buttons">
-                                <button type="button" t-on-click="quantityMinus">−1</button>
-                                <button type="button" t-on-click="quantityZero">0</button>
-                                <button type="button" t-on-click="quantityPlus">+1</button>
-                            </div>
-
-                            <button class="btn btn-primary setu_pda_mobile_confirm"
-                                    t-on-click="confirmQuantity"
-                                    t-att-disabled="state.busy ? true : undefined">
-                                <i class="fa fa-check" title="Confirmar"/>
-                                CONFIRMAR CANTIDAD
-                            </button>
-                        </div>
-
                         <div t-if="state.data.is_serial" class="setu_pda_mobile_serial_hint">
                             Escanee el siguiente número de serie.
                         </div>
-
-                        <button class="setu_pda_mobile_cancel"
-                                t-on-click="clearItem"
-                                t-att-disabled="state.busy ? true : undefined">
-                            Cancelar lectura
-                        </button>
                     </section>
 
                     <!-- Acciones primarias de sesión -->
@@ -204,23 +167,45 @@
                         <button class="btn btn-primary" t-on-click="resumeSession">REANUDAR</button>
                     </section>
 
-                    <!-- Últimas lecturas: secundaria y compacta -->
-                    <details t-if="state.data.recent &amp;&amp; state.data.recent.length"
+                    <!-- Lecturas confirmadas automáticamente -->
+                    <section t-if="state.data.recent &amp;&amp; state.data.recent.length"
                              class="setu_pda_mobile_recent">
-                        <summary>
-                            Últimos registros
+                        <div class="setu_pda_mobile_recent_title">
+                            <strong>PRODUCTOS ESCANEADOS EN ESTA SESIÓN</strong>
                             <span t-esc="state.data.recent.length"/>
-                        </summary>
+                        </div>
                         <t t-foreach="state.data.recent" t-as="line" t-key="line.id">
                             <div class="setu_pda_mobile_recent_line">
-                                <div>
+                                <div class="setu_pda_mobile_recent_product">
                                     <strong t-esc="line.product"/>
-                                    <small t-if="line.lot">Lote: <t t-esc="line.lot"/></small>
+                                    <small>
+                                        Lote: <t t-esc="line.lot || 'Sin lote'"/>
+                                        · Cantidad: <b t-esc="line.qty"/>
+                                    </small>
+                                    <small t-if="line.location">
+                                        <t t-esc="line.location"/>
+                                    </small>
                                 </div>
-                                <b t-esc="line.qty"/>
+                                <label class="setu_pda_mobile_observation_check">
+                                    <input type="checkbox"
+                                           t-att-checked="line.has_observation ? true : undefined"
+                                           t-att-data-event-id="line.id"
+                                           t-on-change="onObservationToggle"/>
+                                    Tiene observaciones
+                                </label>
+                                <small t-if="line.has_observation" class="text-warning">
+                                    Se enviará a reconteo al cerrar el conteo.
+                                </small>
+                                <textarea t-if="line.has_observation"
+                                          class="setu_pda_mobile_observation_text"
+                                          rows="2"
+                                          placeholder="Escriba la observación..."
+                                          t-att-data-event-id="line.id"
+                                          t-att-value="line.observation"
+                                          t-on-change="onObservationTextChange"/>
                             </div>
                         </t>
-                    </details>
+                    </section>
 
                     <!-- Simulación contextual: ubicación primero, conteo después -->
                     <details t-if="state.data.running" class="setu_pda_mobile_simulator">

@@ -3,7 +3,7 @@
     <record id="setu_stock_inventory_count_location_flow_form" model="ir.ui.view">
         <field name="name">setu.stock.inventory.count.location.flow.form</field>
         <field name="model">setu.stock.inventory.count</field>
-        <field name="inherit_id" ref="setu_inventory_count_management.setu_stock_inventory_count_form_layout_finalizer"/>
+        <field name="inherit_id" ref="setu_inventory_count_management.setu_stock_inventory_count_snapshot_form_extension"/>
         <field name="priority">260</field>
         <field name="arch" type="xml">
             <xpath expr="//page[@name='snapshot_all']" position="before">
@@ -11,8 +11,9 @@
                       groups="setu_inventory_count_management.group_setu_inventory_count_manager">
                     <div class="alert alert-info" role="status">
                         <strong>Control físico por ubicación.</strong>
-                        Una ubicación queda <b>Finalizada</b> cuando los operadores que trabajan
-                        en ella pulsan «Finalizar ubicación». Si se vuelve a escanear, pasa otra vez a En proceso.
+                        Solo se muestran ubicaciones que tienen productos/lotes esperados,
+                        lecturas realizadas o actividad de una sesión. Una ubicación queda
+                        <b>Finalizada</b> cuando los operadores pulsan «Finalizar ubicación».
                     </div>
 
                     <group>

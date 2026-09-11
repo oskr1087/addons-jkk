@@ -115,11 +115,14 @@ class StockInvCount(models.Model):
         manager_group = self.env.ref(
             'setu_inventory_count_management.group_setu_inventory_count_manager'
         )
+        admin_group = self.env.ref(
+            'setu_inventory_count_management.group_setu_inventory_count_admin'
+        )
         company = company or self.env.company
         domain = [
             ('active', '=', True),
             ('share', '=', False),
-            ('group_ids', 'in', manager_group.id),
+            ('group_ids', 'in', [manager_group.id, admin_group.id]),
         ]
         if company:
             domain.append(('company_ids', 'in', company.id))
@@ -132,7 +135,14 @@ class StockInvCount(models.Model):
         if (
             current.active
             and not current.share
-            and manager_group in current.group_ids
+            and (
+                current.has_group(
+                    'setu_inventory_count_management.group_setu_inventory_count_manager'
+                )
+                or current.has_group(
+                    'setu_inventory_count_management.group_setu_inventory_count_admin'
+                )
+            )
             and (not company or company in current.company_ids)
         ):
             users |= current
@@ -710,6 +720,15 @@ class StockInvCount(models.Model):
             if not parent_line:
                 continue
 
+            if child.status == "matched":
+                parent_decision = "resolved"
+            elif child.review_decision in ("adjust", "discard"):
+                parent_decision = child.review_decision
+            else:
+                # action_finalize_recount bloquea este caso, pero mantenemos
+                # una salida defensiva para llamadas legacy.
+                parent_decision = "pending"
+
             parent_line.write({
                 "counted_qty": child.counted_qty,
                 "difference_qty": child.counted_qty - parent_line.expected_qty,
@@ -717,26 +736,36 @@ class StockInvCount(models.Model):
                 "status": child.status,
                 "duplicate": child.duplicate,
                 "recount_required": False,
+                "review_selected": False,
+                "review_decision": parent_decision,
+                "reviewed_by_id": self.env.user.id,
+                "reviewed_at": fields.Datetime.now(),
             })
             updated += 1
 
             count_line = parent._find_count_line_for_snapshot(parent_line)
-            if child.status == "matched":
+            if child.status == "matched" or parent_decision == "discard":
                 if count_line:
                     count_line.write({
                         "counted_qty": child.counted_qty,
                         "state": "Approve",
                     })
-            elif child.status in ("difference", "zero", "unexpected"):
+            elif (
+                child.status in ("difference", "zero", "unexpected")
+                and parent_decision == "adjust"
+            ):
                 count_line = parent._ensure_count_line_for_snapshot_adjustment(parent_line)
-                count_line.write({"state": "Pending Review"})
+                count_line.write({
+                    "counted_qty": child.counted_qty,
+                    "state": "Pending Review",
+                })
                 unresolved += 1
 
         parent._refresh_persistent_kpis()
         parent.message_post(
             body=_(
                 "Reconteo %(recount)s aprobado: %(updated)s posiciones consolidadas; "
-                "%(unresolved)s continúan con divergencia."
+                "%(unresolved)s divergencias quedaron confirmadas para ajuste."
             ) % {
                 "recount": self.display_name,
                 "updated": updated,
@@ -748,64 +777,31 @@ class StockInvCount(models.Model):
     def create_inventory_adj(self):
         self.ensure_one()
 
-        # El snapshot persistente es la fuente de verdad. Materializamos antes
-        # cualquier divergencia aceptada que aún no tenga línea de control.
         snapshot_candidates = self.snapshot_line_ids.filtered(
             lambda line: (
                 line.status in ("difference", "zero", "unexpected")
                 and not line.relocation_resolved
             )
         )
-        for snapshot_line in snapshot_candidates:
-            self._ensure_count_line_for_snapshot_adjustment(snapshot_line)
 
-        # Solo diferencias aprobadas; nunca líneas rechazadas para reconteo.
+        if snapshot_candidates and hasattr(
+            self, "_create_inventory_adj_from_snapshot_fast"
+        ):
+            self._create_inventory_adj_from_snapshot_fast(snapshot_candidates)
+            return True
+
         lines_to_adjust = self.line_ids.filtered(
             lambda line: (
-                line.state == 'Approve'
+                line.state == "Approve"
                 and (
                     line.is_discrepancy_found
                     or line.counted_qty != line.qty_in_stock
-                    or (
-                        line.product_id.tracking == 'serial'
-                        and (line.serial_number_ids or line.not_found_serial_number_ids)
-                    )
                 )
             )
         )
         if lines_to_adjust:
             self._create_inventory_adj(lines_to_adjust)
-            try:
-                self.message_post(
-                    body=Markup("<div style='color:red; margin:10px 30px;;'>&bull; %s <strong>%s</strong>%s</div>") % (
-                        _('Se encontró una discrepancia.'),
-                        _('Ajuste de inventario'),
-                        _(' fue creado.')
-                    ))
-            except Exception as e:
-                pass
-        else:
-            try:
-                self.message_post(
-                    body=Markup(
-                        "<div style='color:green; margin:10px 30px;;'>&bull; %s <strong>%s</strong> %s</div>") % (
-                             _('No se encontraron discrepancias.'),
-                             _('Ajuste de inventario'),
-                             _('no fue creado.')
-                         ))
-            except Exception as e:
-                pass
-
-    def get_all_counts(self):
-        list = [self.id]
-        while True:
-            if self.count_id:
-                list.append(self.count_id.id)
-                list_2 = self.count_id.get_all_counts()
-                if list_2:
-                    list.extend(list_2)
-            break
-        return set(list)
+        return True
 
     def _create_inventory_adj(self, count_lines):
         if count_lines:
