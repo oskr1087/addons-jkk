@@ -34,7 +34,7 @@ class StockInvCountLine(models.Model):
 
     tracking = fields.Selection(related="product_id.tracking", string="Tracking")
     user_ids = fields.Many2many('res.users',string='Users')
-    difference_qty = fields.Float(string="Diferencia", compute="_compute_difference",
+    difference_qty = fields.Float(string="Diferencia mostrada", compute="_compute_difference",
                                   help="Indica la diferencia entre la cantidad teórica del producto y la cantidad física más reciente.",
                                   readonly=True, digits="Product Unit of Measure", search="_search_difference_qty",store=True)
     discrepancy_value = fields.Float(string='Valor de discrepancia', compute='_compute_discrepancy_value', store=True)

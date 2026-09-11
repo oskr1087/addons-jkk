@@ -8,14 +8,14 @@ class StockInventoryCountPDA(models.Model):
     _inherit = 'setu.stock.inventory.count'
 
     zero_result_count = fields.Integer(
-        string="Cantidad cero",
+        string="Cantidad cero detectada",
         compute="_compute_pda_result_counts"
     )
 
     # Compatibilidad temporal con vistas heredadas guardadas en la base.
     # Estos campos no precargan productos ni consultan stock.
     pending_result_count = fields.Integer(
-        string="Pendientes",
+        string="Pendientes de snapshot",
         compute="_compute_legacy_result_counts",
     )
     unexpected_result_count = fields.Integer(
@@ -517,20 +517,34 @@ class InventoryCountSessionPDA(models.Model):
         copy=False,
     )
     mobile_current_product_barcode = fields.Char(
-        related="current_scanning_product_id.barcode",
+        compute="_compute_mobile_current_product_info",
         string="Código del producto",
         readonly=True,
     )
     mobile_current_tracking = fields.Selection(
-        related="current_scanning_product_id.tracking",
+        selection=[
+            ("none", "Sin seguimiento"),
+            ("lot", "Por lotes"),
+            ("serial", "Por número de serie"),
+        ],
+        compute="_compute_mobile_current_product_info",
         string="Seguimiento",
         readonly=True,
     )
     mobile_current_uom_id = fields.Many2one(
-        related="current_scanning_product_id.uom_id",
+        comodel_name="uom.uom",
+        compute="_compute_mobile_current_product_info",
         string="Unidad",
         readonly=True,
     )
+
+    @api.depends("current_scanning_product_id")
+    def _compute_mobile_current_product_info(self):
+        for session in self:
+            product = session.current_scanning_product_id
+            session.mobile_current_product_barcode = product.barcode if product else False
+            session.mobile_current_tracking = product.tracking if product else False
+            session.mobile_current_uom_id = product.uom_id if product else False
     mobile_last_feedback = fields.Char(
         string="Último resultado",
         readonly=True,

@@ -1,3 +1,11 @@
+19.0.7.9.26
+- Limpieza de compatibilidad Odoo 19 para despliegues Odoo.sh.
+- root_count_id y recount_level ahora declaran recursive=True.
+- Los campos PDA derivados de current_scanning_product_id dejan de usar related sobre un campo computado no searchable.
+- Los reportes SQL usan self.env.cr en lugar de self._cr.
+- Se diferencian etiquetas duplicadas internas de sesión para reducir warnings del registry.
+- Mantiene todos los ajustes funcionales acumulados hasta v19.0.7.9.25.
+
 19.0.7.9.25
 - Añade la acción «Aprobar revisión» en la bandeja «Para revisión».
 - Permite al Controlador resolver observaciones o novedades informativas sin reconteo ni ajuste.

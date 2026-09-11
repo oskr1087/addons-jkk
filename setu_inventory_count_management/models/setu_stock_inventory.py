@@ -29,7 +29,7 @@ class StockInventory(models.Model):
     account_move_ids = fields.Many2many(
         comodel_name="account.move",
         compute="_compute_account_move_ids",
-        string="Asientos contables",
+        string="Asientos contables relacionados",
         readonly=True,
     )
     account_move_count = fields.Integer(

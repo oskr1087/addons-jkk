@@ -15,8 +15,8 @@ class SetuInventoryDiscrepancyReport(models.Model):
     approver_id = fields.Many2one("res.users", string="Approver", readonly=True)
 
     def init(self):
-        tools.drop_view_if_exists(self._cr, self._table)
-        self._cr.execute(f"""
+        tools.drop_view_if_exists(self.env.cr, self._table)
+        self.env.cr.execute(f"""
             CREATE OR REPLACE VIEW {self._table} AS (
                 SELECT
                     MIN(count_line.id) as id,

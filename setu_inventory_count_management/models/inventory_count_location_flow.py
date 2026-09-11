@@ -48,7 +48,7 @@ class InventoryCountLocationProgress(models.Model):
     )
     pending_position_count = fields.Integer(
         compute="_compute_live_metrics",
-        string="Pendientes",
+        string="Pendientes de snapshot",
     )
     difference_position_count = fields.Integer(
         compute="_compute_live_metrics",

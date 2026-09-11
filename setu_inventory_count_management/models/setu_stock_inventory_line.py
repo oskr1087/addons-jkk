@@ -10,7 +10,7 @@ class StockInventoryLine(models.Model):
 
     theoretical_qty = fields.Float(string="Theoretical QTY")
     product_qty = fields.Float(string="Counted QTY")
-    difference_qty = fields.Float(string="Diferencia", compute="_compute_difference",
+    difference_qty = fields.Float(string="Diferencia mostrada", compute="_compute_difference",
                                   help="Indica la diferencia entre la cantidad teórica del producto y la cantidad física más reciente.",
                                   readonly=True, digits="Product Unit of Measure", search="_search_difference_qty",store=True)
 

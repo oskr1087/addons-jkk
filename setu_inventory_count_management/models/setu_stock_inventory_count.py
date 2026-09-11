@@ -60,12 +60,14 @@ class StockInvCount(models.Model):
         store=True,
         readonly=True,
         index=True,
+        recursive=True,
     )
     recount_level = fields.Integer(
         string="Nivel de reconteo",
         compute="_compute_recount_traceability",
         store=True,
         readonly=True,
+        recursive=True,
     )
 
 

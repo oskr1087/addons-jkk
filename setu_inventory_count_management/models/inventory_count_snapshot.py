@@ -46,10 +46,10 @@ class InventoryCountSnapshot(models.Model):
 
     expected_item_count = fields.Integer(string="Esperados", readonly=True)
     counted_item_count = fields.Integer(string="Contados", readonly=True)
-    pending_item_count = fields.Integer(string="Pendientes", readonly=True)
+    pending_item_count = fields.Integer(string="Pendientes de snapshot", readonly=True)
     matched_item_count = fields.Integer(string="Coincidencias", readonly=True)
     difference_item_count = fields.Integer(string="Divergencias", readonly=True)
-    zero_item_count = fields.Integer(string="Cantidad cero", readonly=True)
+    zero_item_count = fields.Integer(string="Cantidad cero detectada", readonly=True)
     unexpected_item_count = fields.Integer(string="No previstos", readonly=True)
     duplicate_item_count = fields.Integer(string="Posibles duplicados", readonly=True)
     progress_percent = fields.Float(string="Avance (%)", readonly=True, digits=(16, 2))
@@ -159,7 +159,7 @@ class InventoryCountSnapshotLine(models.Model):
         string="Cantidad contada", digits="Product Unit of Measure", readonly=True
     )
     difference_qty = fields.Float(
-        string="Diferencia", digits="Product Unit of Measure", readonly=True
+        string="Diferencia mostrada", digits="Product Unit of Measure", readonly=True
     )
     difference_display = fields.Char(
         string="Diferencia",

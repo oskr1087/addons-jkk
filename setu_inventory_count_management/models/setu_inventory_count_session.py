@@ -10,9 +10,9 @@ class SetuInventoryCountSession(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin', 'portal.mixin', 'barcodes.barcode_events_mixin']
     _description = 'Inventory Count Session'
 
-    open_session_again = fields.Boolean(compute="_compute_open_session_again", string="Reabrir sesión")
+    open_session_again = fields.Boolean(compute="_compute_open_session_again", string="Puede reabrir sesión")
     is_session_approved = fields.Boolean(default=False, string="Sesión aprobada")
-    re_open_session_bool = fields.Boolean(compute="_compute_re_open_session", string="Reabrir sesión")
+    re_open_session_bool = fields.Boolean(compute="_compute_re_open_session", string="Reapertura habilitada")
     use_barcode_scanner = fields.Boolean(default=False, string="Usar escáner de códigos")
     is_multi_session = fields.Boolean(default=False, string="Es multisesión")
 
