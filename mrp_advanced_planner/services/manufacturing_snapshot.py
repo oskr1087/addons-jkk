@@ -180,10 +180,20 @@ class ManufacturingSnapshotBuilder:
             if not bom:
                 return
 
-            direct = planning_line.production_component_ids.filtered(
-                lambda component:
-                    component.parent_line_id == parent
-            )
+            # Many2one values are recordsets in Odoo. Comparing an empty
+            # recordset directly with Python ``False`` does not identify root
+            # rows reliably. That made every root BoM line look "missing" and
+            # ensure_complete() duplicated the full component subtree just
+            # before creating the MO.
+            if parent:
+                direct = planning_line.production_component_ids.filtered(
+                    lambda component:
+                        component.parent_line_id.id == parent.id
+                )
+            else:
+                direct = planning_line.production_component_ids.filtered(
+                    lambda component: not component.parent_line_id
+                )
             base_path = list(
                 path or [planning_line.product_id.display_name]
             )
@@ -201,7 +211,7 @@ class ManufacturingSnapshotBuilder:
 
                 component = direct.filtered(
                     lambda row:
-                        row.source_bom_line_id == bl
+                        row.source_bom_line_id.id == bl.id
                 )[:1]
 
                 if not component:

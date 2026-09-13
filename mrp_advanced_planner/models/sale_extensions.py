@@ -102,7 +102,7 @@ class SaleOrderLine(models.Model):
         default=False,
         copy=False,
     )
-    planning_delivery_date = fields.Datetime(
+    planning_delivery_date = fields.Date(
         string='Fecha de entrega planificación',
         compute='_compute_planning_delivery_date',
         inverse='_inverse_planning_delivery_date',
@@ -316,25 +316,31 @@ class SaleOrderLine(models.Model):
                 line.planning_delivery_date = False
                 continue
             if not line.planning_delivery_date_manual:
-                line.planning_delivery_date = (
+                source_date = (
                     line.order_id.commitment_date
                     or line.order_id.date_order
-                    or fields.Datetime.now()
+                    or fields.Date.context_today(line)
                 )
+                line.planning_delivery_date = fields.Date.to_date(source_date)
 
     def _inverse_planning_delivery_date(self):
         for line in self:
             if line.display_type:
                 line.planning_delivery_date_manual = False
                 continue
-            default_date = line.order_id.commitment_date or line.order_id.date_order
-            # Clearing the field restores the order-level default.
+            default_value = (
+                line.order_id.commitment_date
+                or line.order_id.date_order
+                or fields.Date.context_today(line)
+            )
+            default_date = fields.Date.to_date(default_value)
+            # Clearing the field restores the order-level DATE default.
             if not line.planning_delivery_date:
                 line.planning_delivery_date_manual = False
-                line.planning_delivery_date = default_date or fields.Datetime.now()
+                line.planning_delivery_date = default_date
             else:
                 line.planning_delivery_date_manual = bool(
-                    not default_date or line.planning_delivery_date != default_date
+                    line.planning_delivery_date != default_date
                 )
 
 
@@ -352,6 +358,18 @@ class SaleOrderLine(models.Model):
         'aps_planning_line_ids.created_picking_ids',
     )
     def _compute_aps_sale_forecast(self):
+        """Availability for THIS sale line, without stealing committed supply.
+
+        Important rules:
+        * physical free stock is common stock and may cover the line;
+        * an MO/PO/transfer explicitly linked to another sale line is NOT
+          available to this line;
+        * supply explicitly linked to this line is available;
+        * truly uncommitted supply may be shown as generic supply;
+        * Odoo ``virtual_available`` is informational only here because it
+          already contains incoming/outgoing moves. Adding open MO/PO again to
+          it would double-count supply (e.g. 152 forecast + 152 MO = 304).
+        """
         MrpProduction = self.env['mrp.production'].sudo()
         PurchaseLine = self.env['purchase.order.line'].sudo()
         PlanLine = self.env['mrp.planning.plan.line'].sudo()
@@ -359,10 +377,93 @@ class SaleOrderLine(models.Model):
         state_selection = MrpProduction._fields['state'].selection
         if callable(state_selection):
             state_selection = state_selection(self.env)
+        state_labels = dict(state_selection)
         mo_states = [
             state for state in ('confirmed', 'progress', 'to_close')
-            if state in dict(state_selection)
+            if state in state_labels
         ]
+
+        def source_sale_lines_from_plan_line(plan_line):
+            if not plan_line:
+                return self.env['sale.order.line']
+            return (
+                plan_line.sale_line_ids
+                or plan_line.sale_line_id
+            ).filtered(lambda row: not row.display_type)
+
+        def classify_supply_sale_lines(supply_sale_lines, current_line):
+            """Return own / other / generic commitment classification."""
+            supply_sale_lines = supply_sale_lines.exists()
+            if current_line in supply_sale_lines:
+                return 'own'
+            if supply_sale_lines:
+                return 'other'
+            return 'generic'
+
+        def mo_source_sale_lines(mo):
+            """Resolve every sale line really committed to a manufacturing order.
+
+            Prefer explicit APS traceability, but also recover native MTO links
+            through finished move destinations. This is required for older MOs
+            or sub-MOs created before the latest APS traceability fields were
+            persisted.
+            """
+            sale_lines = self.env['sale.order.line']
+
+            if mo.planning_plan_line_id:
+                sale_lines |= source_sale_lines_from_plan_line(
+                    mo.planning_plan_line_id
+                )
+            if mo.planning_sale_line_id:
+                sale_lines |= mo.planning_sale_line_id
+
+            # Native chain: finished move -> destination sale stock move ->
+            # sale_line_id. This catches manufacturing committed to another SO
+            # even when advanced_plan/planning_line fields are incomplete.
+            for finished in mo.move_finished_ids.filtered(
+                lambda move: move.state != 'cancel'
+            ):
+                downstream = finished.move_dest_ids.filtered(
+                    lambda move: move.state != 'cancel'
+                )
+                sale_lines |= downstream.mapped('sale_line_id')
+
+                # Follow one more level defensively because depending on route
+                # configuration the sale-linked move may sit after an internal
+                # transfer/stock move.
+                next_level = downstream.mapped('move_dest_ids').filtered(
+                    lambda move: move.state != 'cancel'
+                )
+                sale_lines |= next_level.mapped('sale_line_id')
+
+            return sale_lines.filtered(lambda row: not row.display_type)
+
+        def po_source_sale_lines(po_line):
+            """Resolve sale commitments behind a purchase line when possible."""
+            sale_lines = self.env['sale.order.line']
+
+            po_plan_line = getattr(po_line, 'planning_plan_line_id', False)
+            if not po_plan_line:
+                po_plan_line = PlanLine.search([
+                    ('created_purchase_line_id', '=', po_line.id),
+                ], limit=1)
+            if po_plan_line:
+                sale_lines |= source_sale_lines_from_plan_line(po_plan_line)
+
+            # Native purchase stock moves can also point to sale demand via
+            # move_dest_ids in MTO/buy flows.
+            for move in po_line.move_ids.filtered(
+                lambda move: move.state != 'cancel'
+            ):
+                downstream = move.move_dest_ids.filtered(
+                    lambda row: row.state != 'cancel'
+                )
+                sale_lines |= downstream.mapped('sale_line_id')
+                sale_lines |= downstream.mapped(
+                    'move_dest_ids'
+                ).mapped('sale_line_id')
+
+            return sale_lines.filtered(lambda row: not row.display_type)
 
         for line in self:
             line.aps_forecast_qty = 0.0
@@ -395,7 +496,7 @@ class SaleOrderLine(models.Model):
             ])[0]
 
             on_hand = float(stock_values.get('qty_available') or 0.0)
-            free_qty = float(stock_values.get('free_qty') or 0.0)
+            free_qty = max(float(stock_values.get('free_qty') or 0.0), 0.0)
             incoming = float(stock_values.get('incoming_qty') or 0.0)
             outgoing = float(stock_values.get('outgoing_qty') or 0.0)
             forecast = float(stock_values.get('virtual_available') or 0.0)
@@ -418,15 +519,36 @@ class SaleOrderLine(models.Model):
             )
             pending = max(requested - delivered, 0.0)
 
-            # Open manufacturing for this product in the SO warehouse.
+            # APS lines linked exactly to the current sale line.
+            planning_lines = line.aps_planning_line_ids | PlanLine.search([
+                '|',
+                ('sale_line_id', '=', line.id),
+                ('sale_line_ids', 'in', line.id),
+            ])
+            planning_lines = planning_lines.filtered(
+                lambda pl: pl.plan_id.state != 'cancelled'
+            )
+            aps_plans = planning_lines.mapped('plan_id')
+            aps_mos = planning_lines.mapped('created_production_id').filtered(
+                lambda mo: mo.state != 'cancel'
+            )
+            aps_pos = planning_lines.mapped(
+                'created_purchase_line_id.order_id'
+            ).filtered(lambda po: po.state != 'cancel')
+            aps_pickings = planning_lines.mapped('created_picking_ids').filtered(
+                lambda picking: picking.state != 'cancel'
+            )
+
+            # ---------------- Manufacturing ----------------
             mos = MrpProduction.search([
                 ('company_id', '=', company.id),
                 ('product_id', '=', product.id),
                 ('state', 'in', mo_states or ['confirmed']),
                 ('picking_type_id.warehouse_id', '=', warehouse.id),
             ])
-            open_mo = 0.0
+            own_mo = generic_mo = other_mo = 0.0
             mo_rows = []
+            other_mo_rows = []
             for mo in mos:
                 qty = max(
                     (mo.product_qty or 0.0) - (mo.qty_produced or 0.0),
@@ -435,23 +557,44 @@ class SaleOrderLine(models.Model):
                 if qty <= 1e-6:
                     continue
                 qty = mo.product_uom_id._compute_quantity(qty, product.uom_id)
-                open_mo += qty
-                mo_rows.append({
+
+                supply_sale_lines = mo_source_sale_lines(mo)
+                commitment = classify_supply_sale_lines(
+                    supply_sale_lines, line
+                )
+
+                if commitment == 'own':
+                    own_mo += qty
+                elif commitment == 'other':
+                    other_mo += qty
+                else:
+                    generic_mo += qty
+
+                # In the popup list only own and genuinely generic documents
+                # are actionable supply for this line. Other-sale documents
+                # are exposed separately as committed elsewhere.
+                row = {
                     'id': mo.id,
                     'name': mo.display_name,
                     'qty': qty,
-                    'state': dict(state_selection).get(mo.state, mo.state),
-                })
+                    'state': state_labels.get(mo.state, mo.state),
+                    'commitment': commitment,
+                }
+                if commitment != 'other':
+                    mo_rows.append(row)
+                else:
+                    other_mo_rows.append(row)
 
-            # Open purchase supply for this product/warehouse.
+            # ---------------- Purchases ----------------
             po_lines = PurchaseLine.search([
                 ('company_id', '=', company.id),
                 ('product_id', '=', product.id),
                 ('order_id.state', 'in', ('draft', 'sent', 'to approve', 'purchase')),
                 ('order_id.picking_type_id.warehouse_id', '=', warehouse.id),
             ])
-            open_po = 0.0
+            own_po = generic_po = other_po = 0.0
             po_rows = []
+            other_po_rows = []
             for po_line in po_lines:
                 qty = max(
                     (po_line.product_qty or 0.0) - (po_line.qty_received or 0.0),
@@ -462,61 +605,102 @@ class SaleOrderLine(models.Model):
                 qty = po_line.product_uom_id._compute_quantity(
                     qty, product.uom_id
                 )
-                open_po += qty
-                po_rows.append({
+
+                supply_sale_lines = po_source_sale_lines(po_line)
+                commitment = classify_supply_sale_lines(
+                    supply_sale_lines, line
+                )
+
+                if commitment == 'own':
+                    own_po += qty
+                elif commitment == 'other':
+                    other_po += qty
+                else:
+                    generic_po += qty
+
+                row = {
                     'id': po_line.order_id.id,
                     'name': po_line.order_id.display_name,
                     'qty': qty,
                     'state': po_line.order_id.state,
-                })
+                    'commitment': commitment,
+                }
+                if commitment != 'other':
+                    po_rows.append(row)
+                else:
+                    other_po_rows.append(row)
 
-            # APS documents specifically linked to this SO line.
-            planning_lines = line.aps_planning_line_ids | PlanLine.search([
-                ('sale_line_id', '=', line.id),
-            ])
-            aps_plans = planning_lines.mapped('plan_id')
-            aps_mos = planning_lines.mapped('created_production_id')
-            aps_pos = planning_lines.mapped('created_purchase_line_id.order_id')
-            aps_pickings = planning_lines.mapped('created_picking_ids')
-
-            planned_qty = sum(
-                planning_lines.mapped('planner_production_qty')
-            )
+            # ---------------- Transfers linked to this sale ----------------
             transfer_qty = 0.0
             transfer_rows = []
             for picking in aps_pickings:
                 qty = 0.0
                 for move in picking.move_ids.filtered(
-                    lambda move: move.product_id == product
-                    and move.state != 'cancel'
+                    lambda move:
+                        move.product_id == product
+                        and move.state != 'cancel'
                 ):
+                    # Done transfer is already physical stock at destination.
+                    # Do not add it again on top of free stock.
+                    if move.state == 'done':
+                        continue
                     qty += move.product_uom._compute_quantity(
-                        move.product_uom_qty or 0.0, product.uom_id
+                        move.product_uom_qty or 0.0,
+                        product.uom_id,
                     )
+                if qty <= 1e-6:
+                    continue
                 transfer_qty += qty
                 transfer_rows.append({
                     'id': picking.id,
                     'name': picking.display_name,
                     'qty': qty,
                     'state': picking.state,
+                    'commitment': 'own',
                 })
 
-            # A line-specific operational indicator. The forecast is Odoo's net
-            # forecast after demand; open supply sources explain how shortages
-            # are being covered.
-            net_forecast_cover = max(forecast, 0.0)
-            supply_cover = open_mo + open_po + transfer_qty
-            coverage = net_forecast_cover + supply_cover
+            # ---------------- Soft APS planning ----------------
+            # A calculated plan without a generated document is useful
+            # traceability but is not firm supply. Do not count it as coverage.
+            planned_qty = sum(
+                planning_lines.filtered(
+                    lambda pl:
+                        not pl.created_production_id
+                        and not pl.created_purchase_line_id
+                        and not pl.created_picking_ids
+                ).mapped('planner_production_qty')
+            )
+
+            # Coverage uses mutually exclusive buckets. virtual_available is
+            # NOT included because it already embeds many incoming/outgoing
+            # movements and caused the previous double-counting.
+            physical_cover = min(pending, free_qty)
+            remaining = max(pending - physical_cover, 0.0)
+
+            own_firm_supply = own_mo + own_po + transfer_qty
+            own_cover = min(remaining, own_firm_supply)
+            remaining -= own_cover
+
+            # Generic supply is not committed to another sale and can cover
+            # the remaining demand. Explicitly committed "other" supply is
+            # never used here.
+            generic_firm_supply = generic_mo + generic_po
+            generic_cover = min(remaining, generic_firm_supply)
+            remaining -= generic_cover
+
+            coverage = physical_cover + own_cover + generic_cover
             shortage = max(pending - coverage, 0.0)
 
-            has_mo = open_mo > 1e-6
-            has_po = open_po > 1e-6
+            available_mo = own_mo + generic_mo
+            available_po = own_po + generic_po
+            has_mo = available_mo > 1e-6
+            has_po = available_po > 1e-6
             has_transfer = transfer_qty > 1e-6
             source_count = sum((has_mo, has_po, has_transfer))
 
             if pending <= 1e-6:
                 status = 'covered'
-            elif forecast + 1e-6 >= pending:
+            elif free_qty + 1e-6 >= pending:
                 status = 'available'
             elif shortage <= 1e-6:
                 if source_count > 1:
@@ -535,7 +719,9 @@ class SaleOrderLine(models.Model):
                 status = 'uncovered'
 
             line.aps_forecast_qty = forecast
-            line.aps_open_mo_qty = open_mo
+            # Keep this field semantically "manufacturing available to this
+            # sale", not total MOs for the product.
+            line.aps_open_mo_qty = available_mo
             line.aps_forecast_status = status
             line.aps_stock_warehouse_tooltip = json.dumps({
                 'product': product.display_name,
@@ -548,13 +734,21 @@ class SaleOrderLine(models.Model):
                 'incoming': incoming,
                 'outgoing': outgoing,
                 'forecast': forecast,
-                'open_mo': open_mo,
-                'open_po': open_po,
+                'open_mo': available_mo,
+                'open_po': available_po,
                 'transfer_qty': transfer_qty,
                 'planned_qty': planned_qty,
                 'coverage': coverage,
                 'shortage': shortage,
                 'status': status,
+                'physical_cover': physical_cover,
+                'own_mo': own_mo,
+                'generic_mo': generic_mo,
+                'other_mo': other_mo,
+                'own_po': own_po,
+                'generic_po': generic_po,
+                'other_po': other_po,
+                'committed_elsewhere_qty': other_mo + other_po,
                 'plans': [
                     {
                         'id': plan.id,
@@ -566,6 +760,8 @@ class SaleOrderLine(models.Model):
                 ],
                 'mos': mo_rows,
                 'pos': po_rows,
+                'other_mos': other_mo_rows,
+                'other_pos': other_po_rows,
                 'transfers': transfer_rows,
                 'aps_mo_ids': aps_mos.ids,
                 'aps_po_ids': aps_pos.ids,
@@ -632,12 +828,31 @@ class SaleOrderLine(models.Model):
                 'res_model': 'stock.picking',
                 'res_id': row.get('id'),
             }))
+        for row in payload.get('other_mos', []):
+            document_commands.append((0, 0, {
+                'document_type': 'mo_other',
+                'name': row.get('name'),
+                'quantity': row.get('qty') or 0.0,
+                'state_label': _('Comprometido a otra venta'),
+                'res_model': 'mrp.production',
+                'res_id': row.get('id'),
+            }))
+        for row in payload.get('other_pos', []):
+            document_commands.append((0, 0, {
+                'document_type': 'po_other',
+                'name': row.get('name'),
+                'quantity': row.get('qty') or 0.0,
+                'state_label': _('Comprometido a otra venta'),
+                'res_model': 'purchase.order',
+                'res_id': row.get('id'),
+            }))
 
         wizard = self.env['mrp.planning.sale.availability.wizard'].create({
             'sale_line_id': self.id,
             'product_id': self.product_id.id,
             'warehouse_id': self.order_id.warehouse_id.id,
             'status': status_labels.get(payload.get('status'), 'Sin cubrir'),
+            'status_key': payload.get('status') or 'uncovered',
             'requested_qty': payload.get('requested') or 0.0,
             'delivered_qty': payload.get('delivered') or 0.0,
             'pending_qty': payload.get('pending') or 0.0,
@@ -652,6 +867,9 @@ class SaleOrderLine(models.Model):
             'purchase_qty': payload.get('open_po') or 0.0,
             'transfer_qty': payload.get('transfer_qty') or 0.0,
             'planned_qty': payload.get('planned_qty') or 0.0,
+            'committed_elsewhere_qty': (
+                payload.get('committed_elsewhere_qty') or 0.0
+            ),
             'document_line_ids': document_commands,
         })
         return {
@@ -669,11 +887,12 @@ class SaleOrderLine(models.Model):
     def action_reset_planning_delivery_date(self):
         for line in self.filtered(lambda row: not row.display_type):
             line.planning_delivery_date_manual = False
-            line.planning_delivery_date = (
+            source_date = (
                 line.order_id.commitment_date
                 or line.order_id.date_order
-                or fields.Datetime.now()
+                or fields.Date.context_today(line)
             )
+            line.planning_delivery_date = fields.Date.to_date(source_date)
         return True
 
 

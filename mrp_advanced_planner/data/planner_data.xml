@@ -1,6 +1,23 @@
 <odoo noupdate="1">
+    <record id="seq_mrp_planning_plan_manufacturing" model="ir.sequence">
+        <field name="name">Plan APS - Fabricación</field>
+        <field name="code">mrp.planning.plan.manufacturing</field>
+        <field name="prefix">APS-FAB/</field>
+        <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+    <record id="seq_mrp_planning_plan_purchase" model="ir.sequence">
+        <field name="name">Plan APS - Compras</field>
+        <field name="code">mrp.planning.plan.purchase</field>
+        <field name="prefix">APS-COM/</field>
+        <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+    <!-- Legacy sequence kept only for upgrade compatibility. New plans do not use it. -->
     <record id="seq_mrp_planning_plan" model="ir.sequence">
-        <field name="name">Plan APS</field>
+        <field name="name">Plan APS (legacy)</field>
         <field name="code">mrp.planning.plan</field>
         <field name="prefix">APS/</field>
         <field name="padding">5</field>

@@ -10,7 +10,7 @@ class MrpAdvancedRequirement(models.Model):
     demand_id = fields.Many2one("mrp.advanced.demand")
     product_id = fields.Many2one("product.product", required=True)
     quantity = fields.Float(required=True, digits=(16, 4))
-    date_required = fields.Datetime(required=True)
+    date_required = fields.Date(required=True)
     level = fields.Integer(default=0)
     trace_key = fields.Char(index=True)
     state = fields.Selection(
@@ -43,7 +43,7 @@ class MrpAdvancedSupply(models.Model):
         required=True,
     )
     quantity = fields.Float(required=True, digits=(16, 4))
-    date_required = fields.Datetime(required=True)
+    date_required = fields.Date(required=True)
     purchase_order_id = fields.Many2one("purchase.order")
     production_id = fields.Many2one("mrp.production")
     applied = fields.Boolean(default=False)

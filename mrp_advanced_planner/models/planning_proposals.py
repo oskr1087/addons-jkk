@@ -20,7 +20,7 @@ class PlanningProductionProposal(models.Model):
     warehouse_id = fields.Many2one(related='plan_id.warehouse_id', store=True)
     quantity = fields.Float(required=True, digits=(16, 4))
     product_uom_id = fields.Many2one(related='product_id.uom_id', store=True)
-    date_required = fields.Datetime(required=True, index=True)
+    date_required = fields.Date(required=True, index=True)
     date_planned_start = fields.Datetime()
     date_planned_finished = fields.Datetime()
     total_duration = fields.Float(digits=(16, 4))
@@ -32,7 +32,7 @@ class PlanningProductionProposal(models.Model):
     @api.depends('product_id', 'date_required')
     def _compute_name(self):
         for record in self:
-            record.name = '%s - %s' % (record.product_id.display_name, fields.Datetime.to_string(record.date_required)) if record.product_id and record.date_required else 'New'
+            record.name = '%s - %s' % (record.product_id.display_name, fields.Date.to_string(record.date_required)) if record.product_id and record.date_required else 'New'
 
 
 class PlanningPurchaseProposal(models.Model):
@@ -55,7 +55,7 @@ class PlanningPurchaseProposal(models.Model):
     warehouse_id = fields.Many2one(related='plan_id.warehouse_id', store=True)
     quantity = fields.Float(required=True, digits=(16, 4))
     product_uom_id = fields.Many2one(related='product_id.uom_id', store=True)
-    date_required = fields.Datetime(required=True, index=True)
+    date_required = fields.Date(required=True, index=True)
     date_planned = fields.Datetime()
     price_unit = fields.Float(digits=(16, 4))
     currency_id = fields.Many2one(related='company_id.currency_id', store=True)

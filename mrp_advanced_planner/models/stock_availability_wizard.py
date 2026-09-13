@@ -46,8 +46,7 @@ class PlanningStockAvailabilityWizard(models.TransientModel):
                 ('product_id', '=', product.id),
                 ('order_id.state', '=', 'purchase'),
                 ('order_id.picking_type_id.warehouse_id', '=', warehouse.id),
-                ('date_planned', '<=', plan.date_end),
-            ])
+                ])
             incoming = 0.0
             for po_line in po_lines:
                 pending = max(

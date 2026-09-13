@@ -2,7 +2,6 @@ from . import sale_extensions
 from . import mrp_extensions
 from . import planning_plan
 from . import planning_lines
-from . import planning_manufacturing_tree_fix
 from . import planning_tracking
 from . import physical_roll
 from . import physical_roll_assignment

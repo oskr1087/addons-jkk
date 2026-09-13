@@ -147,32 +147,52 @@ class MrpPlanningComponentLotReservation(models.Model):
             ])
             aps_reserved_qty = sum(active.mapped('reserved_qty'))
 
+            # Materialized Odoo reservations belonging to these same APS
+            # logical demands must not reduce APS capacity a second time.
+            # production_id is the primary owner. For legacy/transitional rows
+            # also accept raw moves explicitly linked to any active component.
             aps_productions = active.mapped('production_id')
-            odoo_reserved_by_aps = 0.0
-            if aps_productions:
-                move_lines = MoveLine.search([
-                    ('product_id', '=', reservation.product_id.id),
-                    ('lot_id', '=', reservation.lot_id.id),
-                    ('location_id', 'in', locations.ids),
-                    ('move_id.raw_material_production_id',
-                     'in', aps_productions.ids),
-                    ('move_id.state', 'not in', ('done', 'cancel')),
-                ])
-                for line in move_lines:
-                    qty = (
-                        getattr(line, 'quantity', 0.0)
-                        or getattr(line, 'qty_done', 0.0)
-                        or 0.0
+            active_components = active.mapped('component_id')
+            move_domain = [
+                ('product_id', '=', reservation.product_id.id),
+                ('lot_id', '=', reservation.lot_id.id),
+                ('location_id', 'in', locations.ids),
+                ('move_id.state', 'not in', ('done', 'cancel')),
+            ]
+            move_lines = MoveLine.search(move_domain).filtered(
+                lambda line:
+                    (
+                        line.move_id.raw_material_production_id
+                        and line.move_id.raw_material_production_id
+                        in aps_productions
                     )
-                    uom = (
-                        getattr(line, 'product_uom_id', False)
-                        or getattr(line, 'product_uom', False)
-                    )
-                    if uom and uom != reservation.product_id.uom_id:
-                        qty = uom._compute_quantity(
-                            qty, reservation.product_id.uom_id
+                    or (
+                        getattr(
+                            line.move_id,
+                            'aps_planning_component_id',
+                            False,
                         )
-                    odoo_reserved_by_aps += qty
+                        and line.move_id.aps_planning_component_id
+                        in active_components
+                    )
+            )
+
+            odoo_reserved_by_aps = 0.0
+            for line in move_lines:
+                qty = (
+                    getattr(line, 'quantity', 0.0)
+                    or getattr(line, 'qty_done', 0.0)
+                    or 0.0
+                )
+                uom = (
+                    getattr(line, 'product_uom_id', False)
+                    or getattr(line, 'product_uom', False)
+                )
+                if uom and uom != reservation.product_id.uom_id:
+                    qty = uom._compute_quantity(
+                        qty, reservation.product_id.uom_id
+                    )
+                odoo_reserved_by_aps += qty
 
             unrelated_odoo_reserved = max(
                 odoo_reserved_total - odoo_reserved_by_aps,
@@ -196,7 +216,8 @@ class MrpPlanningComponentLotReservation(models.Model):
                     'Capacidad utilizable por APS: %(capacity).4f\n'
                     'Reservado APS total: %(aps).4f\n'
                     'Cantidad solicitada: %(requested).4f\n'
-                    'Otra planificación: %(plan)s\n\n'
+                    'Otra planificación: %(plan)s\n'
+                    'OF que ocupan cantidad fuera de este APS: %(mos)s\n\n'
                     'Revise las reservas/movimientos existentes o utilice '
                     '"Reasignar lotes".'
                 ) % {
@@ -211,6 +232,16 @@ class MrpPlanningComponentLotReservation(models.Model):
                     'plan': (
                         owner.plan_id.display_name if owner else '-'
                     ),
+                    'mos': ', '.join(
+                        move_lines.filtered(
+                            lambda line:
+                                line.move_id.raw_material_production_id
+                                and line.move_id.raw_material_production_id
+                                not in aps_productions
+                        ).mapped(
+                            'move_id.raw_material_production_id.display_name'
+                        )
+                    ) or '-',
                 })
 
     @api.constrains('reserved_qty')
@@ -363,31 +394,213 @@ class MrpPlanningComponentLotReservation(models.Model):
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
+    def _aps_reassign_received_material_to_productions(self):
+        """Reserve a completed APS purchase on its intended root/sub-MOs only.
+
+        Never call action_assign on every active APS MO in the warehouse:
+        doing so allowed older MOs to grab stock bought for a newer plan.
+
+        Target resolution order:
+        1. native move_dest_ids created on PO confirmation;
+        2. APS purchase-plan -> component -> consuming MO traceability.
+        """
+        Component = self.env[
+            'mrp.planning.production.component'
+        ].sudo()
+
+        for picking in self.filtered(lambda p: p.state == 'done'):
+            target_productions = self.env['mrp.production']
+            received_products = self.env['product.product']
+
+            done_moves = picking.move_ids.filtered(
+                lambda move:
+                    move.state == 'done'
+                    and move.location_dest_id.usage == 'internal'
+            )
+            for move in done_moves:
+                received_products |= move.product_id
+
+                # Preferred/native chain.
+                target_productions |= move.move_dest_ids.mapped(
+                    'raw_material_production_id'
+                ).filtered(
+                    lambda mo:
+                        mo
+                        and mo.advanced_plan_id
+                        and mo.state not in ('done', 'cancel')
+                )
+
+                # Fallback for POs created before this version.
+                pol = getattr(move, 'purchase_line_id', False)
+                if (
+                    pol
+                    and pol.planning_plan_line_id
+                    and pol.source_manufacturing_plan_id
+                ):
+                    components = Component.search([
+                        ('plan_id', '=',
+                         pol.source_manufacturing_plan_id.id),
+                        ('generated_purchase_plan_line_id',
+                         '=', pol.planning_plan_line_id.id),
+                        ('product_id', '=', move.product_id.id),
+                        ('include_in_mo', '=', True),
+                    ])
+                    for component in components:
+                        mo = component._aps_lot_production()
+                        if mo and mo.state not in ('done', 'cancel'):
+                            target_productions |= mo
+
+            for production in target_productions:
+                relevant_moves = production.move_raw_ids.filtered(
+                    lambda move:
+                        move.state not in ('done', 'cancel')
+                        and move.product_id in received_products
+                )
+                if relevant_moves:
+                    relevant_moves._action_assign()
+
+                if (
+                    production.aps_component_snapshot
+                    and production.planning_plan_line_id
+                ):
+                    direct_components = production._aps_snapshot_components()
+                    tracked = direct_components.filtered(
+                        lambda component:
+                            component.product_id.is_storable
+                            and component.product_id.tracking != 'none'
+                            and component.product_id in received_products
+                            and component.include_in_mo
+                    )
+                    if tracked:
+                        tracked.with_context(
+                            aps_allow_locked_lot_sync=True
+                        )._aps_sync_default_lot_reservations()
+
+        return True
+
     def button_validate(self):
         result = super().button_validate()
 
-        # After a real receipt (normal purchase or subcontracting), newly
-        # received lot stock can satisfy APS reservations that were pending.
-        for picking in self:
-            if picking.state != 'done':
-                continue
-            warehouse = picking.picking_type_id.warehouse_id
-            products = picking.move_ids.mapped('product_id').filtered(
-                lambda product: product.tracking != 'none'
-            )
-            if not products:
-                continue
-            self.env[
-                'mrp.planning.component.lot.reservation'
-            ].sudo()._aps_auto_complete_pending_for_products(
-                products,
-                warehouse=warehouse,
-            )
+        # Only act after the picking actually reached DONE. If Odoo returns an
+        # immediate-transfer/backorder wizard, the later successful validation
+        # call will execute this block.
+        done_pickings = self.filtered(lambda picking: picking.state == 'done')
+        if done_pickings:
+            # First reserve the physical stock on existing APS MOs.
+            done_pickings._aps_reassign_received_material_to_productions()
+
+            # Then complete any remaining logical APS lot reservations from
+            # the newly received physical lots.
+            for picking in done_pickings:
+                warehouse = picking.picking_type_id.warehouse_id
+                products = picking.move_ids.mapped('product_id').filtered(
+                    lambda product:
+                        product.is_storable
+                        and product.tracking != 'none'
+                )
+                if not products:
+                    continue
+                self.env[
+                    'mrp.planning.component.lot.reservation'
+                ].sudo()._aps_auto_complete_pending_for_products(
+                    products,
+                    warehouse=warehouse,
+                )
         return result
 
 
 class StockMoveLine(models.Model):
     _inherit = 'stock.move.line'
+
+    def _exclude_requiring_lot(self):
+        """APS rule for non-stockable manufacturing components.
+
+        Odoo 19 can still enforce ``tracking != 'none'`` on a move line even
+        when the product is non-stockable. APS intentionally treats such
+        components as consumable without quant/lot reservation.
+
+        Scope is deliberately narrow:
+        - raw material move of a manufacturing order;
+        - manufacturing order belongs to an APS plan;
+        - product is non-stockable.
+
+        Outside APS, native Odoo behavior is preserved.
+        """
+        self.ensure_one()
+        move = self.move_id
+        production = move.raw_material_production_id if move else False
+
+        is_aps_production = bool(
+            production
+            and (
+                production.advanced_plan_id
+                or production.planning_plan_line_id
+                or production.aps_component_snapshot
+            )
+        )
+        if (
+            is_aps_production
+            and self.product_id
+            and not self.product_id.is_storable
+        ):
+            # In Odoo 19, False means "tracked line without lot" and is
+            # precisely what raises the native missing-lot error. Keep True
+            # here; the actual bypass for APS non-stockable consumption is
+            # implemented in _action_done below.
+            return True
+
+        return super()._exclude_requiring_lot()
+
+    def _aps_is_nonstockable_tracked_consumption(self):
+        """Tracked non-stockable raw material consumed by an APS MO."""
+        self.ensure_one()
+        move = self.move_id
+        production = move.raw_material_production_id if move else False
+        return bool(
+            production
+            and (
+                production.advanced_plan_id
+                or production.planning_plan_line_id
+                or production.aps_component_snapshot
+            )
+            and self.product_id
+            and not self.product_id.is_storable
+            and self.product_id.tracking != 'none'
+            and not self.lot_id
+        )
+
+    def _action_done(self):
+        """Finish APS non-stockable consumption without inventing a lot.
+
+        Odoo 19's native stock.move.line._action_done() validates tracking
+        before it reaches _synchronize_quant(). For a non-stockable product,
+        however, _synchronize_quant() itself is a no-op. APS therefore removes
+        only these specific raw-material lines from the native lot-validation
+        batch, lets Odoo process every normal/storable line normally, and then
+        finalizes the skipped non-stockable move lines without touching quants.
+
+        This is intentionally scoped to APS manufacturing raw materials.
+        """
+        aps_nonstockable = self.filtered(
+            lambda line: line._aps_is_nonstockable_tracked_consumption()
+        )
+        normal_lines = self - aps_nonstockable
+
+        # Odoo 19 stock.move.line._action_done() is a procedure and returns
+        # None. Do not treat its return value as a recordset.
+        super(StockMoveLine, normal_lines)._action_done()
+
+        if aps_nonstockable:
+            # Match the relevant tail of native _action_done for a product
+            # whose stock synchronization is intentionally a no-op.
+            aps_nonstockable._check_company()
+            aps_nonstockable.write({
+                'date': fields.Datetime.now(),
+                'picked': True,
+            })
+
+        # Preserve the native Odoo 19 return contract: None.
+        return None
 
     def _aps_source_warehouse(self, move):
         """Warehouse from which the move consumes stock."""
@@ -501,6 +714,7 @@ class StockMoveLine(models.Model):
         if (
             production
             and component
+            and component.product_id.is_storable
             and component.product_id.tracking != 'none'
         ):
             own_reservations = component.lot_reservation_ids.filtered(
@@ -508,32 +722,82 @@ class StockMoveLine(models.Model):
                     reservation.state in ('reserved', 'assigned')
             )
             own_lots = own_reservations.mapped('lot_id')
-            if not own_lots:
-                raise UserError(_(
-                    'El componente %(component)s requiere lote, pero APS '
-                    'todavía no tiene ningún lote reservado para esta OF. '
-                    'Complete la asignación de lotes antes de consumir.'
-                ) % {
-                    'component': component.product_id.display_name,
-                })
-            if lot not in own_lots:
-                raise UserError(_(
-                    'El lote %(lot)s no está asignado al componente '
-                    '%(component)s de la OF %(mo)s.'
-                ) % {
-                    'lot': lot.display_name,
-                    'component': component.product_id.display_name,
-                    'mo': production.display_name,
-                })
 
-        # Reservations owned by this exact APS component/production do not
-        # reduce the quantity available to that same operation.
+            # During MO confirmation Odoo may create/reserve a stock.move.line
+            # BEFORE APS has materialized its logical lot reservation.  That is
+            # not consumption yet, so it must not block creation of the root
+            # MO or a native sub-MO.  The quantitative protection below still
+            # prevents stealing quantities reserved by OTHER APS plans, and
+            # mrp.production.action_confirm/action_assign synchronizes the
+            # physical lot back into this component immediately afterwards.
+            #
+            # Strict "there must be a complete APS lot reservation" validation
+            # is intentionally performed at production START/DONE, not here.
+            if own_lots and lot not in own_lots:
+                current_plan = production.advanced_plan_id
+                same_plan_lot = active.filtered(
+                    lambda reservation:
+                        reservation.plan_id == current_plan
+                        and reservation.component_id == component
+                        and reservation.lot_id == lot
+                ) if current_plan else Reservation
+
+                if not same_plan_lot:
+                    raise UserError(_(
+                        'El lote %(lot)s no está asignado al componente '
+                        '%(component)s de la OF %(mo)s.'
+                    ) % {
+                        'lot': lot.display_name,
+                        'component': component.product_id.display_name,
+                        'mo': production.display_name,
+                    })
+
+        # Reservations owned by this exact APS operation do not reduce the
+        # quantity available to that same operation.
+        #
+        # IMPORTANT: ownership is fundamentally APS-level first. A native
+        # child MO created by Odoo can consume material reserved earlier by the
+        # SAME manufacturing APS even if the reservation still points
+        # temporarily to the parent/root MO. Blocking that case produced the
+        # repeated false conflict "Reservado por otros APS" although both
+        # operations belonged to the same APS.
         owned = Reservation
         if production:
             owned |= active.filtered(
                 lambda reservation:
                     reservation.production_id == production
             )
+
+            current_plan = production.advanced_plan_id
+            if current_plan:
+                same_plan = active.filtered(
+                    lambda reservation:
+                        reservation.plan_id == current_plan
+                )
+                owned |= same_plan
+
+                # Repair stale parent/root ownership when the current
+                # operation is an APS child MO consuming the exact reserved
+                # product/lot. This keeps traceability correct after allowing
+                # same-plan consumption.
+                repairable = same_plan.filtered(
+                    lambda reservation:
+                        reservation.product_id == move.product_id
+                        and (
+                            not component
+                            or reservation.component_id == component
+                            or reservation.production_id
+                               == production.aps_parent_production_id
+                        )
+                )
+                if repairable:
+                    repairable.with_context(
+                        aps_allow_locked_lot_reservation_write=True
+                    ).write({
+                        'production_id': production.id,
+                        'state': 'assigned',
+                    })
+
         if component:
             owned |= active.filtered(
                 lambda reservation:
@@ -560,7 +824,7 @@ class StockMoveLine(models.Model):
                 'Lote: %(lot)s\n'
                 'Almacén: %(warehouse)s\n'
                 'Cantidad física del lote: %(physical).4f\n'
-                'Reservado por otros APS: %(aps_reserved).4f\n'
+                'Reservado por otras planificaciones APS: %(aps_reserved).4f\n'
                 'Disponible fuera de esas reservas: %(free).4f\n'
                 'Cantidad de esta operación: %(operation).4f\n'
                 'Planificación que protege la cantidad: %(plan)s\n'

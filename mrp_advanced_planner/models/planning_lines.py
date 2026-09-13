@@ -97,7 +97,7 @@ class PlanningPlanLine(models.Model):
         help='Proveedor que se utilizará para crear la RFQ. Puede ser cualquier proveedor activo de Odoo.',
     )
 
-    date_required = fields.Datetime(string='Entrega más próxima', index=True)
+    date_required = fields.Date(string='Entrega más próxima', index=True)
     date_planned_start = fields.Datetime()
     date_planned_finish = fields.Datetime()
     priority = fields.Selection(related='plan_id.priority', store=True)
@@ -212,7 +212,7 @@ class PlanningPlanLine(models.Model):
             for row in sorted(
                 grouped.values(),
                 key=lambda value: (
-                    value['delivery_date'] or fields.Datetime.now(),
+                    value['delivery_date'] or fields.Date.context_today(self),
                     value['name'],
                 ),
             ):
@@ -221,7 +221,7 @@ class PlanningPlanLine(models.Model):
                     'name': row['name'],
                     'customer': row['customer'],
                     'warehouse': row['warehouse'],
-                    'delivery_date': fields.Datetime.to_string(row['delivery_date']) if row['delivery_date'] else '',
+                    'delivery_date': fields.Date.to_string(row['delivery_date']) if row['delivery_date'] else '',
                     'pending_qty': round(row['pending_qty'], 2),
                 })
 
@@ -305,12 +305,68 @@ class PlanningPlanLine(models.Model):
             if line.planner_production_qty < 0:
                 raise ValidationError(_('La cantidad planificada no puede ser negativa.'))
 
+    def action_remove_from_plan(self):
+        self.ensure_one()
+        if self.plan_state in ('approved', 'cancelled'):
+            raise UserError(_(
+                'Solo puede retirar productos de una planificación activa.'
+            ))
+
+        plan = self.plan_id
+        removed_sale_lines = self.sale_line_ids | self.sale_line_id
+
+        # Guardar la exclusión ANTES del rollback, porque el rollback elimina
+        # las relaciones sale_line_ids de esta línea.
+        if removed_sale_lines:
+            plan.sudo().write({
+                'excluded_sale_line_ids': [
+                    (4, sale_line.id) for sale_line in removed_sale_lines
+                ],
+            })
+
+        plan._aps_rollback_lines(self)
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('Producto retirado'),
+                'message': _(
+                    'El producto fue retirado. Sus lotes y ventas quedaron '
+                    'libres para otra planificación.'
+                ),
+                'type': 'success',
+                'sticky': False,
+            },
+        }
+
     def unlink(self):
-        protected = self.filtered(
-            lambda line: line.created_production_id or line.created_purchase_line_id or line.created_picking_ids
+        internal_recalculation = self.env.context.get(
+            'aps_incremental_recalculation'
         )
-        if protected:
-            raise UserError(_('No puede eliminar una línea que ya generó fabricación, compra o reabastecimiento.'))
+        if (
+            not self.env.context.get('aps_rollback')
+            and not internal_recalculation
+        ):
+            protected = self.filtered(
+                lambda line:
+                    line.created_production_id
+                    or line.created_purchase_line_id
+                    or line.created_picking_ids
+                    or line.production_component_ids.mapped(
+                        'generated_production_id'
+                    )
+                    or line.production_component_ids.mapped(
+                        'lot_reservation_ids'
+                    ).filtered(
+                        lambda reservation:
+                            reservation.state in ('reserved', 'assigned')
+                    )
+            )
+            if protected:
+                raise UserError(_(
+                    'Esta línea tiene reservas o documentos APS. Use la '
+                    'acción "Retirar" para liberar todo de forma segura.'
+                ))
         return super().unlink()
 
     def action_open_warehouse_stock_detail(self):
@@ -443,6 +499,11 @@ class PlanningExternalWarehouseMove(models.Model):
     source_open_mo_qty = fields.Float(string='OF abiertas origen', readonly=True, digits=(16, 4))
     destination_shortage_qty = fields.Float(string='Faltante destino', readonly=True, digits=(16, 4))
     suggested_qty = fields.Float(string='Sugerido mover', readonly=True, digits=(16, 4))
+    selected_for_transfer = fields.Boolean(
+        string='Seleccionar',
+        copy=False,
+        help='Seleccione varias líneas con el mismo almacén de origen y destino para generar una sola transferencia interna.',
+    )
     move_qty = fields.Float(string='Cantidad a transferir', digits=(16, 4))
     picking_id = fields.Many2one('stock.picking', string='Transferencia', readonly=True, copy=False)
     state = fields.Selection([('pending', 'Pendiente'), ('generated', 'Transferencia creada')], default='pending', required=True, readonly=True, index=True)
@@ -504,10 +565,16 @@ class PlanningExternalWarehouseMove(models.Model):
         }
         if self.planning_line_id:
             move_vals['planning_plan_line_id'] = self.planning_line_id.id
+        if self.production_component_id and 'aps_planning_component_id' in self.env['stock.move']._fields:
+            move_vals['aps_planning_component_id'] = self.production_component_id.id
         self.env['stock.move'].create(move_vals)
         picking.action_confirm()
         picking.action_assign()
-        self.write({'picking_id': picking.id, 'state': 'generated'})
+        self.write({
+            'picking_id': picking.id,
+            'state': 'generated',
+            'selected_for_transfer': False,
+        })
         self.plan_id.write({'needs_recalculation': True})
         self.plan_id.message_post(body=_('Transferencia interna creada para %s: %.2f %s desde %s hacia %s. Recalcule la planificación antes de generar nuevas compras u órdenes de fabricación.') % (
             self.product_id.display_name, self.move_qty, self.product_uom_id.name or '',
@@ -536,7 +603,7 @@ class PlanningDemand(models.Model):
     product_id = fields.Many2one('product.product', required=True, index=True)
     company_id = fields.Many2one(related='plan_id.company_id', store=True)
     warehouse_id = fields.Many2one('stock.warehouse', index=True)
-    date_required = fields.Datetime(required=True, index=True)
+    date_required = fields.Date(required=True, index=True)
     quantity = fields.Float(required=True, digits=(16, 4))
     delivered_qty = fields.Float(digits=(16, 4))
     remaining_qty = fields.Float(compute='_compute_remaining', store=True, digits=(16, 4))
@@ -573,7 +640,7 @@ class PlanningRequirement(models.Model):
     required_qty = fields.Float(required=True, digits=(16, 4))
     available_qty = fields.Float(digits=(16, 4))
     net_qty = fields.Float(digits=(16, 4))
-    date_required = fields.Datetime(index=True)
+    date_required = fields.Date(index=True)
     supply_type = fields.Selection([('available', 'Available'), ('existing', 'Existing Supply'), ('make', 'Make'), ('buy', 'Buy'), ('blocked', 'Blocked')], default='blocked')
     hierarchy_label = fields.Char(string='Jerarquía', compute='_compute_hierarchy_label')
 
@@ -620,6 +687,11 @@ class PlanningProductionComponent(models.Model):
     product_tracking = fields.Selection(
         related='product_id.tracking',
         string='Seguimiento',
+        readonly=True,
+    )
+    product_is_storable = fields.Boolean(
+        related='product_id.is_storable',
+        string='Producto stockeable',
         readonly=True,
     )
     original_product_id = fields.Many2one(
@@ -675,7 +747,18 @@ class PlanningProductionComponent(models.Model):
         string='Movible desde otras bodegas', digits=(16, 4), readonly=True, copy=False
     )
     to_manufacture_qty = fields.Float(
-        string='A fabricar', digits=(16, 4), readonly=True, copy=False
+        string='A fabricar', digits=(16, 4), readonly=True, copy=False,
+        help=(
+            'Cantidad total que APS decidió fabricar para este nodo. Se conserva '
+            'al recalcular aunque ya exista una OF vinculada.'
+        ),
+    )
+    pending_manufacture_qty = fields.Float(
+        string='Pendiente de generar OF', digits=(16, 4), readonly=True, copy=False,
+        help=(
+            'Parte de la cantidad planificada a fabricar que todavía no está '
+            'cubierta por OF activas vinculadas a este nodo APS exacto.'
+        ),
     )
     to_purchase_qty = fields.Float(
         string='A comprar', digits=(16, 4), readonly=True, copy=False
@@ -690,6 +773,7 @@ class PlanningProductionComponent(models.Model):
         ('move_purchase', 'Trasladar + comprar faltante'),
         ('subcontract', 'Subcontratación'),
         ('move_subcontract', 'Mover + Subcontratación'),
+        ('phantom', 'Kit / explosión directa'),
         ('review', 'Revisar abastecimiento'),
     ], string='Resolución', default='not_required', readonly=True, copy=False, index=True)
     generated_production_id = fields.Many2one(
@@ -769,7 +853,8 @@ class PlanningProductionComponent(models.Model):
         self.ensure_one()
         if (
             not self.include_in_mo
-            or self.supply_resolution == 'not_required'
+            or not self.product_id.is_storable
+            or self.supply_resolution in ('not_required', 'phantom')
         ):
             return 0.0
         return max(self.effective_required_qty or 0.0, 0.0)
@@ -837,7 +922,10 @@ class PlanningProductionComponent(models.Model):
 
     def _aps_has_complete_lot_reservation(self):
         self.ensure_one()
-        if self.product_id.tracking == 'none':
+        if (
+            not self.product_id.is_storable
+            or self.product_id.tracking == 'none'
+        ):
             return True
         required = self._aps_effective_lot_target_qty()
         reserved = sum(
@@ -861,7 +949,11 @@ class PlanningProductionComponent(models.Model):
         quantity is already physically secured for this same demand.
         """
         self.ensure_one()
-        if not self.product_id or self.product_id.tracking == 'none':
+        if (
+            not self.product_id
+            or not self.product_id.is_storable
+            or self.product_id.tracking == 'none'
+        ):
             return []
 
         warehouse = (
@@ -1024,9 +1116,15 @@ class PlanningProductionComponent(models.Model):
         ].sudo()
         for component in self:
             if (
-                component.engineering_locked
+                (
+                    component.engineering_locked
+                    and not component.env.context.get(
+                        'aps_allow_locked_lot_sync'
+                    )
+                )
                 or not component.include_in_mo
                 or not component.product_id
+                or not component.product_id.is_storable
                 or component.product_id.tracking == 'none'
             ):
                 continue
@@ -1041,6 +1139,14 @@ class PlanningProductionComponent(models.Model):
             if missing <= 1e-6:
                 continue
 
+            # Resolve the consuming MO BEFORE creating/updating logical
+            # reservations. Odoo may already have physically reserved the lot
+            # for this same MO (e.g. immediately after a validated receipt).
+            # If production_id is assigned only afterwards, the reservation
+            # constraint temporarily sees that Odoo reservation as "foreign"
+            # and subtracts it twice.
+            production = component._aps_lot_production()
+
             active_by_lot = {
                 reservation.lot_id.id: reservation
                 for reservation in active
@@ -1053,22 +1159,34 @@ class PlanningProductionComponent(models.Model):
                     continue
                 existing = active_by_lot.get(lot.id)
                 if existing:
+                    vals = {
+                        'reserved_qty': existing.reserved_qty + qty,
+                    }
+                    if production:
+                        vals.update({
+                            'production_id': production.id,
+                            'state': 'assigned',
+                        })
                     existing.with_context(
                         aps_allow_locked_lot_reservation_write=True
-                    ).write({
-                        'reserved_qty': existing.reserved_qty + qty,
-                    })
+                    ).write(vals)
                 else:
-                    reservation = Reservation.with_context(
-                        aps_allow_locked_lot_reservation_write=True
-                    ).create({
+                    vals = {
                         'plan_id': component.plan_id.id,
                         'planning_line_id': component.planning_line_id.id,
                         'component_id': component.id,
                         'warehouse_id': warehouse.id,
                         'lot_id': lot.id,
                         'reserved_qty': qty,
-                    })
+                    }
+                    if production:
+                        vals.update({
+                            'production_id': production.id,
+                            'state': 'assigned',
+                        })
+                    reservation = Reservation.with_context(
+                        aps_allow_locked_lot_reservation_write=True
+                    ).create(vals)
                     active_by_lot[lot.id] = reservation
                 missing -= qty
         return True
@@ -1092,11 +1210,68 @@ class PlanningProductionComponent(models.Model):
         }
 
     def _aps_lot_production(self):
+        """Return the MO that actually consumes this component.
+
+        Root components are consumed by the APS root MO. Descendants of a
+        manufactured intermediate are consumed by the native Odoo sub-MO
+        created for the closest manufactured ancestor.
+
+        The old implementation always fell back to the root MO, which made
+        APS treat reservations of native sub-MOs as reservations from another
+        operation. Result: Odoo showed the material as Available while APS
+        displayed "Sin disponibilidad de lote".
+        """
         self.ensure_one()
-        return (
-            self.planning_line_id.created_production_id
-            or self.generated_production_id
+
+        # Legacy explicit sub-MO link, if present.
+        if self.generated_production_id:
+            return self.generated_production_id
+
+        Production = self.env['mrp.production'].sudo()
+
+        # Walk ancestors. A native Odoo sub-MO is linked to the APS component
+        # representing the intermediate it manufactures.
+        ancestor = self.parent_line_id
+        while ancestor:
+            native_submo = Production.search([
+                ('aps_planning_component_id', '=', ancestor.id),
+                ('state', 'not in', ('done', 'cancel')),
+            ], order='id desc', limit=1)
+            if native_submo:
+                return native_submo
+            ancestor = ancestor.parent_line_id
+
+        # Direct components of the finished product belong to the root MO.
+        return self.planning_line_id.created_production_id
+
+    def _aps_consumed_qty_for_lot(self, lot, production=False):
+        """Real done consumption for this exact component/lot."""
+        self.ensure_one()
+        production = production or self._aps_lot_production()
+        if not production or not lot:
+            return 0.0
+        total = 0.0
+        moves = production.move_raw_ids.filtered(
+            lambda move:
+                move.product_id == self.product_id
+                and (
+                    move.aps_planning_component_id == self
+                    or not move.aps_planning_component_id
+                )
         )
+        for line in moves.mapped('move_line_ids').filtered(
+            lambda ml: ml.lot_id == lot and ml.move_id.state == 'done'
+        ):
+            qty = getattr(line, 'quantity', 0.0) or getattr(
+                line, 'qty_done', 0.0
+            ) or 0.0
+            uom = getattr(line, 'product_uom_id', False) or getattr(
+                line, 'product_uom', False
+            )
+            if uom and uom != self.product_id.uom_id:
+                qty = uom._compute_quantity(qty, self.product_id.uom_id)
+            total += qty
+        return total
 
     def _aps_validate_lot_reassignment_allowed(self):
         self.ensure_one()
@@ -1133,6 +1308,27 @@ class PlanningProductionComponent(models.Model):
             ))
         return True
 
+    def action_open_mo_lot_reassignment(self):
+        self.ensure_one()
+        production = self.env['mrp.production'].browse(
+            self.env.context.get('aps_reassign_from_production_id')
+        ).exists() or self._aps_lot_production()
+        if not production:
+            raise UserError(_('No se encontró la OF para reasignar lotes.'))
+        wizard = self.env['mrp.aps.lot.reassignment.wizard'].create({
+            'production_id': production.id,
+            'component_id': self.id,
+        })
+        wizard.line_ids = wizard._candidate_lines()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Reasignar lotes'),
+            'res_model': wizard._name,
+            'res_id': wizard.id,
+            'view_mode': 'form',
+            'target': 'new',
+        }
+
     def action_reassign_lot_reservations(self):
         """Release and rebuild lots for this exact APS component."""
         self._aps_allocate_available_lots(replace=True)
@@ -1150,7 +1346,10 @@ class PlanningProductionComponent(models.Model):
         ].sudo()
 
         for component in self:
-            if component.product_id.tracking == 'none':
+            if (
+                not component.product_id.is_storable
+                or component.product_id.tracking == 'none'
+            ):
                 continue
             component._aps_validate_lot_reassignment_allowed()
 
@@ -1304,16 +1503,25 @@ class PlanningProductionComponent(models.Model):
             if not line.product_id:
                 line.availability_status = 'pending'
                 line.availability_label = 'Seleccione componente'
+            elif not line.product_id.is_storable:
+                # Odoo does not reserve/check stock quants for non-stockable
+                # goods in MRP. Mirror that same operational semantics in APS.
+                line.availability_qty = max(line.planned_qty, 0.0)
+                line.availability_need_qty = 0.0
+                line.availability_status = 'sufficient'
+                line.availability_label = 'No stockeable'
             else:
                 line.availability_status = 'none'
                 line.availability_label = 'Sin disponibilidad'
 
         classified = self.filtered(
-            lambda line: line.include_in_mo
-            and (
-                line.effective_required_qty > 1e-6
-                or line.supply_resolution != 'not_required'
-            )
+            lambda line:
+                line.include_in_mo
+                and line.product_id.is_storable
+                and (
+                    line.effective_required_qty > 1e-6
+                    or line.supply_resolution != 'not_required'
+                )
         )
         for line in classified:
             required = line.effective_required_qty
@@ -1335,6 +1543,7 @@ class PlanningProductionComponent(models.Model):
 
         lines = (self - classified).filtered(
             lambda line: line.product_id
+            and line.product_id.is_storable
             and line.plan_id
             and line.include_in_mo
             and line.planned_qty > 1e-6
@@ -1352,13 +1561,25 @@ class PlanningProductionComponent(models.Model):
             # Explicit APS rule: only free stock in internal locations
             # belonging to the warehouses selected on the plan.
             from ..services.internal_stock import InternalWarehouseStock
-            stock_rows = InternalWarehouseStock(
+            stock_helper = InternalWarehouseStock(
                 self.env, plan.company_id
-            ).quantities(products, warehouses)
+            )
+            stock_rows = stock_helper.quantities(products, warehouses)
+
+            # Same rule used by ComponentSourcingEngine: stock reserved by
+            # this APS is still available to this APS and must not disappear
+            # from the planner just because Odoo assigned it to an OF.
+            from ..services.component_sourcing import ComponentSourcingEngine
+            own_reserved = ComponentSourcingEngine(
+                plan
+            )._own_aps_reserved(products, warehouses)
+
             for product in products:
                 for warehouse in warehouses:
+                    key = (product.id, warehouse.id)
                     available_by_product[product.id] += (
-                        stock_rows[(product.id, warehouse.id)]['free']
+                        stock_rows[key]['free']
+                        + own_reserved[key]
                     )
 
             # Confirmed purchase orders in transit within the planning horizon.
@@ -1367,8 +1588,7 @@ class PlanningProductionComponent(models.Model):
                 ('product_id', 'in', products.ids),
                 ('order_id.state', '=', 'purchase'),
                 ('order_id.picking_type_id.warehouse_id', 'in', warehouses.ids),
-                ('date_planned', '<=', plan.date_end),
-            ])
+                ])
             for po_line in po_lines:
                 pending = max(
                     (po_line.product_qty or 0.0) - (po_line.qty_received or 0.0),
@@ -1403,14 +1623,31 @@ class PlanningProductionComponent(models.Model):
         records = self.exists()
         if not records:
             return True
-        if records.filtered(
-            lambda component:
-                component.generated_production_id
-                or component.planning_line_id.created_production_id
+        if (
+            not self.env.context.get('aps_rollback')
+            and not self.env.context.get('aps_incremental_recalculation')
+            and records.filtered(
+                lambda component:
+                    component.generated_production_id
+                    or component.planning_line_id.created_production_id
+            )
         ):
             raise UserError(_(
                 'No puede eliminar componentes después de generar las órdenes de fabricación.'
             ))
+        # During a controlled APS rollback, stock moves may remain as
+        # cancelled historical documents. They must lose their technical link
+        # to the snapshot BEFORE the component rows are deleted. Otherwise the
+        # FK stock.move.aps_planning_component_id prevents cancellation.
+        if self.env.context.get('aps_rollback'):
+            linked_moves = self.env['stock.move'].sudo().search([
+                ('aps_planning_component_id', 'in', records.ids),
+            ])
+            if linked_moves:
+                linked_moves.with_context(aps_rollback=True).write({
+                    'aps_planning_component_id': False,
+                })
+
         plans = records.mapped('plan_id')
         subtree = records
         frontier = records
@@ -1424,7 +1661,10 @@ class PlanningProductionComponent(models.Model):
             lambda move: move.state == 'pending'
         ).unlink()
         result = super().unlink()
-        if not self.env.context.get('aps_skip_sourcing_refresh'):
+        if (
+            not self.env.context.get('aps_skip_sourcing_refresh')
+            and not self.env.context.get('aps_incremental_recalculation')
+        ):
             for plan in plans.filtered(
                 lambda plan:
                     plan.plan_type == 'manufacturing'

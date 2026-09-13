@@ -37,6 +37,12 @@ class MrpPlanningSaleAvailabilityWizard(models.TransientModel):
     purchase_qty = fields.Float(string='En compra', readonly=True, digits=(16, 4))
     transfer_qty = fields.Float(string='En traslado APS', readonly=True, digits=(16, 4))
     planned_qty = fields.Float(string='Planificado APS', readonly=True, digits=(16, 4))
+    committed_elsewhere_qty = fields.Float(
+        string='Comprometido a otras ventas',
+        readonly=True,
+        digits=(16, 4),
+        help='OF/OC del mismo producto que están vinculadas a otras líneas de venta y no cubren este pedido.',
+    )
     supply_total_qty = fields.Float(
         string='Abastecimiento total', compute='_compute_summary', readonly=True
     , digits=(16, 4))
@@ -50,6 +56,8 @@ class MrpPlanningSaleAvailabilityWizard(models.TransientModel):
     )
     def _compute_summary(self):
         for wizard in self:
+            # Only supply available to THIS sale line. Supply committed to
+            # other sales is intentionally excluded.
             wizard.supply_total_qty = (
                 wizard.manufacturing_qty
                 + wizard.purchase_qty
@@ -84,6 +92,8 @@ class MrpPlanningSaleAvailabilityDocument(models.TransientModel):
         ('mo', 'Orden de fabricación'),
         ('po', 'Orden de compra'),
         ('transfer', 'Traslado'),
+        ('mo_other', 'OF comprometida'),
+        ('po_other', 'OC comprometida'),
     ], string='Tipo', required=True, readonly=True)
     name = fields.Char(string='Documento', readonly=True)
     quantity = fields.Float(string='Cantidad', readonly=True, digits=(16, 4))

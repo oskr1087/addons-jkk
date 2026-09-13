@@ -72,7 +72,7 @@ class PlanningDashboard(models.AbstractModel):
                 'plan_type': line.plan_id.plan_type,
                 'product': line.product_id.display_name,
                 'product_id': line.product_id.id,
-                'delivery_date': fields.Datetime.to_string(line.date_required) if line.date_required else '',
+                'delivery_date': fields.Date.to_string(line.date_required) if line.date_required else '',
                 'orders': line.sale_order_count,
                 'sale_lines': line.sale_line_count,
                 'sales_qty': round(line.sales_qty, 2),

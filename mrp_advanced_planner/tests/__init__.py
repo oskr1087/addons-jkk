@@ -114,3 +114,94 @@ from . import test_v85_7_customer_mo_regression
 from . import test_v85_8_lot_move_compatibility
 
 from . import test_v90_process_hardening
+
+from . import test_v91_safe_rollback
+
+from . import test_v92_cancel_guard_all_documents
+
+from . import test_v93_component_types_and_chain
+
+from . import test_v94_lot_reassignment_between_mos
+
+from . import test_v95_date_end_date_only
+
+from . import test_v96_date_datetime_comparison
+
+from . import test_v97_native_submanufacturing
+
+from . import test_v98_cancel_component_stock_move_fk
+
+from . import test_v99_no_duplicate_snapshot_on_manufacture
+
+from . import test_v100_native_submo_with_components
+
+from . import test_v101_plan_shows_only_root_mos
+
+from . import test_v102_availability_native_submo
+
+from . import test_v103_own_aps_reserved_availability
+
+from . import test_v104_nonstockable_component_availability
+
+from . import test_v105_all_date_datetime_comparisons
+
+from . import test_v106_recalculate_without_duplicate_components
+
+from . import test_v107_freeze_sourcing_after_manufacture
+
+from . import test_v108_date_end_local_timezone
+
+from . import test_v109_no_replan_same_sale_demand
+
+from . import test_v110_date_only_planning
+
+from . import test_v111_recalculate_after_done_transfer
+
+from . import test_v112_nonstockable_never_requires_lot
+
+from . import test_v113_nonstockable_root_mo_lot_guard
+
+from . import test_v114_odoo19_exclude_requiring_lot_semantics
+
+from . import test_v115_nonstockable_action_done
+
+from . import test_v116_action_done_return_contract
+
+from . import test_v117_submo_descendant_demand
+
+from . import test_v118_existing_submo_repair
+
+from . import test_v119_sale_supply_commitment
+
+from . import test_v120_committed_elsewhere_traceability
+
+from . import test_v121_receipt_reserves_existing_submo
+
+from . import test_v122_lot_capacity_after_receipt
+
+from . import test_v123_purchase_supply_commitment
+
+from . import test_v124_demand_commitment_and_sequences
+from . import test_v125_native_submo_procurement
+
+from . import test_v126_recalculation_refresh
+
+from . import test_v127_existing_root_submo
+
+from . import test_v128_submo_only_on_recalculate
+
+from . import test_v129_native_stock_rule_procurement
+
+from . import test_v130_child_lot_reservation_owner
+
+from . import test_v131_child_owner_before_confirm
+
+from . import test_v132_same_plan_lot_usage
+
+from . import test_v133_manufacturing_lifecycle
+
+from . import test_v137_manufacturable_leaf_bom
+
+from . import test_v138_recalculate_fabricate_recursive_identity
+from . import test_v140_calculate_no_execution
+from . import test_v141_fabricate_generates_purchase_plan

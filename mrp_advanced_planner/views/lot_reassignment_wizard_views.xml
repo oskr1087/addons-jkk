@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_mrp_aps_lot_reassignment_wizard_form" model="ir.ui.view">
+    <field name="name">mrp.aps.lot.reassignment.wizard.form</field>
+    <field name="model">mrp.aps.lot.reassignment.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Reasignar lotes">
+        <group>
+          <group>
+            <field name="production_id"/>
+            <field name="product_id"/>
+          </group>
+          <group>
+            <field name="required_qty"/>
+            <field name="reserved_qty"/>
+            <field name="pending_qty"/>
+          </group>
+        </group>
+        <div class="alert alert-info" role="status">
+          Puede usar cantidad libre o reasignar reservas de otras OF que todavía no hayan consumido el lote. Las cantidades ya consumidas no pueden modificarse.
+        </div>
+        <field name="line_ids" nolabel="1">
+          <list editable="bottom" create="false" delete="false">
+            <field name="lot_id"/>
+            <field name="current_qty"/>
+            <field name="free_qty"/>
+            <field name="reassignable_qty"/>
+            <field name="source_production_names"/>
+            <field name="qty_to_assign"/>
+          </list>
+        </field>
+        <footer>
+          <button name="action_apply" type="object" string="Aplicar reasignación" class="btn-primary"/>
+          <button string="Cancelar" special="cancel" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+</odoo>

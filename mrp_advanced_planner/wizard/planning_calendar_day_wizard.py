@@ -1,7 +1,3 @@
-from datetime import datetime, time, timedelta
-
-import pytz
-
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
@@ -39,23 +35,8 @@ class MrpPlanningCalendarDayWizard(models.TransientModel):
         compute='_compute_pending_line_count',
     )
 
-    def _utc_day_bounds(self):
-        self.ensure_one()
-        # planning_delivery_date is Datetime (stored UTC), while the calendar
-        # displays it in the user's timezone. Build the selected local day and
-        # convert its exact bounds to UTC so a 23:30 delivery never falls on the
-        # wrong calendar day.
-        tz = pytz.timezone(self.env.user.tz or 'UTC')
-        local_start = tz.localize(datetime.combine(self.planning_date, time.min))
-        local_end = local_start + timedelta(days=1)
-        return (
-            local_start.astimezone(pytz.UTC).replace(tzinfo=None),
-            local_end.astimezone(pytz.UTC).replace(tzinfo=None),
-        )
-
     def _pending_lines(self):
         self.ensure_one()
-        start, end = self._utc_day_bounds()
         lines = self.env['sale.order.line'].search([
             ('order_id.state', '=', 'sale'),
             ('order_id.company_id', '=', self.company_id.id),
@@ -63,7 +44,7 @@ class MrpPlanningCalendarDayWizard(models.TransientModel):
             ('display_type', '=', False),
             ('product_id', '!=', False),
             ('product_uom_qty', '>', 0),
-            ('planning_delivery_date', '<', end),
+            ('planning_delivery_date', '<=', self.planning_date),
         ], order='planning_delivery_date asc, order_id asc, sequence asc, id asc')
 
         # Do not use aps_plan_count in the SQL/domain here: it is a non-stored
@@ -103,17 +84,13 @@ class MrpPlanningCalendarDayWizard(models.TransientModel):
             raise UserError(_('Las líneas de este día ya fueron incluidas en otra planificación.'))
 
         warehouses = lines.mapped('order_id.warehouse_id')
-        start, end = self._utc_day_bounds()
 
-        # date_end is the final instant of the selected local day. date_start
-        # only needs to be before date_end; the explicit source_sale_line_ids
-        # guarantees that ONLY this day's pending lines enter the plan.
+        # Pure date planning: no UTC bounds and no artificial 23:59:59.
         plan = self.env['mrp.planning.plan'].create({
             'plan_type': 'manufacturing',
             'company_id': self.company_id.id,
             'warehouse_ids': [(6, 0, warehouses.ids)],
-            'date_start': min(fields.Datetime.now(), end - timedelta(seconds=1)),
-            'date_end': end - timedelta(seconds=1),
+            'date_end': self.planning_date,
             'source_sale_line_ids': [(6, 0, lines.ids)],
         })
 

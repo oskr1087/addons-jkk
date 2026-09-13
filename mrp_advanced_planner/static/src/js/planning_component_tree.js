@@ -81,6 +81,7 @@ export class PlanningComponentTreeField extends Component {
                 "physical_lot_available_qty",
                 "physical_lot_candidate_count",
                 "product_tracking",
+                "product_is_storable",
                 "note",
             ],
             { order: "planning_line_id, sequence, level, id" }
@@ -320,6 +321,9 @@ export class PlanningComponentTreeField extends Component {
     }
 
     getStatusText(row) {
+        if (row.product_is_storable === false) {
+            return "No stockeable - disponible";
+        }
         if (
             row.product_tracking !== "none"
             && row.supply_resolution === "not_required"
@@ -335,12 +339,12 @@ export class PlanningComponentTreeField extends Component {
                 return `Lotes por asignar (${this.formatQty(row.physical_lot_available_qty)})`;
             }
             if (row.availability_status === "sufficient") {
-                return "Abastecimiento cubierto - lote pendiente";
+                return "Disponible - lote pendiente";
             }
             if (row.availability_status === "partial") {
                 return "Cobertura parcial - lote pendiente";
             }
-            return "Sin disponibilidad de lote";
+            return "Sin disponibilidad física";
         }
         if (row.availability_status === "sufficient") {
             return `Disponible (${this.formatQty(row.availability_qty)})`;
@@ -366,6 +370,9 @@ export class PlanningComponentTreeField extends Component {
     }
 
     getSupplyText(row) {
+        if (row.product_is_storable === false) {
+            return "No stockeable";
+        }
         if (row.supply_resolution === "not_required") {
             if (!row.include_in_mo) {
                 return "Omitido";
@@ -388,6 +395,7 @@ export class PlanningComponentTreeField extends Component {
             move_purchase: "Trasladar + comprar",
             subcontract: "Subcontratación",
             move_subcontract: "Trasladar + subcontratación",
+            phantom: "Kit - componentes directos",
             review: "Revisar abastecimiento",
         };
         if (row.product_tracking !== "none" && row.supply_resolution === "available") {
@@ -411,6 +419,7 @@ export class PlanningComponentTreeField extends Component {
         if (value === "move_purchase") return "aps-supply aps-supply-mixed";
         if (value === "subcontract") return "aps-supply aps-supply-subcontract";
         if (value === "move_subcontract") return "aps-supply aps-supply-subcontract";
+        if (value === "phantom") return "aps-supply aps-supply-manufacture";
         if (value === "not_required") return "aps-supply aps-supply-muted";
         return "aps-supply aps-supply-review";
     }

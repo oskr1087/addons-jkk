@@ -68,13 +68,20 @@
                     <button name="action_create_purchases" type="object" string="Comprar" groups="mrp_advanced_planner.group_planner_purchase_user" class="btn-secondary" icon="fa-shopping-cart" invisible="plan_type != 'purchase' or state != 'calculated' or pending_purchase_count == 0" confirm="Se crearán las solicitudes de cotización pendientes. ¿Continuar?"/>
                     <button name="action_create_replenishments" type="object" string="Reabastecer" groups="mrp_advanced_planner.group_planner_purchase_user" class="btn-secondary" icon="fa-exchange" invisible="plan_type != 'purchase' or state != 'calculated' or pending_move_count == 0" confirm="Se crearán las transferencias internas pendientes. ¿Continuar?"/>
                     <button name="action_finalize_plan" type="object" string="Finalizar planificación" class="oe_highlight" icon="fa-check-circle" invisible="not can_finalize_plan" confirm="La planificación pasará a Finalizado y ya no permitirá generar más documentos. ¿Continuar?"/>
+                    <button name="action_cancel_plan"
+                            type="object"
+                            string="Cancelar planificación"
+                            icon="fa-ban"
+                            class="btn-secondary"
+                            invisible="state in ('approved', 'cancelled')"
+                            confirm="Se liberarán lotes y pedidos de venta. Las OF, compras y traslados APS sin ejecución serán cancelados y se eliminará su trazabilidad APS. Si existe algún movimiento real, la operación se bloqueará. ¿Continuar?"/>
                     <field name="plan_type" invisible="1"/>
                     <field name="pending_manufacture_count" invisible="1"/>
                     <field name="pending_purchase_count" invisible="1"/>
                     <field name="pending_move_count" invisible="1"/>
                     <field name="pending_decision_count" invisible="1"/>
                     <field name="can_finalize_plan" invisible="1"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,calculated,approved"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,calculated,approved,cancelled"/>
                 </header>
                 <sheet>
                     <field name="date_start" invisible="1"/>
@@ -91,7 +98,7 @@
                                 groups="mrp_advanced_planner.group_planner_purchase_user,mrp_advanced_planner.group_planner_manager"
                                 class="oe_stat_button"
                                 icon="fa-shopping-cart"
-                                invisible="not generated_purchase_plan_id">
+                                invisible="plan_type != 'manufacturing' or state not in ('calculated', 'approved')">
                             <div class="o_stat_info">
                                 <span class="o_stat_text">Plan compras</span>
                                 <span class="o_stat_value">Componentes</span>
@@ -234,6 +241,13 @@
                                 <button name="action_open_manufacturing" type="object" icon="fa-industry" title="Ver fabricación" column_invisible="parent.plan_type != 'manufacturing'"/>
                                 <button name="action_open_purchases" type="object" icon="fa-truck" title="Ver compras" column_invisible="parent.plan_type != 'purchase'"/>
                                 <button name="action_open_product" type="object" icon="fa-external-link" title="Ver producto"/>
+                                <button name="action_remove_from_plan"
+                                        type="object"
+                                        icon="fa-trash"
+                                        title="Retirar de planificación"
+                                        class="btn-link text-danger"
+                                        invisible="parent.state in ('approved', 'cancelled')"
+                                        confirm="Se retirará este producto y todo su árbol. Se liberarán lotes y pedidos de venta; las OF, compras y traslados APS sin ejecución serán cancelados. Si ya existe ejecución real, Odoo no permitirá retirarlo. ¿Continuar?"/>
                             </list>
                         </field>
                         </page>
@@ -242,7 +256,7 @@
                               name="manufacturing_component_snapshot"
                               invisible="plan_type != 'manufacturing'">
                             <div class="alert alert-info" role="alert">
-                                Componentes cargados automáticamente al calcular. El APS clasifica cada nodo como <strong>Disponible, Mover, Fabricar o Comprar</strong>. Puede sustituir productos, omitir líneas o agregar insumos. Las cantidades de los componentes se calculan desde la LdM y no se editan por renglón; la cantidad total se ajusta en la línea principal. El APS <strong>no crea OF separadas para componentes fabricables</strong>; esos componentes permanecen en la OF principal para que Odoo gestione su abastecimiento mediante el flujo estándar de MRP. Los componentes comprables faltantes sí generan un Plan de Compras relacionado.
+                                Componentes cargados automáticamente al calcular. El APS clasifica cada nodo como <strong>Disponible, Mover, Fabricar o Comprar</strong>. Puede sustituir productos, omitir líneas o agregar insumos. Las cantidades de los componentes se calculan desde la LdM y no se editan por renglón; la cantidad total se ajusta en la línea principal. Los componentes fabricables pueden generar <strong>OF secundarias</strong> desde APS y los componentes comprables faltantes generan un Plan de Compras relacionado.
                             </div>
                             <field name="production_component_ids"
                                    widget="planning_component_tree"
@@ -252,11 +266,19 @@
                               name="external_warehouse_availability"
                               invisible="plan_type != 'manufacturing'">
                             <div class="alert alert-info" role="alert">
-                                Stock disponible en almacenes no seleccionados. Puede generar la transferencia interna desde cada línea y luego recalcular el plan.
+                                Stock disponible en almacenes no seleccionados. Puede usar <strong>Transferir</strong> por línea o seleccionar varias líneas con el mismo almacén de origen y destino para crear una sola transferencia interna. Luego recalcule el plan.
                             </div>
+                            <button name="action_create_selected_external_transfers"
+                                    type="object"
+                                    string="Transferir seleccionados"
+                                    icon="fa-exchange"
+                                    class="btn-primary mb-2"
+                                    invisible="state != 'calculated'"
+                                    confirm="Se creará una sola transferencia con las líneas seleccionadas. Todas deben tener el mismo almacén de origen y destino. ¿Continuar?"/>
                             <field name="external_move_ids" nolabel="1" readonly="state == 'approved'">
-                                <list create="0" delete="0" editable="bottom" decoration-success="state == 'generated'">
+                                <list create="0" delete="0" editable="bottom" decoration-success="state == 'generated'" default_group_by="source_warehouse_id">
                                     <field name="state" column_invisible="1"/>
+                                    <field name="selected_for_transfer" string="Sel." readonly="state == 'generated'"/>
                                     <field name="product_id" readonly="1"/>
                                     <field name="production_component_id"
                                            string="Componente del árbol"
@@ -302,7 +324,7 @@
                               name="purchase_external_warehouse_availability"
                               invisible="plan_type != 'purchase'">
                             <field name="external_move_ids" nolabel="1" readonly="state == 'approved'">
-                                <list create="0" delete="0" editable="bottom" decoration-success="state == 'generated'">
+                                <list create="0" delete="0" editable="bottom" decoration-success="state == 'generated'" default_group_by="source_warehouse_id">
                                     <field name="state" column_invisible="1"/>
                                     <field name="product_id" readonly="1"/>
                                     <field name="source_warehouse_id" readonly="1"/>

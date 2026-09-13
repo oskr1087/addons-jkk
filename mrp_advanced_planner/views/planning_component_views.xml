@@ -112,7 +112,7 @@
                         <div>
                             <i class="fa fa-industry me-1" title="Fabricar"/>
                             A fabricar:
-                            <strong><field name="to_manufacture_qty" readonly="1"/></strong>
+                            <strong><field name="to_manufacture_qty" readonly="1"/></strong><span class="ms-2 text-muted">Pendiente OF: <field name="pending_manufacture_qty" readonly="1"/></span>
                         </div>
                         <div>
                             <i class="fa fa-shopping-cart me-1" title="Comprar"/>

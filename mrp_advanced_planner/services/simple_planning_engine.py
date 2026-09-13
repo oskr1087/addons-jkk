@@ -28,6 +28,72 @@ class SimplePlanningEngine:
         self.plan = plan
         self.env = plan.env
 
+    def _sale_lines_already_committed_to_aps(self, sale_lines):
+        """Exact SO lines already managed by another active manufacturing APS.
+
+        Commitment belongs to the DEMAND (sale line), not to the product.
+        Therefore:
+        - the exact same SO line cannot enter two active manufacturing APS;
+        - another SO requesting the same product remains completely eligible;
+        - cancellation/removal releases the sale line;
+        - a calculated/finalized APS is already a commitment even before the
+          manufacturing document is generated.
+
+        This deliberately does NOT use generic open MOs or "other plan supply"
+        by product to decide ownership of a sale demand.
+        """
+        if not sale_lines:
+            return self.env['sale.order.line']
+
+        PlanLine = self.env['mrp.planning.plan.line'].sudo()
+        other_lines = PlanLine.search([
+            ('plan_id', '!=', self.plan.id),
+            ('plan_id.company_id', '=', self.plan.company_id.id),
+            ('plan_id.plan_type', '=', 'manufacturing'),
+            ('plan_id.state', 'in', ('calculated', 'approved')),
+            ('product_id', 'in', sale_lines.mapped('product_id').ids),
+            '|',
+            ('sale_line_ids', 'in', sale_lines.ids),
+            ('sale_line_id', 'in', sale_lines.ids),
+        ])
+
+        committed = self.env['sale.order.line']
+        for planning_line in other_lines:
+            source_lines = (
+                planning_line.sale_line_ids
+                or planning_line.sale_line_id
+            )
+            committed |= source_lines.filtered(
+                lambda sale_line:
+                    sale_line.id in sale_lines.ids
+                    and sale_line.product_id == planning_line.product_id
+            )
+
+        # Defensive recovery for active MOs created by an APS whose planning
+        # row was later altered by an old module version. Only exact sale-line
+        # links count; same-product MOs for other sales never do.
+        Production = self.env['mrp.production'].sudo()
+        mos = Production.search([
+            ('advanced_plan_id', '!=', False),
+            ('advanced_plan_id', '!=', self.plan.id),
+            ('advanced_plan_id.plan_type', '=', 'manufacturing'),
+            ('advanced_plan_id.state', 'in', ('calculated', 'approved')),
+            ('state', 'not in', ('done', 'cancel')),
+            ('product_id', 'in', sale_lines.mapped('product_id').ids),
+        ])
+        for mo in mos:
+            mo_sale_lines = (
+                mo.planning_sale_line_ids
+                or mo.planning_sale_line_id
+            )
+            committed |= mo_sale_lines.filtered(
+                lambda sale_line:
+                    sale_line.id in sale_lines.ids
+                    and sale_line.product_id == mo.product_id
+            )
+
+        return committed
+
     def _sale_demand(self, warehouses):
         SaleLine = self.env['sale.order.line']
         selected_sale_lines = self.plan.source_sale_line_ids
@@ -43,6 +109,8 @@ class SimplePlanningEngine:
         ]
         if selected_sale_lines:
             domain.append(('id', 'in', selected_sale_lines.ids))
+        if self.plan.excluded_sale_line_ids:
+            domain.append(('id', 'not in', self.plan.excluded_sale_line_ids.ids))
         sale_lines = SaleLine.search(
             domain,
             order='planning_delivery_date asc, order_id asc, sequence asc, id asc',
@@ -54,6 +122,18 @@ class SimplePlanningEngine:
                 line.planning_delivery_date
                 and line.planning_delivery_date <= self.plan.date_end
         )
+        if self.plan.excluded_sale_line_ids:
+            sale_lines -= self.plan.excluded_sale_line_ids
+
+        # Do not plan the same SO demand twice across different APS plans.
+        # Exact sale lines already committed to an active manufacturing APS
+        # are removed before grouping. Different SOs and different delivery
+        # dates remain independent and are still evaluated normally.
+        committed_sale_lines = self._sale_lines_already_committed_to_aps(
+            sale_lines
+        )
+        if committed_sale_lines:
+            sale_lines -= committed_sale_lines
 
         grouped = defaultdict(lambda: {
             'sale_lines': self.env['sale.order.line'],
@@ -125,9 +205,12 @@ class SimplePlanningEngine:
             ('sale_line_id', 'in', sale_lines.ids),
             ('product_id', '!=', False),
             ('state', 'not in', ('draft', 'done', 'cancel')),
-            ('date', '<=', self.plan.date_end),
         ]
-        moves = Move.search(domain)
+        moves = Move.search(domain).filtered(
+            lambda move:
+                not move.date
+                or fields.Date.to_date(move.date) <= self.plan.date_end
+        )
         warehouse_ids = set(warehouses.ids)
 
         for move in moves:
@@ -187,10 +270,11 @@ class SimplePlanningEngine:
             ('product_id', 'in', products.ids),
             ('order_id.state', 'in', self.RFQ_STATES),
             ('order_id.picking_type_id.warehouse_id', 'in', warehouses.ids),
-            '|',
-            ('date_planned', '=', False),
-            ('date_planned', '<=', self.plan.date_end),
-        ])
+        ]).filtered(
+            lambda line:
+                not line.date_planned
+                or fields.Date.to_date(line.date_planned) <= self.plan.date_end
+        )
         for line in lines:
             warehouse = line.order_id.picking_type_id.warehouse_id
             if not warehouse:
@@ -212,8 +296,11 @@ class SimplePlanningEngine:
             ('product_id', 'in', products.ids),
             ('order_id.state', '=', 'purchase'),
             ('order_id.picking_type_id.warehouse_id', 'in', warehouses.ids),
-            ('date_planned', '<=', self.plan.date_end),
-        ])
+        ]).filtered(
+            lambda line:
+                not line.date_planned
+                or fields.Date.to_date(line.date_planned) <= self.plan.date_end
+        )
         for line in lines:
             warehouse = line.order_id.picking_type_id.warehouse_id
             pending = max((line.product_qty or 0.0) - (line.qty_received or 0.0), 0.0)
@@ -282,6 +369,15 @@ class SimplePlanningEngine:
             ('state', 'in', valid_states),
         ])
         for mo in mos:
+            # An MO belonging to another APS is committed supply, not generic
+            # availability for this plan. Current-plan MOs are kept for
+            # incremental recalculation; unlinked/native MOs remain generic.
+            if (
+                mo.advanced_plan_id
+                and mo.advanced_plan_id != self.plan
+            ):
+                continue
+
             warehouse = mo.picking_type_id.warehouse_id
             if not warehouse or warehouse.id not in warehouse_ids:
                 continue
@@ -291,7 +387,7 @@ class SimplePlanningEngine:
                 or getattr(mo, 'date_deadline', False)
                 or getattr(mo, 'date_start', False)
             )
-            if due and due > self.plan.date_end:
+            if due and fields.Date.to_date(due) > self.plan.date_end:
                 continue
 
             produced = getattr(mo, 'qty_produced', 0.0) or 0.0
@@ -315,7 +411,7 @@ class SimplePlanningEngine:
                 and m.state not in ('draft', 'done', 'cancel')
             ):
                 move_due = getattr(move, 'date', False)
-                if move_due and move_due > self.plan.date_end:
+                if move_due and fields.Date.to_date(move_due) > self.plan.date_end:
                     continue
                 move_qty = move.product_uom_qty or 0.0
                 if move.product_uom and move.product_uom != mo.product_id.uom_id:
@@ -350,12 +446,129 @@ class SimplePlanningEngine:
             lambda move: move.state == 'pending'
         ).unlink()
         if pending_lines:
+            # These lines have no root MO/PO/picking generated directly from
+            # the planning line, so they may be rebuilt. They can still carry
+            # logical APS lot reservations created during calculation.
+            #
+            # Release those logical reservations first. Real stock transfers
+            # already validated from Componentes a mover are intentionally
+            # preserved: their stock.picking/stock.move history is never
+            # cancelled or deleted here.
+            reservations = pending_lines.mapped(
+                'production_component_ids.lot_reservation_ids'
+            ).filtered(
+                lambda reservation:
+                    reservation.state in ('reserved', 'assigned')
+                    and not reservation.production_id
+            )
+            if reservations:
+                reservations.with_context(
+                    aps_allow_locked_lot_reservation_write=True
+                ).write({
+                    'state': 'released',
+                    'production_id': False,
+                })
+
             pending_lines.with_context(
-                aps_incremental_recalculation=True
+                aps_incremental_recalculation=True,
+                aps_skip_sourcing_refresh=True,
             ).unlink()
 
         warehouses = self.plan.warehouse_ids
         grouped = self._sale_demand(warehouses)
+
+        # Incremental recalculation must not plan again the exact direct sale
+        # demand already covered by documents generated from this same APS.
+        #
+        # The previous implementation preserved executed lines but rebuilt the
+        # demand from every still-pending SO line. Since those SO lines remain
+        # pending until delivery, the same product was proposed again and a
+        # second planning line/component tree appeared after "Recalcular".
+        #
+        # Keep the executed line as the historical/authoritative planning row
+        # and remove only its DIRECT sale lines from the fresh demand set.
+        # New SO lines added after the first execution remain eligible.
+        covered_direct_sale_lines = self.env['sale.order.line']
+        for executed in executed_lines:
+            has_real_document = (
+                executed.created_production_id
+                or executed.created_purchase_line_id
+                or executed.created_picking_ids
+            )
+            if not has_real_document:
+                continue
+            if executed.source_type not in ('sale', 'mixed'):
+                continue
+            covered_direct_sale_lines |= (
+                executed.sale_line_ids or executed.sale_line_id
+            ).filtered(
+                lambda sale_line:
+                    sale_line.product_id == executed.product_id
+            )
+
+        if covered_direct_sale_lines:
+            for product_id in list(grouped):
+                row = grouped[product_id]
+                original_sale_lines = row['sale_lines']
+                remaining_sale_lines = (
+                    original_sale_lines - covered_direct_sale_lines
+                )
+                if remaining_sale_lines == original_sale_lines:
+                    continue
+
+                # Rebuild direct demand quantities only from SO lines that have
+                # not already been executed by this APS. Component demand, if
+                # any, is preserved independently.
+                by_warehouse = defaultdict(float)
+                sales_qty = 0.0
+                date_required = False
+                for sale_line in remaining_sale_lines:
+                    warehouse = sale_line.order_id.warehouse_id
+                    if not warehouse or warehouse not in warehouses:
+                        continue
+                    pending = max(
+                        sale_line.product_uom_qty
+                        - sale_line.qty_delivered,
+                        0.0,
+                    )
+                    if pending <= 1e-9:
+                        continue
+                    qty = sale_line.product_uom_id._compute_quantity(
+                        pending,
+                        sale_line.product_id.uom_id,
+                    )
+                    by_warehouse[warehouse.id] += qty
+                    sales_qty += qty
+                    line_date = sale_line.planning_delivery_date
+                    if (
+                        line_date
+                        and (
+                            not date_required
+                            or line_date < date_required
+                        )
+                    ):
+                        date_required = line_date
+
+                row['sale_lines'] = remaining_sale_lines
+                row['by_warehouse'] = by_warehouse
+                row['sales_qty'] = sales_qty
+
+                # Keep component-derived date if it is earlier. Otherwise use
+                # the earliest remaining direct-sale date.
+                component_date = row.get('date_required')
+                if sales_qty > 1e-9:
+                    if (
+                        not component_date
+                        or (
+                            date_required
+                            and date_required < component_date
+                        )
+                    ):
+                        row['date_required'] = date_required
+                elif not row.get('mrp_component_qty'):
+                    # No fresh direct demand and no independent component
+                    # demand remain for this product.
+                    grouped.pop(product_id, None)
 
         if self.plan.plan_type == 'purchase':
             # Purchase component demand comes DIRECTLY from pending SO lines.
@@ -431,14 +644,16 @@ class SimplePlanningEngine:
         odoo_forecast = self._odoo_forecast_by_warehouse(products, warehouses)
         rfq_supply = self._rfq_supply_by_warehouse(products, warehouses)
         confirmed_po_supply = self._confirmed_po_supply_by_warehouse(products, warehouses)
-        other_plan_supply = self._other_plan_supply_by_warehouse(products, warehouses)
+        # Supply belonging to another APS is committed to that APS demand
+        # and must never cover this plan merely because the product matches.
+        other_plan_supply = defaultdict(float)
         open_mos, extra_mo_supply = self._open_mo_information(products, warehouses)
 
         all_company_warehouses = self.env['stock.warehouse'].search([('company_id', '=', self.plan.company_id.id)])
         external_warehouses = all_company_warehouses - warehouses
         external_forecast = self._odoo_forecast_by_warehouse(products, external_warehouses) if external_warehouses else {}
         external_rfq = self._rfq_supply_by_warehouse(products, external_warehouses) if external_warehouses else defaultdict(float)
-        external_other_plan = self._other_plan_supply_by_warehouse(products, external_warehouses) if external_warehouses else defaultdict(float)
+        external_other_plan = defaultdict(float)
         external_open_mos, external_extra_mo = self._open_mo_information(products, external_warehouses) if external_warehouses else (defaultdict(float), defaultdict(float))
 
         Line = self.env['mrp.planning.plan.line']

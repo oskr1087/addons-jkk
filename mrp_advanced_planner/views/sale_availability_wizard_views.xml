@@ -150,6 +150,13 @@
                                             </span>
                                             <strong><field name="planned_qty" readonly="1"/></strong>
                                         </div>
+                                        <div class="o_aps_supply_row">
+                                            <span>
+                                                <i class="fa fa-lock me-2" title="Comprometido a otras ventas"/>
+                                                Comprometido a otras ventas
+                                            </span>
+                                            <strong><field name="committed_elsewhere_qty" readonly="1"/></strong>
+                                        </div>
                                     </div>
 
                                     <div class="o_aps_supply_total">
@@ -162,8 +169,9 @@
                             <div class="alert alert-info o_aps_availability_help"
                                  role="alert">
                                 <i class="fa fa-info-circle me-2" title="Información"/>
-                                La cobertura combina inventario pronosticado, órdenes de fabricación,
-                                compras pendientes, traslados y planificación APS vinculada a esta línea.
+                                La cobertura usa stock libre y abastecimientos realmente disponibles para esta línea.
+                                Las OF/OC vinculadas a otras ventas se muestran como comprometidas y no se utilizan.
+                                El pronóstico se presenta solo como referencia para evitar contar entradas dos veces.
                             </div>
                         </page>
 
@@ -186,7 +194,7 @@
                                      
                                       decoration-success="document_type == 'mo'"
                                       decoration-info="document_type == 'plan'"
-                                      decoration-warning="document_type == 'po'">
+                                      decoration-warning="document_type in ('po', 'mo_other', 'po_other')">
                                     <field name="document_type"
                                            string="Origen"
                                            widget="badge"/>

@@ -29,10 +29,10 @@ class DemandEngine:
             if not remaining:
                 continue
             date_required = sale_line.order_id.commitment_date or sale_line.order_id.expected_date or self.plan.date_end
-            if date_required < self.plan.date_start or date_required > self.plan.date_end:
+            if fields.Date.to_date(date_required) < self.plan.date_start or fields.Date.to_date(date_required) > self.plan.date_end:
                 continue
             quantity = sale_line.product_uom_id._compute_quantity(remaining, sale_line.product_id.uom_id)
-            date_key = fields.Datetime.to_string(date_required)
+            date_key = fields.Date.to_string(fields.Date.to_date(date_required))
             grouped[(sale_line.product_id.id, date_key)]['qty'] += quantity
             grouped[(sale_line.product_id.id, date_key)]['sources'].append(sale_line)
             Demand.create({

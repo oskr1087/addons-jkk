@@ -16,7 +16,7 @@ class MrpAdvancedDemand(models.Model):
     )
     quantity = fields.Float(required=True, digits=(16, 4))
     uom_id = fields.Many2one("uom.uom", required=True)
-    date_required = fields.Datetime(required=True)
+    date_required = fields.Date(required=True)
     priority = fields.Integer(default=10)
     qty_available = fields.Float(digits=(16, 4))
     qty_short = fields.Float(digits=(16, 4))
