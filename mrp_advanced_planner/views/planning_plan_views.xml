@@ -98,7 +98,7 @@
                                 groups="mrp_advanced_planner.group_planner_purchase_user,mrp_advanced_planner.group_planner_manager"
                                 class="oe_stat_button"
                                 icon="fa-shopping-cart"
-                                invisible="plan_type != 'manufacturing' or state not in ('calculated', 'approved')">
+                                invisible="plan_type != 'manufacturing' or not generated_purchase_plan_id">
                             <div class="o_stat_info">
                                 <span class="o_stat_text">Plan compras</span>
                                 <span class="o_stat_value">Componentes</span>

@@ -895,9 +895,12 @@ class PlanningPlan(models.Model):
         self.ensure_one()
         self._check_plan_type_permission()
         if self.source_manufacturing_plan_id and self.plan_type == 'purchase':
-            origin = self.source_manufacturing_plan_id
-            origin._refresh_component_sourcing()
-            origin._sync_component_purchase_plan()
+            # A purchase plan generated from manufacturing is an execution
+            # document prepared explicitly from the manufacturing plan.
+            # CALCULAR / RECALCULAR must never reach back to the origin and
+            # create/update execution documents as a side effect.  Keep this
+            # action analysis-only as well.  The purchase plan is synchronized
+            # only from the explicit Plan de compras button or from Fabricar.
             return True
         if self.state not in ('draft', 'calculated'):
             raise UserError(_('Solo puede calcular o recalcular un plan en borrador o calculado.'))
@@ -1262,11 +1265,29 @@ class PlanningPlan(models.Model):
         Line = self.env['mrp.planning.plan.line'].sudo()
         for row in grouped.values():
             product = row['product']
-            sellers = product.with_company(self.company_id).seller_ids.filtered(
-                lambda seller: not seller.company_id
-                or seller.company_id == self.company_id
-            ).sorted(key=lambda seller: (seller.sequence, seller.id))
-            vendor = sellers[:1].partner_id if sellers else False
+            # Subcontracted products must use the subcontractor configured
+            # on the subcontract BoM before falling back to normal vendor
+            # supplierinfo. This is what makes the generated purchase line
+            # become a native Odoo subcontracting purchase once Comprar is
+            # executed from the purchase plan.
+            subcontract_components = row['components'].filtered(
+                lambda component:
+                    component.supply_resolution in (
+                        'subcontract', 'move_subcontract'
+                    )
+                    and component.subcontract_bom_id
+            )
+            subcontractors = subcontract_components.mapped(
+                'subcontract_bom_id.subcontractor_ids'
+            )
+            vendor = subcontractors[:1] if subcontractors else False
+
+            if not vendor:
+                sellers = product.with_company(self.company_id).seller_ids.filtered(
+                    lambda seller: not seller.company_id
+                    or seller.company_id == self.company_id
+                ).sorted(key=lambda seller: (seller.sequence, seller.id))
+                vendor = sellers[:1].partner_id if sellers else False
             line = Line.create({
                 'plan_id': purchase_plan.id,
                 'sale_line_id': row['sale_lines'][:1].id,
@@ -1307,7 +1328,7 @@ class PlanningPlan(models.Model):
             'products': purchase_product_count,
         })
         self.message_post(body=_(
-            'Se generó/actualizó automáticamente el PLAN de compras %(purchase)s con '
+            'Se generó/actualizó el PLAN de compras %(purchase)s durante la ejecución con '
             '%(needs)s necesidad(es) de componentes. Cuando el mismo producto '
             'aparece en varias ramas de la LdM, APS consolida sus cantidades '
             'en una sola línea de compra.'
@@ -1496,26 +1517,23 @@ class PlanningPlan(models.Model):
         }
 
     def action_open_generated_purchase_plan(self):
-        """Prepare/open the component purchase plan only on explicit click.
+        """Open the already-generated component purchase plan.
 
-        Manufacturing calculation merely classifies component shortages.
-        Creating the linked purchase *planning* document is an explicit user
-        action; actual RFQs/POs are still created only from that purchase plan
-        with its Comprar action.
+        This action is intentionally READ-ONLY regarding execution documents.
+        A manufacturing plan in Calculated state must not create a purchase
+        plan merely because the smart button was rendered/clicked.  The linked
+        purchase plan is created/refreshed only at the explicit Fabricar
+        execution boundary.
         """
         self.ensure_one()
         if self.plan_type != 'manufacturing':
             return False
-        if self.state not in ('calculated', 'approved'):
-            raise UserError(_(
-                'Primero calcule la planificación antes de preparar el plan de compras.'
-            ))
 
-        self._refresh_component_sourcing()
-        purchase_plan = self._sync_component_purchase_plan()
+        purchase_plan = self.generated_purchase_plan_id.sudo().exists()
         if not purchase_plan:
             raise UserError(_(
-                'No existen componentes pendientes de compra en esta planificación.'
+                'El Plan de compras de componentes todavía no ha sido generado. '
+                'Se generará al ejecutar Fabricar.'
             ))
 
         return {
@@ -1609,6 +1627,133 @@ class PlanningPlan(models.Model):
             ) % ', '.join(sorted(set(errors))))
         return True
 
+
+
+    def _aps_create_subcontract_material_manufacturing_orders(self):
+        """Create internal MOs needed to supply a subcontractor.
+
+        A normal APS sub-MO is created natively from a raw move of its parent
+        manufacturing order.  Direct materials of a subcontract BoM have no
+        parent manufacturing order: their consumer is the subcontractor
+        resupply flow created later by Odoo from the subcontract purchase.
+        Therefore there is no downstream raw move capable of launching the
+        normal native child-MO procurement chain.
+
+        For those *direct* subcontract materials only, APS creates the missing
+        internal MO explicitly from the frozen APS node.  Once created, that
+        MO uses the same APS snapshot machinery and native recursive
+        procurement for any deeper manufactured descendants.
+        """
+        self.ensure_one()
+        from ..services.odoo19_compat import find_bom
+
+        Production = self.env['mrp.production']
+        created = Production
+
+        components = self.production_component_ids.filtered(
+            lambda component:
+                component.include_in_mo
+                and component.is_subcontract_material
+                and component.supply_resolution in (
+                    'manufacture', 'move_manufacture'
+                )
+                and component.pending_manufacture_qty > 1e-9
+        ).sorted(key=lambda component: (
+            component.level,
+            component.sequence,
+            component.id,
+        ))
+
+        for component in components:
+            existing = component.generated_production_id.exists()
+            if existing and existing.state != 'cancel':
+                created |= existing
+                continue
+
+            warehouse = (
+                component.planning_line_id.target_warehouse_id
+                or self.warehouse_ids[:1]
+            )
+            bom = find_bom(
+                self.env,
+                component.product_id,
+                company_id=self.company_id.id,
+                picking_type_id=(
+                    warehouse.manu_type_id.id
+                    if warehouse and warehouse.manu_type_id else False
+                ),
+            )
+            if not bom or bom.type != 'normal':
+                raise UserError(_(
+                    'El material %(product)s requerido para la '
+                    'subcontratación debe fabricarse, pero no tiene una LdM '
+                    'normal aplicable.'
+                ) % {
+                    'product': component.product_id.display_name,
+                })
+
+            vals = {
+                'origin': self.name,
+                'product_id': component.product_id.id,
+                'product_qty': component.pending_manufacture_qty,
+                'product_uom_id': component.product_uom_id.id,
+                'bom_id': bom.id,
+                'company_id': self.company_id.id,
+                'advanced_plan_id': self.id,
+                'planning_plan_line_id': component.planning_line_id.id,
+                'aps_component_snapshot': True,
+                'aps_planning_component_id': component.id,
+            }
+            if warehouse and warehouse.manu_type_id:
+                vals['picking_type_id'] = warehouse.manu_type_id.id
+            if 'date_deadline' in Production._fields:
+                vals['date_deadline'] = (
+                    component.planning_line_id.date_required
+                    or self.date_end
+                )
+
+            mo = Production.with_context(
+                skip_compute_move_raw_ids=True
+            ).create(vals).with_context(
+                skip_compute_move_raw_ids=False
+            )
+
+            # Build the raw moves from the exact APS descendants of this node,
+            # not from a fresh BoM explosion.
+            mo.with_context(
+                skip_compute_move_raw_ids=True
+            )._aps_sync_raw_moves()
+
+            component.with_context(
+                aps_skip_sourcing_refresh=True,
+                aps_skip_change_tracking=True,
+            ).write({
+                'generated_production_id': mo.id,
+            })
+
+            direct_components = mo._aps_snapshot_components()
+            direct_components.mapped('lot_reservation_ids').filtered(
+                lambda reservation:
+                    reservation.state in ('reserved', 'assigned')
+            ).with_context(
+                aps_allow_locked_lot_reservation_write=True
+            ).write({
+                'production_id': mo.id,
+                'state': 'assigned',
+            })
+
+            mo.action_confirm()
+            if mo.state not in ('done', 'cancel'):
+                mo.action_assign()
+
+            # Deeper manufactured descendants again use Odoo's normal/native
+            # APS procurement chain from this MO's raw moves.
+            mo._aps_launch_missing_component_procurements()
+            created |= mo
+
+        if created:
+            self._aps_link_manufacturing_chain()
+        return created
 
 
     def action_create_manufacturing(self):
@@ -1721,6 +1866,12 @@ class PlanningPlan(models.Model):
                 'planned_production_qty': line.planner_production_qty,
             })
             productions |= mo
+
+        # Direct materials of a subcontract BoM are not raw moves of the
+        # root MO, so Odoo cannot launch their manufacturing from the normal
+        # parent/child procurement chain. Create only those missing internal
+        # supply MOs explicitly; any deeper descendants remain native.
+        productions |= self._aps_create_subcontract_material_manufacturing_orders()
 
         # Fabricar must leave the complete native hierarchy ready in the same
         # transaction, not wait for a later Recalcular.  This also guarantees

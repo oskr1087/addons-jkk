@@ -72,6 +72,7 @@ export class PlanningComponentTreeField extends Component {
                 "supply_resolution",
                 "is_subcontracted",
                 "subcontract_bom_id",
+                "is_subcontract_material",
                 "engineering_locked",
                 "reserved_lot_qty",
                 "lot_reservation_count",
@@ -372,6 +373,32 @@ export class PlanningComponentTreeField extends Component {
     getSupplyText(row) {
         if (row.product_is_storable === false) {
             return "No stockeable";
+        }
+        if (row.is_subcontract_material) {
+            const subcontractLabels = {
+                available: "Enviar a subcontratista",
+                move: "Trasladar para subcontratista",
+                manufacture: "Fabricar para subcontratista",
+                purchase: "Comprar para subcontratista",
+                move_manufacture: "Trasladar + fabricar para subcontratista",
+                move_purchase: "Trasladar + comprar para subcontratista",
+                subcontract: "Subcontratación encadenada",
+                move_subcontract: "Trasladar + subcontratación encadenada",
+            };
+            if (subcontractLabels[row.supply_resolution]) {
+                if (
+                    row.product_tracking !== "none"
+                    && row.supply_resolution === "available"
+                ) {
+                    if ((row.pending_lot_qty || 0) <= 0 && (row.reserved_lot_qty || 0) > 0) {
+                        return "Enviar a subcontratista - lote reservado";
+                    }
+                    if ((row.physical_lot_available_qty || 0) > 0) {
+                        return "Enviar a subcontratista - asignar lote";
+                    }
+                }
+                return subcontractLabels[row.supply_resolution];
+            }
         }
         if (row.supply_resolution === "not_required") {
             if (!row.include_in_mo) {

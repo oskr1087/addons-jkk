@@ -107,6 +107,11 @@
                               title="Este componente se abastece mediante subcontratación">
                             Subcontratación
                         </span>
+                        <span t-if="row.is_subcontract_material"
+                              class="aps-subcontract-badge"
+                              title="Material que APS debe abastecer y enviar al subcontratista">
+                            Material subcontratista
+                        </span>
                     </div>
 
                     <div class="aps-tree-qty">

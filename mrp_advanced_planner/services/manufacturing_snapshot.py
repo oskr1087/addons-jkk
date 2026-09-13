@@ -246,6 +246,7 @@ class ManufacturingSnapshotBuilder:
                             subcontract_bom.id
                             if subcontract_bom else False
                         ),
+                        'is_subcontract_material': bom.type == 'subcontract',
                     })
                     direct |= component
                     created |= component
@@ -365,12 +366,14 @@ class ManufacturingSnapshotBuilder:
                     'subcontract_bom_id': (
                         subcontract_bom.id if subcontract_bom else False
                     ),
+                    'is_subcontract_material': bom.type == 'subcontract',
                 })
 
-                # A subcontracted component is visible as one sourcing node.
-                # Its subcontract BOM children are displayed for engineering
-                # traceability, but ComponentSourcingEngine will assign zero
-                # effective demand to those children and purchase the parent.
+                # A subcontracted component is one sourcing node for the
+                # subcontracted product itself. Its subcontract BoM children
+                # remain executable materials: APS must evaluate their stock,
+                # lots and any make/buy shortage before they are supplied to
+                # the subcontractor.
                 if subcontract_bom:
                     walk(
                         line, component, cqty, token, level + 1, cpath,

@@ -712,6 +712,14 @@ class PlanningProductionComponent(models.Model):
         'mrp.bom', string='LdM de subcontratación',
         readonly=True, copy=False, ondelete='set null'
     )
+    is_subcontract_material = fields.Boolean(
+        string='Material para subcontratista', readonly=True, copy=False, index=True,
+        help=(
+            'Indica que este componente es un material directo de una LdM de '
+            'subcontratación. Debe planificarse, reservarse por lote cuando '
+            'corresponda y abastecerse al subcontratista.'
+        ),
+    )
     change_type = fields.Selection([
         ('original', 'Original'),
         ('modified', 'Modificado'),
@@ -845,10 +853,11 @@ class PlanningProductionComponent(models.Model):
         BoM. ``effective_required_qty`` is the quantity that this APS really
         needs after considering stock/supply at every parent level.
 
-        A zero effective requirement is meaningful: e.g. a parent component
-        is already covered by stock, an incoming PO/MO, or is subcontracted.
-        In those cases descendants remain visible for engineering traceability
-        but must NOT appear as pending lot demand.
+        A zero effective requirement is meaningful when the component is not
+        executable for this plan. Materials of a subcontract BoM are different:
+        they keep effective demand because APS must reserve/plan the stock that
+        will be sent to the subcontractor, including lot assignment when the
+        product is tracked.
         """
         self.ensure_one()
         if (

@@ -47,7 +47,7 @@ La línea del planner mantiene trazabilidad con pedido, cliente, línea de venta
 - Las líneas de venta se filtran estrictamente por `planning_delivery_date <= date_end`.
 - El árbol de componentes permite sustituir, cambiar cantidades, agregar hijos y eliminar nodos completos antes de generar OF.
 - Cada cambio de ingeniería refresca la resolución de abastecimiento.
-- Los componentes con una LdM de tipo `subcontract` se identifican como Subcontratación y su faltante entra al Plan de Compras.
+- Los componentes con una LdM de tipo `subcontract` se identifican como Subcontratación; su faltante entra al Plan de Compras y los materiales directos de esa LdM conservan demanda efectiva, disponibilidad y reservas de lote para abastecer al subcontratista.
 - Los hijos de un componente subcontratado permanecen visibles para ingeniería, pero no se compran de forma separada desde APS.
 
 

@@ -205,3 +205,7 @@ from . import test_v137_manufacturable_leaf_bom
 from . import test_v138_recalculate_fabricate_recursive_identity
 from . import test_v140_calculate_no_execution
 from . import test_v141_fabricate_generates_purchase_plan
+
+from . import test_v142_subcontract_material_lots
+
+from . import test_v145_subcontract_execution

@@ -246,6 +246,7 @@
                     <field name="root_product_id" invisible="1"/>
                     <field name="availability_qty" invisible="1"/>
                     <field name="is_subcontracted" invisible="1"/>
+                    <field name="is_subcontract_material" invisible="1"/>
                     <field name="engineering_locked" invisible="1"/>
                     <field name="product_tracking" invisible="1"/>
                 </sheet>

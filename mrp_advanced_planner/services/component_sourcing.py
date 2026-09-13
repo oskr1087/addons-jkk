@@ -630,6 +630,15 @@ class ComponentSourcingEngine:
             # visible as covered supply.
             if is_phantom:
                 descendant_demand = supply_shortage
+            elif is_subcontracted:
+                # A subcontracted parent is purchased from the subcontractor,
+                # but the direct materials in its subcontract BoM still belong
+                # to OUR supply responsibility. Plan only the portion that is
+                # actually subcontracted (the uncovered parent shortage). This
+                # keeps tracked materials eligible for APS lot reservation and
+                # lets their own shortages be manufactured/purchased before the
+                # native Odoo resupply-to-subcontractor movement is executed.
+                descendant_demand = supply_shortage
             elif is_manufacturable:
                 # The active sub-MO is the execution document for this same
                 # component demand. Do not add it again to a fresh calculated
@@ -643,14 +652,7 @@ class ComponentSourcingEngine:
                 if component.planned_qty > 1e-9 else 0.0
             )
             for child in component.child_line_ids:
-                # If the parent is subcontracted, APS purchases the parent
-                # component. Its child materials remain visible in the tree
-                # but are not separately purchased by this planner.
-                child_required = (
-                    0.0
-                    if is_subcontracted
-                    else child.planned_qty * ratio
-                )
+                child_required = child.planned_qty * ratio
                 resolve(child, child_required)
 
         roots = components.filtered(lambda c: not c.parent_line_id)
