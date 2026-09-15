@@ -1674,7 +1674,7 @@ class PlanningPlan(models.Model):
                 component.planning_line_id.target_warehouse_id
                 or self.warehouse_ids[:1]
             )
-            bom = find_bom(
+            bom = component.execution_bom_id or find_bom(
                 self.env,
                 component.product_id,
                 company_id=self.company_id.id,

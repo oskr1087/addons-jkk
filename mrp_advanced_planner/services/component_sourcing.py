@@ -525,20 +525,31 @@ class ComponentSourcingEngine:
             # applicable manufacturing BoM.  This is the key case for
             # recursive submanufacturing: a fabricable leaf must still create
             # its own native child MO even when it has no raw children.
-            component_bom = active_children[:1].source_bom_id if active_children else find_bom(
-                self.env,
-                component.product_id,
-                company_id=self.company.id,
-                picking_type_id=(
-                    destination.manu_type_id.id
-                    if destination and destination.manu_type_id else False
-                ),
-            )
+            # v146: the planner's explicit per-node BoM selection is the
+            # execution source of truth. Never let find_bom() silently replace
+            # a manually selected internal/subcontract BoM.
+            component_bom = component.execution_bom_id
+            if not component_bom:
+                component_bom = (
+                    active_children[:1].source_bom_id
+                    if active_children else find_bom(
+                        self.env,
+                        component.product_id,
+                        company_id=self.company.id,
+                        picking_type_id=(
+                            destination.manu_type_id.id
+                            if destination and destination.manu_type_id else False
+                        ),
+                    )
+                )
             is_phantom = bool(component_bom and component_bom.type == 'phantom')
             is_manufacturable = bool(
                 component_bom and component_bom.type == 'normal'
             )
-            subcontract_bom = subcontract_boms.get(component.product_id.id)
+            subcontract_bom = (
+                component_bom if component_bom and component_bom.type == 'subcontract'
+                else self.env['mrp.bom']
+            )
             is_subcontracted = bool(subcontract_bom)
 
             # A transfer from another warehouse is only a suggestion.  Do NOT

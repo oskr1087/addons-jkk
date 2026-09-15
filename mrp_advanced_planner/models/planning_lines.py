@@ -704,6 +704,17 @@ class PlanningProductionComponent(models.Model):
     sequence = fields.Integer(default=10)
     path = fields.Char(string='Ruta', readonly=True)
     source_bom_id = fields.Many2one('mrp.bom', string='LdM origen', readonly=True)
+    product_tmpl_id = fields.Many2one(
+        related='product_id.product_tmpl_id', string='Plantilla de producto', readonly=True
+    )
+    execution_bom_id = fields.Many2one(
+        'mrp.bom', string='LdM a ejecutar', copy=False, ondelete='restrict',
+        help=(
+            'LdM elegida por el planificador para ejecutar este nodo APS. '
+            'Puede ser fabricación interna, kit o subcontratación. La selección '
+            'se conserva al recalcular y gobierna la explosión y la ejecución.'
+        ),
+    )
     source_bom_line_id = fields.Many2one('mrp.bom.line', string='Línea LdM origen', readonly=True)
     is_subcontracted = fields.Boolean(
         string='Subcontratación', readonly=True, copy=False, index=True
@@ -1776,6 +1787,25 @@ class PlanningProductionComponent(models.Model):
                 'la estructura y no puede modificarse manualmente. Ajuste la '
                 'Cantidad planificada total del producto y recalcule el APS.'
             ))
+        execution_bom_changed = 'execution_bom_id' in vals
+        if execution_bom_changed:
+            for component in self:
+                bom = self.env['mrp.bom'].browse(vals.get('execution_bom_id')).exists()
+                if bom and (
+                    bom.product_tmpl_id != component.product_id.product_tmpl_id
+                    or (bom.product_id and bom.product_id != component.product_id)
+                    or (bom.company_id and bom.company_id != component.plan_id.company_id)
+                    or bom.type not in ('normal', 'phantom', 'subcontract')
+                ):
+                    raise UserError(_(
+                        'La LdM seleccionada no es aplicable al componente %s.'
+                    ) % component.product_id.display_name)
+            bom = self.env['mrp.bom'].browse(vals.get('execution_bom_id')).exists()
+            vals['is_subcontracted'] = bool(bom and bom.type == 'subcontract')
+            vals['subcontract_bom_id'] = (
+                bom.id if bom and bom.type == 'subcontract' else False
+            )
+
         product_changed = 'product_id' in vals
         engineering_fields = {
             'product_id',
@@ -1785,6 +1815,7 @@ class PlanningProductionComponent(models.Model):
             'note',
             'parent_line_id',
             'sequence',
+            'execution_bom_id',
         }
         engineering_changed = bool(engineering_fields & set(vals))
         if (
@@ -1812,7 +1843,7 @@ class PlanningProductionComponent(models.Model):
                     ).write({'change_type': change_type})
 
         if (
-            product_changed
+            (product_changed or execution_bom_changed)
             and not self.env.context.get('aps_skip_subtree_rebuild')
         ):
             from ..services.manufacturing_snapshot import ManufacturingSnapshotBuilder

@@ -34,7 +34,7 @@
 .aps-tree-header,
 .aps-tree-row {
     display: grid;
-    grid-template-columns: minmax(300px, 2.2fr) 105px 48px 145px 105px 125px 80px minmax(190px, auto);
+    grid-template-columns: minmax(280px, 2fr) 100px 48px 135px 100px minmax(220px, 1.25fr) 120px 80px minmax(180px, auto);
     align-items: center;
     min-height: 42px;
 }
@@ -208,7 +208,7 @@
 @media (max-width: 1500px) {
     .aps-tree-header,
     .aps-tree-row {
-        grid-template-columns: minmax(270px, 2fr) 96px 42px 132px 92px 112px 70px minmax(185px, auto);
+        grid-template-columns: minmax(250px, 1.8fr) 90px 42px 122px 86px minmax(190px, 1.2fr) 105px 68px minmax(175px, auto);
         padding-left: .4rem;
         padding-right: .4rem;
         column-gap: .18rem;
@@ -454,3 +454,5 @@
     color: #5f6368;
     border-color: #d9dde2;
 }
+
+.aps-bom-selector .form-select { min-width: 210px; max-width: 100%; font-size: .72rem; }

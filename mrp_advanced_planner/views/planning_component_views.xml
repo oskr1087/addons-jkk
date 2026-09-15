@@ -224,6 +224,11 @@
                                     <field name="source_bom_id"
                                            string="LdM origen"
                                            readonly="1"/>
+                                    <field name="execution_bom_id"
+                                           string="LdM a ejecutar"
+                                           readonly="engineering_locked"
+                                           domain="[('product_tmpl_id', '=', product_tmpl_id), ('type', 'in', ['normal', 'phantom', 'subcontract']), '|', ('product_id', '=', False), ('product_id', '=', product_id), '|', ('company_id', '=', False), ('company_id', '=', plan_id.company_id)]"
+                                           options="{'no_create': True}"/>
                                     <field name="source_bom_line_id"
                                            string="Línea LdM origen"
                                            readonly="1"/>
@@ -241,6 +246,7 @@
 
                     <!-- CAMPOS TÉCNICOS -->
                     <field name="plan_id" invisible="1"/>
+                    <field name="product_tmpl_id" invisible="1"/>
                     <field name="planning_line_id" invisible="1"/>
                     <field name="parent_line_id" invisible="1"/>
                     <field name="root_product_id" invisible="1"/>

@@ -85,7 +85,11 @@ class ManufacturingSnapshotBuilder:
                     % product.display_name
                 )
             visiting.add(product.id)
-            bom = self.graph.bom(product)
+            bom = (
+                parent.execution_bom_id
+                if parent.execution_bom_id
+                else self.graph.subcontract_bom(product) or self.graph.bom(product)
+            )
             if not bom:
                 return Component
             created = Component
@@ -113,6 +117,18 @@ class ManufacturingSnapshotBuilder:
                     'path': ' → '.join(child_path),
                     'source_bom_id': bom.id,
                     'source_bom_line_id': bl.id,
+                    'execution_bom_id': (
+                        self.graph.subcontract_bom(child_product).id
+                        if self.graph.subcontract_bom(child_product)
+                        else self.graph.bom(child_product).id
+                        if self.graph.bom(child_product) else False
+                    ),
+                    'is_subcontracted': bool(self.graph.subcontract_bom(child_product)),
+                    'subcontract_bom_id': (
+                        self.graph.subcontract_bom(child_product).id
+                        if self.graph.subcontract_bom(child_product) else False
+                    ),
+                    'is_subcontract_material': bom.type == 'subcontract',
                     'change_type': 'original',
                     'include_in_mo': True,
                 })
@@ -239,6 +255,11 @@ class ManufacturingSnapshotBuilder:
                         'path': ' → '.join(child_path),
                         'source_bom_id': bom.id,
                         'source_bom_line_id': bl.id,
+                        'execution_bom_id': (
+                            subcontract_bom.id if subcontract_bom
+                            else self.graph.bom(child_product).id if self.graph.bom(child_product)
+                            else False
+                        ),
                         'change_type': 'original',
                         'include_in_mo': True,
                         'is_subcontracted': bool(subcontract_bom),
@@ -269,8 +290,10 @@ class ManufacturingSnapshotBuilder:
                 subcontract_bom = self.graph.subcontract_bom(
                     next_product
                 )
-                next_bom = subcontract_bom or self.graph.bom(
-                    next_product
+                next_bom = (
+                    component.execution_bom_id
+                    or subcontract_bom
+                    or self.graph.bom(next_product)
                 )
                 if next_bom:
                     ensure_children(
@@ -360,6 +383,11 @@ class ManufacturingSnapshotBuilder:
                     'path': ' → '.join(cpath),
                     'source_bom_id': bom.id,
                     'source_bom_line_id': bl.id,
+                    'execution_bom_id': (
+                        subcontract_bom.id if subcontract_bom
+                        else self.graph.bom(component).id if self.graph.bom(component)
+                        else False
+                    ),
                     'change_type': 'original',
                     'include_in_mo': True,
                     'is_subcontracted': is_subcontracted,

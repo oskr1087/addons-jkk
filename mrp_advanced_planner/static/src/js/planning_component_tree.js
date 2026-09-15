@@ -52,6 +52,8 @@ export class PlanningComponentTreeField extends Component {
                 "planning_line_id",
                 "parent_line_id",
                 "product_id",
+                "product_tmpl_id",
+                "execution_bom_id",
                 "original_product_id",
                 "product_uom_id",
                 "planned_qty",
@@ -87,6 +89,21 @@ export class PlanningComponentTreeField extends Component {
             ],
             { order: "planning_line_id, sequence, level, id" }
         );
+
+        const templateIds = [...new Set(components.map((c) => c.product_tmpl_id?.[0]).filter(Boolean))];
+        let executionBoms = [];
+        if (templateIds.length) {
+            executionBoms = await this.orm.searchRead(
+                "mrp.bom",
+                [
+                    ["product_tmpl_id", "in", templateIds],
+                    ["type", "in", ["normal", "phantom", "subcontract"]],
+                ],
+                ["display_name", "product_tmpl_id", "product_id", "type", "subcontractor_ids"],
+                { order: "sequence, id" }
+            );
+        }
+        this.executionBoms = executionBoms;
 
         const byPlanningLine = {};
         for (const component of components) {
@@ -125,8 +142,32 @@ export class PlanningComponentTreeField extends Component {
                 key: `component-${row.id}`,
                 productName: row.product_id?.[1] || "",
                 uom: row.product_uom_id?.[1] || "",
+                executionBomOptions: (this.executionBoms || []).filter((bom) =>
+                    bom.product_tmpl_id?.[0] === row.product_tmpl_id?.[0]
+                    && (!bom.product_id?.[0] || bom.product_id?.[0] === row.product_id?.[0])
+                ),
                 children: this.buildChildren(records, row.id),
             }));
+    }
+
+    async changeExecutionBom(row, ev) {
+        if (row.engineering_locked) {
+            this.notification.add("La ingeniería está bloqueada porque ya se generó la OF.", { type: "warning" });
+            return;
+        }
+        const bomId = Number(ev.target.value || 0) || false;
+        await this.orm.write(
+            "mrp.planning.production.component",
+            [row.id],
+            { execution_bom_id: bomId }
+        );
+        this.notification.add("LdM de ejecución actualizada. El APS recalculó esta rama.", { type: "success" });
+        await this.load();
+    }
+
+    bomOptionLabel(bom) {
+        const typeLabel = bom.type === "subcontract" ? "Subcontratación" : (bom.type === "phantom" ? "Kit" : "Fabricación");
+        return `${bom.display_name} — ${typeLabel}`;
     }
 
     toggle(key) {

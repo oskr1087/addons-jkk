@@ -32,6 +32,7 @@
                     <div>UdM</div>
                     <div>Estado / lote</div>
                     <div>Faltante real</div>
+                    <div>LdM a ejecutar</div>
                     <div>Acción APS</div>
                     <div>Pend. acción/lote</div>
                     <div class="aps-col-actions">Acciones</div>
@@ -52,6 +53,7 @@
                             <div class="aps-tree-qty"><strong t-esc="formatQty(root.qty)"/></div>
                             <div t-esc="root.uom"/>
                             <div><span class="aps-root-label">Producto terminado</span></div>
+                            <div>—</div>
                             <div>—</div>
                             <div><span class="aps-supply aps-supply-muted">Producto terminado</span></div>
                             <div>—</div>
@@ -132,6 +134,21 @@
 
                     <div t-att-class="getSupplyShortage(row) &gt; 0 ? 'aps-need-danger' : 'aps-need-ok'">
                         <t t-esc="formatQty(getSupplyShortage(row))"/>
+                    </div>
+
+                    <div class="aps-bom-selector">
+                        <select t-if="row.executionBomOptions.length"
+                                class="form-select form-select-sm"
+                                t-att-disabled="row.engineering_locked"
+                                t-on-change="(ev) => this.changeExecutionBom(row, ev)">
+                            <option value="" t-att-selected="!row.execution_bom_id">Seleccionar LdM…</option>
+                            <t t-foreach="row.executionBomOptions" t-as="bom" t-key="bom.id">
+                                <option t-att-value="bom.id"
+                                        t-att-selected="row.execution_bom_id?.[0] === bom.id"
+                                        t-esc="this.bomOptionLabel(bom)"/>
+                            </t>
+                        </select>
+                        <span t-else="" class="aps-supply aps-supply-muted">Sin LdM</span>
                     </div>
 
                     <div>

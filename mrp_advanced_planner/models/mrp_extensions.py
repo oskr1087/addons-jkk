@@ -656,6 +656,12 @@ class MrpProduction(models.Model):
 
                     values = move._prepare_procurement_values()
                     values.update({
+                        # v146: force Odoo native child manufacturing to use
+                        # the BoM selected on this exact APS node.
+                        'bom_id': component.execution_bom_id
+                        if component.execution_bom_id
+                        and component.execution_bom_id.type == 'normal'
+                        else False,
                         'route_ids': manufacture_route,
                         'move_dest_ids': move,
                         'warehouse_id': warehouse,
