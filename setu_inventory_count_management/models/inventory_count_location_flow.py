@@ -322,7 +322,17 @@ class InventoryCountRelocationIssue(models.Model):
                 "El almacén %s no tiene un tipo de operación de transferencias internas."
             ) % warehouse.display_name)
 
-        picking = self.env["stock.picking"].sudo().create({
+        correction_ctx = dict(
+            self.env.context,
+            setu_inventory_count_correction=True,
+            setu_inventory_count_correction_count_id=self.count_id.id,
+        )
+
+        Picking = self.env["stock.picking"].sudo().with_context(correction_ctx)
+        Move = self.env["stock.move"].sudo().with_context(correction_ctx)
+        MoveLine = self.env["stock.move.line"].sudo().with_context(correction_ctx)
+
+        picking = Picking.create({
             "picking_type_id": picking_type.id,
             "location_id": self.source_location_id.id,
             "location_dest_id": self.found_location_id.id,
@@ -330,19 +340,28 @@ class InventoryCountRelocationIssue(models.Model):
         })
 
         move_vals = {
-            "name": self.product_id.display_name,
             "product_id": self.product_id.id,
             "product_uom_qty": quantity,
-            "product_uom": self.product_id.uom_id.id,
             "location_id": self.source_location_id.id,
             "location_dest_id": self.found_location_id.id,
             "picking_id": picking.id,
         }
-        move = self.env["stock.move"].sudo().create(move_vals)
-        picking.action_confirm()
+        if "product_uom" in Move._fields:
+            move_vals["product_uom"] = self.product_id.uom_id.id
+        elif "product_uom_id" in Move._fields:
+            move_vals["product_uom_id"] = self.product_id.uom_id.id
+
+        # stock.move ya no expone el campo `name` en Odoo 19.
+        if "description_picking" in Move._fields:
+            move_vals["description_picking"] = self.product_id.display_name
+
+        move = Move.create(move_vals)
+
+        picking = picking.with_context(correction_ctx)
+        if picking.state == "draft":
+            picking.action_confirm()
         picking.action_assign()
 
-        MoveLine = self.env["stock.move.line"].sudo()
         move_lines = move.move_line_ids
         qty_field = (
             "quantity"
@@ -398,7 +417,7 @@ class InventoryCountRelocationIssue(models.Model):
                     ml_vals["lot_id"] = self.lot_id.id
                 MoveLine.create(ml_vals)
 
-        result = picking.button_validate()
+        result = picking.with_context(correction_ctx).button_validate()
         if isinstance(result, dict) and result.get("res_model"):
             raise ValidationError(_(
                 "Odoo solicitó una operación adicional al validar el traslado %s. "
@@ -460,6 +479,14 @@ class InventoryCountRelocationIssue(models.Model):
                 "traslados internos para corregir ubicaciones."
             ))
         for issue in self:
+            if issue.count_id.count_id:
+                raise ValidationError(
+                    _("Los traslados correctivos se gestionan desde el conteo principal.")
+                )
+            if issue.count_id.state != "To Be Approved":
+                raise ValidationError(
+                    _("Los traslados correctivos solo pueden generarse cuando el conteo está Por aprobar.")
+                )
             if issue.state == "resolved":
                 continue
             if not issue.source_location_id:
@@ -648,7 +675,13 @@ class InventoryCountLocationFlow(models.Model):
             progress = count.location_progress_ids
             count.pending_relocation_count = len(
                 count.relocation_issue_ids.filtered(
-                    lambda issue: issue.state != "resolved"
+                    lambda issue: (
+                        issue.state != "resolved"
+                        and issue.snapshot_line_id
+                        and issue.snapshot_line_id.status == "unexpected"
+                        and issue.snapshot_line_id.counted_qty > 0
+                        and not issue.snapshot_line_id.relocation_resolved
+                    )
                 )
             )
             count.location_not_started_count = len(
@@ -721,6 +754,13 @@ class InventoryCountLocationFlow(models.Model):
                 )
             )
             if obsolete:
+                # IMPORTANTE:
+                # `existing` sigue conteniendo en memoria los registros borrados.
+                # Si luego se hace existing.mapped("location_id"), Odoo 19 lanza
+                # MissingError al intentar leer esos registros ya eliminados.
+                #
+                # Quitamos los obsoletos del recordset antes de continuar.
+                existing -= obsolete
                 obsolete.unlink()
 
             missing = relevant_locations - existing.mapped("location_id")
@@ -749,9 +789,34 @@ class InventoryCountLocationFlow(models.Model):
         return progress
 
     def _sync_relocation_issues(self):
+        """Sincroniza incidencias con el resultado físico vigente del snapshot.
+
+        Un reconteo puede cambiar una lectura que originalmente era "unexpected"
+        (por ejemplo 504 unidades) a cero. En ese caso la incidencia histórica
+        no puede seguir bloqueando el conteo ni intentar trasladar una cantidad
+        que ya no fue confirmada físicamente.
+        """
         Issue = self.env["setu.inventory.count.relocation.issue"].sudo()
         Quant = self.env["stock.quant"].sudo()
         for count in self:
+            # Cerrar incidencias obsoletas después de reconteos/consolidaciones.
+            open_issues = count.relocation_issue_ids.filtered(
+                lambda issue: issue.state != "resolved"
+            )
+            for issue in open_issues:
+                snapshot = issue.snapshot_line_id
+                still_relocation = bool(
+                    snapshot
+                    and snapshot.status == "unexpected"
+                    and snapshot.counted_qty > 0
+                    and not snapshot.relocation_resolved
+                )
+                if not still_relocation:
+                    issue.write({
+                        "state": "resolved",
+                        "quantity_to_move": 0.0,
+                    })
+
             unexpected = count.snapshot_line_ids.filtered(
                 lambda line: (
                     line.status == "unexpected"
@@ -782,13 +847,57 @@ class InventoryCountLocationFlow(models.Model):
                         "snapshot_line_id": snapshot.id,
                         "quantity_to_move": snapshot.counted_qty,
                     })
+                elif issue.state != "resolved":
+                    # Mantener la cantidad operativa alineada con la lectura
+                    # física vigente, especialmente después de un reconteo.
+                    remaining = max(
+                        (snapshot.counted_qty or 0.0) - (issue.resolved_qty or 0.0),
+                        0.0,
+                    )
+                    if issue.quantity_to_move > remaining or issue.quantity_to_move <= 0:
+                        issue.quantity_to_move = remaining
         return True
+
+    def action_open_relocation_issues(self):
+        """Abre la bandeja operativa para resolver ubicaciones incorrectas."""
+        self.ensure_one()
+        if self.count_id:
+            raise ValidationError(
+                _("Las correcciones de ubicación se gestionan desde el conteo principal.")
+            )
+        self._sync_relocation_issues()
+        issues = self.relocation_issue_ids.filtered(
+            lambda issue: issue.state != "resolved"
+        )
+        if not issues:
+            raise UserError(
+                _("No existen productos/lotes pendientes de corrección de ubicación.")
+            )
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Resolver ubicaciones"),
+            "res_model": "setu.inventory.count.relocation.issue",
+            "view_mode": "list,form",
+            "domain": [("id", "in", issues.ids)],
+            "context": {
+                "default_count_id": self.id,
+                "search_default_pending": 1,
+                "create": False,
+            },
+            "target": "current",
+        }
 
     def approve_inventory_count(self):
         for count in self:
             count._sync_relocation_issues()
             pending = count.relocation_issue_ids.filtered(
-                lambda issue: issue.state != "resolved"
+                lambda issue: (
+                    issue.state != "resolved"
+                    and issue.snapshot_line_id
+                    and issue.snapshot_line_id.status == "unexpected"
+                    and issue.snapshot_line_id.counted_qty > 0
+                    and not issue.snapshot_line_id.relocation_resolved
+                )
             )
             if pending:
                 raise ValidationError(_(

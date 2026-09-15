@@ -283,7 +283,7 @@ class StockInvCount(models.Model):
             'count_id': self.id,
             'location_id': self.location_id.id,
             'warehouse_id': self.warehouse_id.id,
-            'use_barcode_scanner': self.use_barcode_scanner,
+            'use_barcode_scanner': True,
             'type': 'Multi Session',
         })
         new_session = self.env['setu.inventory.count.session'].create({
@@ -292,7 +292,7 @@ class StockInvCount(models.Model):
             'inventory_count_id': new_count.id,
             'location_id': new_count.location_id.id,
             'warehouse_id': new_count.warehouse_id.id,
-            'use_barcode_scanner': new_count.use_barcode_scanner,
+            'use_barcode_scanner': True,
             'type': 'Multi Session',
         })
 
@@ -722,7 +722,14 @@ class StockInvCount(models.Model):
             if not parent_line:
                 continue
 
-            if child.status == "matched":
+            # Si el reconteo ya no presenta diferencia real contra el sistema,
+            # cualquier decisión histórica "adjust" deja de tener sentido.
+            child_difference = child.counted_qty - parent_line.expected_qty
+            is_effectively_matched = float_is_zero(
+                child_difference,
+                precision_rounding=child.uom_id.rounding or 0.01,
+            )
+            if child.status == "matched" or is_effectively_matched:
                 parent_decision = "resolved"
             elif child.review_decision in ("adjust", "discard"):
                 parent_decision = child.review_decision
@@ -733,7 +740,7 @@ class StockInvCount(models.Model):
 
             parent_line.write({
                 "counted_qty": child.counted_qty,
-                "difference_qty": child.counted_qty - parent_line.expected_qty,
+                "difference_qty": child_difference,
                 "scan_count": max(child.scan_count, 1 if child.status != "pending" else 0),
                 "status": child.status,
                 "duplicate": child.duplicate,
@@ -746,7 +753,7 @@ class StockInvCount(models.Model):
             updated += 1
 
             count_line = parent._find_count_line_for_snapshot(parent_line)
-            if child.status == "matched" or parent_decision == "discard":
+            if is_effectively_matched or child.status == "matched" or parent_decision == "discard":
                 if count_line:
                     count_line.write({
                         "counted_qty": child.counted_qty,
@@ -763,6 +770,10 @@ class StockInvCount(models.Model):
                 })
                 unresolved += 1
 
+        # El reconteo puede invalidar una incidencia de ubicación creada por
+        # el primer conteo. Sincronizarla antes de calcular los KPI/bloqueos.
+        if hasattr(parent, "_sync_relocation_issues"):
+            parent._sync_relocation_issues()
         parent._refresh_persistent_kpis()
         parent.message_post(
             body=_(

@@ -15,7 +15,8 @@
                         <i class="fa fa-chevron-left" title="Volver"/>
                     </button>
                     <div class="setu_pda_mobile_header_title">
-                        <small>CONTEO PDA</small>
+                        <small t-if="state.data.is_recount">RECONTEO PDA</small>
+                        <small t-else="">CONTEO PDA</small>
                         <strong t-esc="state.data.name"/>
                     </div>
                     <div class="setu_pda_mobile_connection" title="Lector activo">
@@ -68,6 +69,14 @@
                             <strong t-esc="state.data.feedback"/>
                             <small>No se registró nuevamente. Continúe con el siguiente producto.</small>
                         </div>
+                    </section>
+
+                    <section t-if="state.data.is_recount"
+                             class="setu_pda_mobile_feedback is-info">
+                        <i class="fa fa-repeat" title="Reconteo"/>
+                        <span>
+                            Reconteo activo: escanee únicamente las posiciones enviadas por el controlador.
+                        </span>
                     </section>
 
                     <!-- Feedback normal -->
@@ -167,11 +176,48 @@
                         <button class="btn btn-primary" t-on-click="resumeSession">REANUDAR</button>
                     </section>
 
+                    <!-- Simulador manual: siempre accesible antes del historial -->
+                    <section t-if="state.data.running" class="setu_pda_mobile_simulator">
+                        <div class="setu_pda_mobile_simulator_header">
+                            <div>
+                                <strong>
+                                    <t t-if="!state.data.location">SIMULAR UBICACIÓN</t>
+                                    <t t-else="">SIMULAR LECTURA</t>
+                                </strong>
+                                <small>
+                                    <t t-if="!state.data.location">
+                                        Ingrese o pegue el código de una ubicación.
+                                    </t>
+                                    <t t-else="">
+                                        Ingrese ARTÍCULO/LOTE/CANTIDAD y presione Enter o Procesar.
+                                    </t>
+                                </small>
+                            </div>
+                            <i class="fa fa-keyboard-o" title="Simulación manual"/>
+                        </div>
+                        <div class="setu_pda_mobile_simulator_row">
+                            <input type="text"
+                                   autocomplete="off"
+                                   enterkeyhint="done"
+                                   t-att-placeholder="state.data.location ? 'ARTÍCULO/LOTE/CANTIDAD' : 'Código de ubicación'"
+                                   t-att-value="state.manualBarcode"
+                                   t-on-input="onManualBarcodeInput"
+                                   t-on-keydown="onManualBarcodeKeydown"/>
+                            <button class="btn btn-primary" t-on-click="processManualBarcode">
+                                <i class="fa fa-play" title="Procesar"/>
+                                Procesar
+                            </button>
+                        </div>
+                    </section>
+
                     <!-- Lecturas confirmadas automáticamente -->
                     <section t-if="state.data.recent &amp;&amp; state.data.recent.length"
                              class="setu_pda_mobile_recent">
                         <div class="setu_pda_mobile_recent_title">
-                            <strong>PRODUCTOS ESCANEADOS EN ESTA SESIÓN</strong>
+                            <div>
+                                <strong>PRODUCTOS ESCANEADOS</strong>
+                                <small>Últimas lecturas de esta sesión</small>
+                            </div>
                             <span t-esc="state.data.recent.length"/>
                         </div>
                         <t t-foreach="state.data.recent" t-as="line" t-key="line.id">
@@ -183,48 +229,32 @@
                                         · Cantidad: <b t-esc="line.qty"/>
                                     </small>
                                     <small t-if="line.location">
+                                        <i class="fa fa-map-marker" title="Ubicación"/>
                                         <t t-esc="line.location"/>
                                     </small>
                                 </div>
-                                <label class="setu_pda_mobile_observation_check">
-                                    <input type="checkbox"
-                                           t-att-checked="line.has_observation ? true : undefined"
-                                           t-att-data-event-id="line.id"
-                                           t-on-change="onObservationToggle"/>
-                                    Tiene observaciones
-                                </label>
-                                <small t-if="line.has_observation" class="text-warning">
-                                    Se enviará a reconteo al cerrar el conteo.
-                                </small>
-                                <textarea t-if="line.has_observation"
-                                          class="setu_pda_mobile_observation_text"
-                                          rows="2"
-                                          placeholder="Escriba la observación..."
-                                          t-att-data-event-id="line.id"
-                                          t-att-value="line.observation"
-                                          t-on-change="onObservationTextChange"/>
+                                <div class="setu_pda_mobile_observation">
+                                    <label class="setu_pda_mobile_observation_check">
+                                        <input type="checkbox"
+                                               t-att-checked="line.has_observation ? true : undefined"
+                                               t-att-data-event-id="line.id"
+                                               t-on-change="onObservationToggle"/>
+                                        <span>Observación</span>
+                                    </label>
+                                    <small t-if="line.has_observation" class="setu_pda_mobile_review_hint">
+                                        Pendiente de revisión por el controlador.
+                                    </small>
+                                    <textarea t-if="line.has_observation"
+                                              class="setu_pda_mobile_observation_text"
+                                              rows="2"
+                                              placeholder="Escriba la observación..."
+                                              t-att-data-event-id="line.id"
+                                              t-att-value="line.observation"
+                                              t-on-change="onObservationTextChange"/>
+                                </div>
                             </div>
                         </t>
                     </section>
-
-                    <!-- Simulación contextual: ubicación primero, conteo después -->
-                    <details t-if="state.data.running" class="setu_pda_mobile_simulator">
-                        <summary>
-                            <t t-if="!state.data.location">Simular lectura de ubicación</t>
-                            <t t-else="">Simular lectura desde celular</t>
-                        </summary>
-                        <input type="text"
-                               autocomplete="off"
-                               enterkeyhint="done"
-                               t-att-placeholder="state.data.location ? 'Artículo / Lote / Cantidad' : 'Código de ubicación'"
-                               t-att-value="state.manualBarcode"
-                               t-on-input="onManualBarcodeInput"
-                               t-on-keydown="onManualBarcodeKeydown"/>
-                        <button class="btn btn-secondary" t-on-click="processManualBarcode">
-                            <t t-if="!state.data.location">Procesar ubicación</t>
-                            <t t-else="">Procesar código</t>
-                        </button>
-                    </details>
                 </main>
 
                 <!-- Barra fija inferior, pensada para pulgar -->

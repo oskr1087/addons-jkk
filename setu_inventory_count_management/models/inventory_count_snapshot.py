@@ -579,10 +579,22 @@ class StockInventoryCountPersistentSnapshot(models.Model):
     surplus_value = fields.Monetary(string="Sobrante estimado", currency_field="currency_id", compute="_compute_snapshot_metrics")
     net_adjustment_value = fields.Monetary(string="Impacto neto", currency_field="currency_id", compute="_compute_snapshot_metrics")
     high_impact_item_count = fields.Integer(string="Alto impacto", compute="_compute_snapshot_metrics")
-    adjustment_candidate_count = fields.Integer(string="Líneas a ajustar", compute="_compute_snapshot_metrics")
+    adjustment_candidate_count = fields.Integer(string="Líneas con diferencia", compute="_compute_snapshot_metrics")
+    review_pending_count = fields.Integer(string="Para revisión", compute="_compute_snapshot_metrics")
+    adjustment_approved_count = fields.Integer(string="Aprobados para ajuste", compute="_compute_snapshot_metrics")
+    recount_review_count = fields.Integer(string="En reconteo", compute="_compute_snapshot_metrics")
+    review_resolved_count = fields.Integer(string="Revisiones resueltas", compute="_compute_snapshot_metrics")
     blocking_issue_count = fields.Integer(string="Bloqueos pendientes", compute="_compute_snapshot_metrics")
-    adjustment_ready = fields.Boolean(string="Listo para ajustar", compute="_compute_snapshot_metrics")
-    adjustment_readiness_text = fields.Char(string="Estado previo al ajuste", compute="_compute_snapshot_metrics")
+    adjustment_ready = fields.Boolean(string="Listo para aprobar", compute="_compute_snapshot_metrics")
+    adjustment_readiness_text = fields.Char(string="Estado previo a la aprobación", compute="_compute_snapshot_metrics")
+    next_action_title = fields.Char(string="Siguiente acción", compute="_compute_snapshot_metrics")
+    next_action_text = fields.Char(string="Detalle de siguiente acción", compute="_compute_snapshot_metrics")
+    can_finalize_recount = fields.Boolean(string="Puede finalizar reconteo", compute="_compute_snapshot_metrics")
+    recount_readiness_text = fields.Char(string="Estado del reconteo", compute="_compute_snapshot_metrics")
+    can_review_actions = fields.Boolean(string="Puede gestionar revisión", compute="_compute_snapshot_metrics")
+    can_send_to_recount = fields.Boolean(string="Puede enviar a reconteo", compute="_compute_snapshot_metrics")
+    can_manage_relocations = fields.Boolean(string="Puede resolver ubicaciones", compute="_compute_snapshot_metrics")
+    can_view_financial_preview = fields.Boolean(string="Puede ver impacto económico", compute="_compute_snapshot_metrics")
     dashboard_last_update = fields.Datetime(
         string="Última actualización", compute="_compute_snapshot_metrics"
     )
@@ -593,9 +605,17 @@ class StockInventoryCountPersistentSnapshot(models.Model):
         ])
 
     @api.depends(
+        "state",
         "session_ids.state",
+        "session_ids.session_line_ids.product_scanned",
         "line_ids.state",
         "line_ids.is_discrepancy_found",
+        "snapshot_line_ids.status",
+        "snapshot_line_ids.review_required",
+        "snapshot_line_ids.review_decision",
+        "snapshot_line_ids.has_observation",
+        "relocation_issue_ids.state",
+        "count_ids.state",
     )
     def _compute_snapshot_metrics(self):
         headers = {
@@ -625,39 +645,205 @@ class StockInventoryCountPersistentSnapshot(models.Model):
                 (header.difference_item_count - header.duplicate_item_count) if header else 0,
                 0,
             )
+
+            review_pending = count.snapshot_line_ids.filtered(
+                lambda line: line.review_required and line.review_decision == "pending"
+            )
+            review_adjust = count.snapshot_line_ids.filtered(
+                lambda line: line.review_required and line.review_decision == "adjust"
+            )
+            review_recount = count.snapshot_line_ids.filtered(
+                lambda line: line.review_required and line.review_decision == "recount"
+            )
+            review_resolved = count.snapshot_line_ids.filtered(
+                lambda line: (
+                    line.review_required
+                    and line.review_decision in ("resolved", "discard")
+                )
+            )
+            count.review_pending_count = len(review_pending)
+            count.adjustment_approved_count = len(review_adjust)
+            count.recount_review_count = len(review_recount)
+            count.review_resolved_count = len(review_resolved)
+
             open_sessions = count.session_ids.filtered(
                 lambda session: session.state not in ("Done", "Cancel")
             )
-            pending_decisions = count.line_ids.filtered(
-                lambda line: (
-                    line.is_discrepancy_found
-                    and line.state == "Pending Review"
+            # Una incidencia histórica de ubicación no debe seguir bloqueando
+            # después de que un reconteo cambió el resultado físico. La fuente
+            # de verdad es el snapshot consolidado vigente.
+            unresolved_relocations = count.relocation_issue_ids.filtered(
+                lambda issue: (
+                    issue.state != "resolved"
+                    and issue.snapshot_line_id
+                    and issue.snapshot_line_id.status == "unexpected"
+                    and issue.snapshot_line_id.counted_qty > 0
+                    and not issue.snapshot_line_id.relocation_resolved
                 )
             )
-            unresolved_relocations = count.relocation_issue_ids.filtered(
-                lambda issue: issue.state != "resolved"
+            active_recounts = count.count_ids.filtered(
+                lambda child: child.state not in ("Approved", "Cancel")
             )
-            observed_snapshots = count.snapshot_line_ids.filtered("has_observation")
+
+            # Una observación ya resuelta por el Controlador NO vuelve a bloquear
+            # el cierre. La fuente de verdad es review_decision, no has_observation.
             count.blocking_issue_count = (
-                (header.pending_item_count + header.duplicate_item_count) if header else 0
-            ) + len(open_sessions) + len(pending_decisions) + len(unresolved_relocations) + len(observed_snapshots)
-            count.adjustment_ready = bool(
-                header and count.state == "To Be Approved" and not count.blocking_issue_count
+                ((header.pending_item_count + header.duplicate_item_count) if header else 0)
+                + len(open_sessions)
+                + len(review_pending)
+                + len(review_recount)
+                + len(unresolved_relocations)
+                + len(active_recounts)
             )
-            if open_sessions:
+
+            # Preparación específica del reconteo.
+            recount_sessions = count.session_ids.filtered(
+                lambda session: session.state != "Cancel"
+            )
+            # Solo una sesión ABIERTA puede bloquear la aprobación del
+            # reconteo por líneas sin escanear. Una sesión Done ya fue
+            # finalizada/sincronizada y su resultado válido está en snapshot.
+            # Contar sus líneas legacy product_scanned=False producía el falso
+            # bloqueo "posiciones todavía no fueron escaneadas" aun con 100%.
+            open_recount_sessions = recount_sessions.filtered(
+                lambda session: session.state != "Done"
+            )
+            unscanned_recount_lines = open_recount_sessions.mapped(
+                "session_line_ids"
+            ).filtered(lambda line: not line.product_scanned)
+            recount_snapshot_pending = count.snapshot_line_ids.filtered(
+                lambda line: line.status in ("pending", "duplicate")
+            )
+            recount_nested = count.snapshot_line_ids.filtered(
+                lambda line: line.review_required and line.review_decision == "recount"
+            )
+
+            count.can_finalize_recount = bool(
+                count.count_id
+                and count.state in ("In Progress", "To Be Approved")
+                and recount_sessions
+                and not unscanned_recount_lines
+                and not recount_snapshot_pending
+                and not review_pending
+                and not recount_nested
+            )
+
+            if not count.count_id:
+                count.recount_readiness_text = False
+            elif not recount_sessions:
+                count.recount_readiness_text = "El reconteo todavía no tiene una sesión activa."
+            elif unscanned_recount_lines:
+                count.recount_readiness_text = (
+                    "%s posición(es) del reconteo todavía no fueron escaneadas."
+                    % len(unscanned_recount_lines)
+                )
+            elif recount_snapshot_pending:
+                count.recount_readiness_text = (
+                    "%s posición(es) siguen pendientes o duplicadas."
+                    % len(recount_snapshot_pending)
+                )
+            elif review_pending:
+                count.recount_readiness_text = (
+                    "%s novedad(es) del reconteo requieren una decisión."
+                    % len(review_pending)
+                )
+            elif recount_nested:
+                count.recount_readiness_text = (
+                    "Un reconteo no puede enviar líneas a un nuevo reconteo."
+                )
+            elif count.state == "Approved":
+                count.recount_readiness_text = "Reconteo finalizado y consolidado."
+            else:
+                count.recount_readiness_text = "Reconteo completo y listo para finalizar."
+
+            count.adjustment_ready = bool(
+                header
+                and not count.count_id
+                and count.state == "To Be Approved"
+                and not count.blocking_issue_count
+            )
+
+            # Matriz única de acciones por estado.
+            count.can_review_actions = bool(
+                count.review_pending_count
+                and (
+                    (not count.count_id and count.state == "To Be Approved")
+                    or (count.count_id and count.state in ("In Progress", "To Be Approved"))
+                )
+            )
+            count.can_send_to_recount = bool(
+                not count.count_id
+                and count.state == "To Be Approved"
+                and count.review_pending_count
+            )
+            count.can_manage_relocations = bool(
+                not count.count_id
+                and count.state == "To Be Approved"
+                and count.pending_relocation_count
+            )
+            count.can_view_financial_preview = bool(
+                not count.count_id
+                and count.state in ("To Be Approved", "Approved", "Inventory Adjusted")
+                and count.adjustment_approved_count
+            )
+
+            if count.count_id:
+                count.adjustment_readiness_text = count.recount_readiness_text
+            elif open_sessions:
                 count.adjustment_readiness_text = "Hay sesiones abiertas"
             elif unresolved_relocations:
                 count.adjustment_readiness_text = "Hay productos encontrados en otra ubicación por resolver"
             elif header and header.pending_item_count:
-                count.adjustment_readiness_text = "Faltan productos/lotes por resolver"
+                count.adjustment_readiness_text = "Faltan productos/lotes por contar o resolver"
             elif header and header.duplicate_item_count:
                 count.adjustment_readiness_text = "Hay lecturas duplicadas por revisar"
-            elif pending_decisions:
-                count.adjustment_readiness_text = "Hay diferencias sin decisión"
+            elif review_pending:
+                count.adjustment_readiness_text = "Hay novedades en «Para revisión» sin decisión"
+            elif review_recount or active_recounts:
+                count.adjustment_readiness_text = "Hay novedades pendientes de reconteo"
             elif count.state == "To Be Approved":
-                count.adjustment_readiness_text = "Listo para generar el ajuste"
+                count.adjustment_readiness_text = "Todo está resuelto. El conteo está listo para aprobar."
+            elif count.state in ("Approved", "Inventory Adjusted"):
+                count.adjustment_readiness_text = "Conteo cerrado"
             else:
                 count.adjustment_readiness_text = "Conteo en proceso"
+
+            # Mensaje visible que guía al Controlador sin obligarlo a interpretar
+            # todos los KPI.
+            if count.count_id:
+                if count.state == "Approved":
+                    count.next_action_title = "RECONTEO FINALIZADO"
+                    count.next_action_text = "Los resultados ya fueron consolidados en el conteo principal."
+                elif count.can_finalize_recount:
+                    count.next_action_title = "APROBAR RECONTEO"
+                    count.next_action_text = "El reconteo está completo. Apruébelo para consolidar los resultados en el conteo principal."
+                else:
+                    count.next_action_title = "CONTINUAR RECONTEO"
+                    count.next_action_text = count.recount_readiness_text
+            elif count.state in ("Approved", "Inventory Adjusted"):
+                count.next_action_title = "CONTEO CERRADO"
+                count.next_action_text = "El proceso operativo terminó. Consulte ajustes, movimientos e informes."
+            elif open_sessions:
+                count.next_action_title = "COMPLETAR SESIONES"
+                count.next_action_text = "%s sesión(es) siguen abiertas." % len(open_sessions)
+            elif header and header.pending_item_count:
+                count.next_action_title = "COMPLETAR PENDIENTES"
+                count.next_action_text = "%s producto(s)/lote(s) siguen sin resolver." % header.pending_item_count
+            elif unresolved_relocations:
+                count.next_action_title = "RESOLVER UBICACIONES"
+                count.next_action_text = "%s producto(s)/lote(s) están fuera de su ubicación." % len(unresolved_relocations)
+            elif review_pending:
+                count.next_action_title = "REVISAR NOVEDADES"
+                count.next_action_text = "%s elemento(s) requieren una decisión del Controlador." % len(review_pending)
+            elif review_recount or active_recounts:
+                count.next_action_title = "COMPLETAR RECONTEO"
+                count.next_action_text = "Existen novedades enviadas a reconteo que todavía no fueron consolidadas."
+            elif count.adjustment_ready:
+                count.next_action_title = "APROBAR CONTEO"
+                count.next_action_text = "No existen bloqueos. Puede aprobar el conteo global."
+            else:
+                count.next_action_title = "CONTEO EN PROCESO"
+                count.next_action_text = count.adjustment_readiness_text
             count.progress_percent = header.progress_percent if header else 0.0
             count.difference_percent = header.difference_percent if header else 0.0
             expected = header.expected_item_count if header else 0
@@ -982,8 +1168,14 @@ class StockInventoryCountPersistentSnapshot(models.Model):
                 "unexpected_percent", "duplicate_percent", "expected_value",
                 "counted_value", "shortage_value", "surplus_value",
                 "net_adjustment_value", "high_impact_item_count",
-                "adjustment_candidate_count", "blocking_issue_count",
+                "adjustment_candidate_count", "review_pending_count",
+                "adjustment_approved_count", "recount_review_count",
+                "review_resolved_count", "blocking_issue_count",
                 "adjustment_ready", "adjustment_readiness_text",
+                "next_action_title", "next_action_text",
+                "can_finalize_recount", "recount_readiness_text",
+                "can_review_actions", "can_send_to_recount",
+                "can_manage_relocations", "can_view_financial_preview",
                 "dashboard_last_update",
             ])
         return True

@@ -107,12 +107,28 @@ class SetuInventoryCountSession(models.Model):
     )
 
     def _get_user_scan_context(self, create=True):
-        """Contexto aislado del usuario actual dentro de esta sesión."""
+        """Contexto aislado del usuario actual dentro de esta sesión.
+
+        Los campos PDA son compute/inverse no almacenados. Odoo puede ejecutar
+        sus inverses mientras el formulario trabaja todavía con un registro
+        virtual (NewId). En ese momento no existe un session_id persistido y
+        nunca debemos crear un contexto huérfano con session_id = NULL.
+        """
         self.ensure_one()
         Context = self.env["setu.inventory.count.session.user.context"].sudo()
 
+        # Usar el registro persistido cuando exista. En onchange/create,
+        # self.id puede ser un NewId; _origin.id será False hasta que la sesión
+        # haya sido realmente creada.
+        session_id = self._origin.id if self._origin else False
+        if not session_id and isinstance(self.id, int):
+            session_id = self.id
+
+        if not session_id:
+            return Context.browse()
+
         context = Context.search([
-            ("session_id", "=", self.id),
+            ("session_id", "=", session_id),
             ("user_id", "=", self.env.user.id),
         ], limit=1)
 
@@ -132,7 +148,7 @@ class SetuInventoryCountSession(models.Model):
                 ) % self.env.user.display_name)
 
             context = Context.create({
-                "session_id": self.id,
+                "session_id": session_id,
                 "user_id": self.env.user.id,
                 "mobile_count_qty": 1.0,
             })
@@ -158,22 +174,26 @@ class SetuInventoryCountSession(models.Model):
     def _inverse_current_scanning_location_id(self):
         for session in self:
             context = session._get_user_scan_context(create=True)
-            context.current_location_id = session.current_scanning_location_id
+            if context:
+                context.current_location_id = session.current_scanning_location_id
 
     def _inverse_current_scanning_product_id(self):
         for session in self:
             context = session._get_user_scan_context(create=True)
-            context.current_product_id = session.current_scanning_product_id
+            if context:
+                context.current_product_id = session.current_scanning_product_id
 
     def _inverse_current_scanning_lot_id(self):
         for session in self:
             context = session._get_user_scan_context(create=True)
-            context.current_lot_id = session.current_scanning_lot_id
+            if context:
+                context.current_lot_id = session.current_scanning_lot_id
 
     def _inverse_mobile_count_qty(self):
         for session in self:
             context = session._get_user_scan_context(create=True)
-            context.mobile_count_qty = session.mobile_count_qty
+            if context:
+                context.mobile_count_qty = session.mobile_count_qty
 
     def _clear_current_user_scan_context(self, keep_location=False):
         for session in self:
@@ -332,19 +352,13 @@ class SetuInventoryCountSession(models.Model):
                 ))
 
     def action_open_mobile_count(self):
-        """Open the operator-only handheld view for this count session."""
+        """Open the single supported warehouse counting interface: PDA OWL."""
         self.ensure_one()
         return {
-            'type': 'ir.actions.act_window',
-            'name': _('Conteo móvil de inventario'),
-            'res_model': self._name,
-            'res_id': self.id,
-            'view_mode': 'form',
-            'views': [(self.env.ref(
-                'setu_inventory_count_management.inventory_count_session_mobile_form_view'
-            ).id, 'form')],
-            'target': 'current',
-            'context': dict(self.env.context, setu_mobile_count=True),
+            'type': 'ir.actions.client',
+            'tag': 'setu_inventory_count_management.pda_fast_count',
+            'name': _('Conteo PDA'),
+            'params': {'session_id': self.id},
         }
 
     def action_mobile_confirm_qty(self):

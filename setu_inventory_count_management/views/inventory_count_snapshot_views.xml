@@ -12,7 +12,7 @@
                 <field name="expected_qty" sum="Esperado"/>
                 <field name="counted_qty" sum="Contado"/>
                 <field name="difference_display"/>
-                <field name="unit_cost" widget="monetary" optional="hide"/>
+                <field name="unit_cost" widget="monetary" optional="hide" readonly="1"/>
                 <field name="impact_value" widget="monetary" optional="show" decoration-danger="impact_value &lt; 0" decoration-success="impact_value &gt; 0"/>
                 <field name="high_impact" optional="show"/>
                 <field name="has_observation" string="Observación" optional="show"/>
@@ -21,8 +21,8 @@
                 <field name="last_session_id" optional="show"/>
                 <field name="last_user_id" optional="show"/>
                 <field name="last_scan_at" optional="show"/>
-                            <field name="closed_as_zero" optional="hide"/>
-                            <field name="recount_required" optional="hide"/>
+                            <field name="closed_as_zero" optional="hide" readonly="1"/>
+                            <field name="recount_required" optional="hide" readonly="1"/>
             </list>
         </field>
     </record>
@@ -82,6 +82,12 @@
             <xpath expr="//header/button[@name='reject_inventory_count']" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
+            <xpath expr="//header/button[@name='create_session']" position="attributes">
+                <attribute name="invisible">state != 'Draft' or count_id or not create_session_bool</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='cancel']" position="attributes">
+                <attribute name="invisible">state != 'Draft' or count_id or not id</attribute>
+            </xpath>
 
             <xpath expr="//header/button[@name='complete_counting']" position="before">
                 <button name="action_sync_sessions_fast"
@@ -90,7 +96,7 @@
                         icon="fa-refresh"
                         class="btn-secondary"
                         groups="setu_inventory_count_management.group_setu_inventory_count_manager"
-                        invisible="state not in ['In Progress', 'To Be Approved']"/>
+                        invisible="state != 'In Progress' or count_id"/>
                 <button name="action_mark_pending_as_zero" type="object" string="Pendientes = 0" invisible="1"/>
                 <button name="action_accept_and_approve" type="object" string="Aceptar diferencias" invisible="1"/>
                 <button name="action_approve_reviewed_count"
@@ -99,31 +105,75 @@
                         icon="fa-check"
                         class="btn-primary"
                         groups="setu_inventory_count_management.group_setu_inventory_count_manager"
-                        invisible="state != 'To Be Approved' or count_id"
+                        invisible="not adjustment_ready or count_id"
                         confirm="Se aprobará el conteo global y solo se ajustarán las líneas marcadas «Aprobar para ajuste». ¿Desea continuar?"/>
                 <button name="action_approve_without_differences" type="object" string="Aprobar" invisible="1"/>
                 <button name="action_finalize_recount"
                         type="object"
-                        string="Finalizar reconteo"
+                        string="Aprobar reconteo"
                         icon="fa-check-circle"
                         class="btn-primary"
                         groups="setu_inventory_count_management.group_setu_inventory_count_manager"
-                        invisible="not count_id or state not in ['In Progress', 'To Be Approved']"
-                        confirm="Se cerrarán las sesiones completamente escaneadas y se consolidarán los resultados en el conteo principal. El reconteo no generará ajuste de inventario. ¿Desea continuar?"/>
-                <button name="action_prepare_directed_recount" type="object" string="Generar reconteo" icon="fa-refresh" class="btn-secondary" groups="setu_inventory_count_management.group_setu_inventory_count_manager" invisible="state != 'To Be Approved' or (adjustment_candidate_count == 0 and observation_count == 0) or count_id" confirm="Se enviarán las diferencias al flujo de reconteo. ¿Desea continuar?"/>
-                <button name="action_open_financial_adjustment_preview" type="object" string="Impacto económico" icon="fa-search" class="btn-secondary" groups="setu_inventory_count_management.group_setu_inventory_count_manager" invisible="state != 'To Be Approved' or adjustment_candidate_count == 0"/>
+                        invisible="not can_finalize_recount"
+                        confirm="Se aprobará el reconteo y sus resultados se consolidarán en el conteo principal. El ajuste de inventario se realizará únicamente desde el conteo principal. ¿Desea continuar?"/>
+                <button name="action_prepare_directed_recount" type="object" string="Generar reconteo" invisible="1"/>
+                <button name="action_open_financial_adjustment_preview" type="object" string="Impacto económico" icon="fa-search" class="btn-secondary" groups="setu_inventory_count_management.group_setu_inventory_count_manager" invisible="not can_view_financial_preview"/>
             </xpath>
 
             <xpath expr="//sheet/notebook" position="before">
                 <div class="o_setu_count_control">
+                    <field name="is_recount" invisible="1"/>
+                    <field name="root_count_id" invisible="1"/>
+                    <field name="review_pending_count" invisible="1"/>
+                    <field name="adjustment_approved_count" invisible="1"/>
+                    <field name="recount_review_count" invisible="1"/>
+                    <field name="review_resolved_count" invisible="1"/>
+                    <field name="can_finalize_recount" invisible="1"/>
+                    <field name="recount_readiness_text" invisible="1"/>
+                    <field name="can_review_actions" invisible="1"/>
+                    <field name="can_send_to_recount" invisible="1"/>
+                    <field name="can_manage_relocations" invisible="1"/>
+                    <field name="can_view_financial_preview" invisible="1"/>
+
+                    <div class="alert alert-info o_setu_recount_banner" invisible="not is_recount" role="status">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="fa fa-refresh fa-lg" title="Reconteo"/>
+                            <div>
+                                <strong>RECONTEO</strong>
+                                <div>
+                                    Conteo principal:
+                                    <field name="root_count_id" readonly="1" nolabel="1"/>
+                                    <span class="ms-2">Este documento no genera ajustes de inventario; sus resultados se consolidan en el conteo principal.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="o_setu_next_action" invisible="state in ['Approved', 'Inventory Adjusted', 'Cancel'] and not is_recount">
+                        <div class="o_setu_next_action_icon">
+                            <i class="fa fa-compass" title="Siguiente acción"/>
+                        </div>
+                        <div class="flex-grow-1">
+                            <strong><field name="next_action_title" readonly="1" nolabel="1"/></strong>
+                            <span><field name="next_action_text" readonly="1" nolabel="1"/></span>
+                        </div>
+                        <button name="action_open_relocation_issues"
+                                type="object"
+                                string="Resolver ubicaciones"
+                                icon="fa-exchange"
+                                class="btn btn-primary ms-auto"
+                                groups="setu_inventory_count_management.group_setu_inventory_count_manager"
+                                invisible="not can_manage_relocations"/>
+                    </div>
+
                     <div class="o_setu_count_control_header">
                         <div>
                             <span class="o_setu_count_eyebrow">CONTROL DEL CONTEO</span>
                             <h2>Avance físico del inventario</h2>
                         </div>
                         <div class="d-flex justify-content-end gap-2 mb-2" groups="setu_inventory_count_management.group_setu_inventory_count_admin" invisible="state not in ['In Progress', 'To Be Approved']">
-                            <button name="action_admin_unlock_warehouse" type="object" string="Desbloquear almacén" class="btn btn-outline-danger" icon="fa-unlock" invisible="not warehouse_lock_active"/>
-                            <button name="action_admin_lock_warehouse" type="object" string="Bloquear almacén" class="btn btn-outline-success" icon="fa-lock" invisible="warehouse_lock_active"/>
+                            <button name="action_admin_unlock_warehouse" type="object" string="Desbloquear almacén" class="btn btn-outline-danger" icon="fa-unlock" invisible="not warehouse_lock_active or state not in ['Draft', 'In Progress', 'To Be Approved']"/>
+                            <button name="action_admin_lock_warehouse" type="object" string="Bloquear almacén" class="btn btn-outline-success" icon="fa-lock" invisible="warehouse_lock_active or state not in ['Draft', 'In Progress', 'To Be Approved']"/>
                         </div>
                         <!--
                             Un único estado visual del bloqueo.
@@ -182,8 +232,16 @@
                             <div class="o_setu_kpi_icon"><i class="fa fa-exchange" title="Diferencias"/></div>
                             <div class="o_setu_kpi_body">
                                 <span>Para revisión</span>
-                                <strong><field name="adjustment_candidate_count" readonly="1" nolabel="1"/></strong>
-                                <small>Faltantes, sobrantes o no previstos</small>
+                                <strong><field name="review_pending_count" readonly="1" nolabel="1"/></strong>
+                                <small>Novedades pendientes de decisión</small>
+                            </div>
+                        </div>
+                        <div class="o_setu_count_kpi o_setu_kpi_expected">
+                            <div class="o_setu_kpi_icon"><i class="fa fa-check-square" title="Aprobados para ajuste"/></div>
+                            <div class="o_setu_kpi_body">
+                                <span>Aprobados para ajuste</span>
+                                <strong><field name="adjustment_approved_count" readonly="1" nolabel="1"/></strong>
+                                <small>Diferencias confirmadas por el Controlador</small>
                             </div>
                         </div>
                         <div class="o_setu_count_kpi o_setu_kpi_duplicate">
@@ -209,7 +267,7 @@
                                 type="object"
                                 class="o_setu_count_kpi o_setu_kpi_expected"
                                 groups="setu_inventory_count_management.group_setu_inventory_count_manager"
-                                invisible="adjustment_candidate_count == 0">
+                                invisible="not can_view_financial_preview">
                             <div class="o_setu_kpi_icon"><i class="fa fa-money" title="Impacto económico"/></div>
                             <div class="o_setu_kpi_body">
                                 <span>Impacto económico</span>
@@ -222,14 +280,14 @@
                     <div class="o_setu_count_readiness o_setu_count_readiness_ok" invisible="not adjustment_ready">
                         <i class="fa fa-check-circle" title="Listo"/>
                         <div>
-                            <strong>Listo para generar el ajuste</strong>
+                            <strong>Listo para aprobar el conteo</strong>
                             <span><field name="adjustment_readiness_text" readonly="1" nolabel="1"/></span>
                         </div>
                     </div>
                     <div class="o_setu_count_readiness o_setu_count_readiness_wait" invisible="adjustment_ready">
                         <i class="fa fa-info-circle" title="Revisión pendiente"/>
                         <div>
-                            <strong>Estado previo al ajuste</strong>
+                            <strong>Estado del proceso</strong>
                             <span><field name="adjustment_readiness_text" readonly="1" nolabel="1"/></span>
                         </div>
                     </div>
@@ -369,12 +427,19 @@
                 </page>
 
                 <page string="Para revisión" name="snapshot_to_resolve" groups="setu_inventory_count_management.group_setu_inventory_count_manager">
-                    <div class="alert alert-warning" role="status">
-                        <strong>Bandeja única del Controlador.</strong>
-                        Aquí se concentran diferencias, no encontrados, observaciones, duplicados y
-                        productos/lotes fuera de ubicación. Seleccione líneas y tome una decisión.
+                    <div class="alert alert-secondary" role="status"
+                         invisible="state not in ['Approved', 'Inventory Adjusted', 'Cancel']">
+                        <strong>Solo consulta.</strong>
+                        Este conteo está cerrado; las decisiones registradas se conservan para auditoría.
                     </div>
-                    <div class="d-flex flex-wrap gap-2 mb-2">
+                    <div class="alert alert-warning" role="status"
+                         invisible="state in ['Approved', 'Inventory Adjusted', 'Cancel']">
+                        <strong>Bandeja única del Controlador.</strong>
+                        Aquí se concentran únicamente las novedades que requieren control.
+                        Seleccione líneas y decida si se resuelven sin ajuste, se recontarán,
+                        se ajustarán o se descartarán.
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mb-2" invisible="not can_review_actions">
                         <button name="action_review_select_all"
                                 type="object" string="Seleccionar todos"
                                 icon="fa-check-square-o" class="btn-secondary"/>
@@ -383,11 +448,13 @@
                                 icon="fa-square-o" class="btn-secondary"/>
                         <span class="border-start mx-1"/>
                         <button name="action_review_selected_approve"
-                                type="object" string="Aprobar revisión"
-                                icon="fa-check-circle" class="btn-secondary"/>
+                                type="object" string="Resolver sin ajuste"
+                                icon="fa-check-circle" class="btn-secondary"
+                                confirm="Las líneas seleccionadas se considerarán revisadas y no generarán ajuste ni reconteo. ¿Desea continuar?"/>
                         <button name="action_review_selected_recount"
                                 type="object" string="Mandar a reconteo"
-                                icon="fa-refresh" class="btn-secondary"/>
+                                icon="fa-refresh" class="btn-secondary"
+                                invisible="not can_send_to_recount"/>
                         <button name="action_review_selected_adjust"
                                 type="object" string="Aprobar para ajuste"
                                 icon="fa-check" class="btn-primary"/>
@@ -395,30 +462,36 @@
                                 type="object" string="Descartar"
                                 icon="fa-times" class="btn-secondary"/>
                     </div>
-                    <field name="snapshot_to_resolve_line_ids" readonly="1" domain="[('review_required', '=', True)]">
-                        <list create="0" delete="0" decoration-danger="status in ('difference', 'unexpected')" decoration-warning="status in ('zero', 'duplicate')">
+                    <field name="snapshot_to_resolve_line_ids" domain="[('review_required', '=', True)]">
+                        <list create="0" delete="0" edit="1" editable="bottom" open_form_view="0"
+                              decoration-danger="status in ('difference', 'unexpected')"
+                              decoration-warning="status in ('zero', 'duplicate')">
                             <field name="currency_id" column_invisible="True"/>
-                            <field name="review_selected" string="Sel."/>
-                            <field name="product_id"/>
-                            <field name="lot_id"/>
-                            <field name="review_reason" string="Motivo"/>
-                            <field name="review_decision" string="Decisión"/>
-                            <field name="location_id"/>
-                            <field name="expected_qty"/>
-                            <field name="counted_qty"/>
-                            <field name="difference_display"/>
-                            <field name="unit_cost" widget="monetary"/>
-                            <field name="impact_value" widget="monetary" decoration-danger="impact_value &lt; 0" decoration-success="impact_value &gt; 0"/>
-                            <field name="high_impact"/>
-                            <field name="status" widget="badge" decoration-danger="status in ('difference', 'unexpected')" decoration-warning="status in ('zero', 'duplicate')"/>
-                            <field name="has_observation" string="Tiene observaciones" optional="show"/>
-                            <field name="observation_note" string="Observación" optional="show"/>
-                            <field name="unexpected" string="No previsto en ubicación" optional="show"/>
-                            <field name="closed_as_zero" optional="show"/>
-                            <field name="recount_required" optional="show"/>
-                            <field name="last_session_id" optional="show"/>
-                            <field name="last_user_id" optional="show"/>
-                            <field name="last_scan_at" optional="show"/>
+                            <field name="review_selected" string="Sel." readonly="not parent.can_review_actions"/>
+                            <field name="product_id" readonly="1"/>
+                            <field name="lot_id" readonly="1"/>
+                            <field name="review_reason" string="Novedad" readonly="1"/>
+                            <field name="location_id" readonly="1"/>
+                            <field name="expected_qty" string="Sistema" readonly="1"/>
+                            <field name="counted_qty" string="Físico" readonly="1"/>
+                            <field name="difference_display" string="Diferencia" readonly="1"/>
+                            <field name="review_decision" string="Decisión" readonly="1"/>
+                            <field name="observation_note" string="Observación" optional="show" readonly="1"/>
+                            <field name="status" widget="badge" optional="hide" readonly="1"
+                                   decoration-danger="status in ('difference', 'unexpected')"
+                                   decoration-warning="status in ('zero', 'duplicate')"/>
+                            <field name="unit_cost" widget="monetary" optional="hide"/>
+                            <field name="impact_value" widget="monetary" optional="hide" readonly="1"
+                                   decoration-danger="impact_value &lt; 0"
+                                   decoration-success="impact_value &gt; 0"/>
+                            <field name="high_impact" optional="hide" readonly="1"/>
+                            <field name="has_observation" string="Tiene observaciones" optional="hide" readonly="1"/>
+                            <field name="unexpected" string="No previsto en ubicación" optional="hide" readonly="1"/>
+                            <field name="closed_as_zero" optional="hide"/>
+                            <field name="recount_required" optional="hide"/>
+                            <field name="last_session_id" optional="hide" readonly="1"/>
+                            <field name="last_user_id" optional="hide" readonly="1"/>
+                            <field name="last_scan_at" optional="hide" readonly="1"/>
                         </list>
                     </field>
                 </page>

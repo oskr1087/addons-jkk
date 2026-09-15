@@ -1746,27 +1746,27 @@
     }
 
     .setu_pda_mobile_scan {
-        min-height: 250px;
+        min-height: 150px;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 20px 16px;
+        padding: 14px 16px;
         text-align: center;
-        border: 2px dashed rgba(113, 75, 103, .45);
+        border: 2px dashed rgba(113, 75, 103, .38);
     }
 
     .setu_pda_mobile_scan_icon {
-        width: 76px;
-        height: 76px;
+        width: 52px;
+        height: 52px;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-bottom: 13px;
-        border-radius: 22px;
+        margin-bottom: 8px;
+        border-radius: 15px;
         background: rgba(113, 75, 103, .10);
         color: var(--o-brand-primary, #714b67);
-        font-size: 2.5rem;
+        font-size: 1.75rem;
     }
 
     .setu_pda_mobile_scan > span {
@@ -1778,23 +1778,24 @@
     }
 
     .setu_pda_mobile_scan > strong {
-        font-size: 1.18rem;
-        line-height: 1.3;
+        font-size: 1.02rem;
+        line-height: 1.25;
     }
 
     .setu_pda_mobile_scan > small {
-        max-width: 330px;
-        margin-top: 6px;
-        line-height: 1.4;
+        max-width: 360px;
+        margin-top: 4px;
+        line-height: 1.35;
         opacity: .62;
+        font-size: .76rem;
     }
 
     .setu_pda_mobile_reader_status {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        margin-top: 18px;
-        padding: 8px 12px;
+        margin-top: 10px;
+        padding: 6px 10px;
         border-radius: 999px;
         background: rgba(40, 167, 69, .08);
         color: #218838;
@@ -2006,71 +2007,177 @@
 
     .setu_pda_mobile_recent,
     .setu_pda_mobile_simulator {
-        padding: 10px 12px;
+        padding: 11px 12px;
     }
 
-    .setu_pda_mobile_recent summary,
-    .setu_pda_mobile_simulator summary {
-        cursor: pointer;
-        font-size: .8rem;
-        font-weight: 800;
+    .setu_pda_mobile_simulator {
+        border-color: rgba(113, 75, 103, .28);
+        background: rgba(113, 75, 103, .035);
     }
 
-    .setu_pda_mobile_recent summary span {
-        float: right;
-        min-width: 24px;
-        padding: 2px 6px;
-        border-radius: 999px;
-        background: rgba(113, 75, 103, .08);
-        text-align: center;
-    }
-
-    .setu_pda_mobile_recent_line {
+    .setu_pda_mobile_simulator_header,
+    .setu_pda_mobile_recent_title {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
-        padding: 9px 0;
-        border-top: 1px solid var(--border-color, #eceef0);
+        gap: 10px;
     }
 
-    .setu_pda_mobile_recent_line:first-of-type {
-        margin-top: 8px;
-    }
-
-    .setu_pda_mobile_recent_line strong,
-    .setu_pda_mobile_recent_line small {
+    .setu_pda_mobile_simulator_header strong,
+    .setu_pda_mobile_simulator_header small,
+    .setu_pda_mobile_recent_title strong,
+    .setu_pda_mobile_recent_title small {
         display: block;
     }
 
-    .setu_pda_mobile_recent_line small {
-        margin-top: 2px;
-        opacity: .6;
+    .setu_pda_mobile_simulator_header strong,
+    .setu_pda_mobile_recent_title strong {
+        font-size: .8rem;
+        font-weight: 900;
+        letter-spacing: .025em;
     }
 
-    .setu_pda_mobile_recent_line > b {
+    .setu_pda_mobile_simulator_header small,
+    .setu_pda_mobile_recent_title small {
+        margin-top: 2px;
+        font-size: .69rem;
+        opacity: .58;
+    }
+
+    .setu_pda_mobile_simulator_header .fa {
         flex: 0 0 auto;
-        min-width: 44px;
-        padding: 5px 8px;
-        border-radius: 9px;
-        background: rgba(40, 167, 69, .08);
-        text-align: center;
+        font-size: 1.2rem;
+        color: var(--o-brand-primary, #714b67);
+    }
+
+    .setu_pda_mobile_simulator_row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 7px;
+        margin-top: 9px;
     }
 
     .setu_pda_mobile_simulator input {
         width: 100%;
-        min-height: 48px;
-        margin-top: 9px;
-        padding: 0 10px;
+        min-width: 0;
+        min-height: 46px;
+        padding: 0 11px;
         border: 1px solid var(--border-color, #d8dadd);
         border-radius: 10px;
+        background: var(--o-view-background-color, #fff);
+        font-size: .88rem;
+    }
+
+    .setu_pda_mobile_simulator input:focus {
+        outline: 0;
+        border-color: var(--o-brand-primary, #714b67);
+        box-shadow: 0 0 0 2px rgba(113, 75, 103, .10);
     }
 
     .setu_pda_mobile_simulator .btn {
-        width: 100%;
+        min-width: 105px;
         min-height: 46px;
-        margin-top: 7px;
+        margin: 0;
         border-radius: 10px !important;
+        font-weight: 800;
+    }
+
+    .setu_pda_mobile_recent {
+        max-height: 360px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .setu_pda_mobile_recent_title {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        margin: -11px -12px 0;
+        padding: 11px 12px 8px;
+        background: var(--o-view-background-color, #fff);
+        border-bottom: 1px solid var(--border-color, #eceef0);
+    }
+
+
+    .setu_pda_mobile_recent_title > span {
+        flex: 0 0 auto;
+        min-width: 30px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: rgba(113, 75, 103, .09);
+        text-align: center;
+        font-size: .76rem;
+        font-weight: 900;
+    }
+
+    .setu_pda_mobile_recent_line {
+        display: grid;
+        grid-template-columns: minmax(0, 1.45fr) minmax(150px, .8fr);
+        gap: 12px;
+        align-items: start;
+        padding: 10px 0;
+        border-top: 1px solid var(--border-color, #eceef0);
+    }
+
+    .setu_pda_mobile_recent_product {
+        min-width: 0;
+    }
+
+    .setu_pda_mobile_recent_product strong {
+        display: block;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+    }
+
+    .setu_pda_mobile_recent_product small {
+        display: block;
+        margin-top: 3px;
+        font-size: .73rem;
+        opacity: .62;
+    }
+
+    .setu_pda_mobile_observation {
+        min-width: 0;
+        padding-left: 10px;
+        border-left: 1px solid var(--border-color, #eceef0);
+    }
+
+    .setu_pda_mobile_observation_check {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin: 0;
+        font-size: .76rem;
+        font-weight: 800;
+    }
+
+    .setu_pda_mobile_observation_check input {
+        width: 17px;
+        height: 17px;
+        margin: 0;
+        accent-color: var(--o-brand-primary, #714b67);
+    }
+
+    .setu_pda_mobile_review_hint {
+        display: block;
+        margin-top: 5px;
+        color: #9a6b12;
+        font-size: .69rem;
+        line-height: 1.3;
+    }
+
+    .setu_pda_mobile_observation_text {
+        width: 100%;
+        min-height: 54px;
+        margin-top: 6px;
+        padding: 7px 8px;
+        resize: vertical;
+        border: 1px solid var(--border-color, #d8dadd);
+        border-radius: 8px;
+        font-size: .76rem;
     }
 
     .setu_pda_mobile_footer {
@@ -2110,7 +2217,27 @@
         }
 
         .setu_pda_mobile_scan {
-            min-height: 235px;
+            min-height: 142px;
+        }
+
+        .setu_pda_mobile_recent {
+            max-height: 300px;
+        }
+
+        .setu_pda_mobile_simulator_row,
+        .setu_pda_mobile_recent_line {
+            grid-template-columns: 1fr;
+        }
+
+        .setu_pda_mobile_simulator .btn {
+            width: 100%;
+        }
+
+        .setu_pda_mobile_observation {
+            padding-left: 0;
+            padding-top: 8px;
+            border-left: 0;
+            border-top: 1px dashed var(--border-color, #eceef0);
         }
 
         .setu_pda_mobile_product_data {
@@ -2142,13 +2269,14 @@
         }
 
         .setu_pda_mobile_scan {
-            min-height: 210px;
-            padding: 16px 12px;
+            min-height: 132px;
+            padding: 12px 10px;
         }
 
         .setu_pda_mobile_scan_icon {
-            width: 68px;
-            height: 68px;
+            width: 46px;
+            height: 46px;
+            font-size: 1.5rem;
         }
     }
 }

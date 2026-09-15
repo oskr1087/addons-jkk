@@ -40,16 +40,37 @@ class StockMove(models.Model):
                 company=move.company_id,
             )
             if locked_count:
-                from odoo.exceptions import UserError
-                from odoo import _
-                raise UserError(_(
-                    'El almacén %(warehouse)s está bloqueado por el conteo %(count)s. '
-                    'No se permiten reservas ni movimientos hacia o desde este almacén '
-                    'hasta que el conteo sea aprobado.'
-                ) % {
-                    'warehouse': locked_count.warehouse_id.display_name,
-                    'count': locked_count.display_name,
-                })
+                correction_count_id = self.env.context.get(
+                    "setu_inventory_count_correction_count_id"
+                )
+                is_count_correction = self.env.context.get(
+                    "setu_inventory_count_correction"
+                )
+                correction_count = Count.browse(correction_count_id).exists() if (
+                    is_count_correction and correction_count_id
+                ) else Count
+
+                allowed_correction = bool(
+                    correction_count
+                    and locked_count._warehouse_lock_owner()
+                    == correction_count._warehouse_lock_owner()
+                    and move.location_id.usage == "internal"
+                    and move.location_dest_id.usage == "internal"
+                    and move.location_id.warehouse_id == locked_count.warehouse_id
+                    and move.location_dest_id.warehouse_id == locked_count.warehouse_id
+                )
+
+                if not allowed_correction:
+                    from odoo.exceptions import UserError
+                    from odoo import _
+                    raise UserError(_(
+                        'El almacén %(warehouse)s está bloqueado por el conteo %(count)s. '
+                        'No se permiten reservas ni movimientos hacia o desde este almacén '
+                        'hasta que el conteo sea aprobado.'
+                    ) % {
+                        'warehouse': locked_count.warehouse_id.display_name,
+                        'count': locked_count.display_name,
+                    })
         return True
 
     def _action_assign(self, *args, **kwargs):

@@ -1,3 +1,147 @@
+19.0.7.9.43
+- Corrige definitivamente el bloqueo del conteo principal después de consolidar un reconteo.
+- El dashboard ya no usa incidencias históricas de ubicación como bloqueo: valida el snapshot consolidado vigente.
+- Al aprobar un reconteo se sincronizan inmediatamente las incidencias de ubicación del conteo principal.
+- Si el reconteo deja una posición sin diferencia real, se limpia una decisión histórica «Aprobar para ajuste» y queda resuelta.
+- Antes de aprobar el conteo global se sincronizan incidencias y KPI para soportar datos creados con versiones anteriores.
+- Evita que un caso corregido por reconteo mantenga «Bloqueos para cerrar = 1» o «Resolver ubicaciones».
+19.0.7.9.42
+- Corrige incidencias de ubicación obsoletas después de aprobar/consolidar un reconteo.
+- Si el reconteo cambia una lectura inesperada a cantidad física cero, la incidencia deja de bloquear el conteo principal.
+- Evita intentar mover la cantidad histórica anterior cuando la cantidad física vigente ya es cero.
+- El KPI de ubicaciones por corregir considera únicamente incidencias que siguen siendo realmente inesperadas y con cantidad física positiva.
+- La aprobación global ignora incidencias históricas ya invalidadas por el resultado del reconteo.
+- Mantiene la cantidad a mover sincronizada con la cantidad física vigente.
+- Añade prueba de regresión para ubicación incorrecta corregida por reconteo.
+
+19.0.7.9.41
+- Completa el flujo operativo «Resolver ubicaciones» antes de aprobar el conteo principal.
+- La tarjeta RESOLVER UBICACIONES ahora muestra un botón directo «Resolver ubicaciones».
+- Añade bandeja dedicada de incidencias con producto, lote, ubicación física, ubicación origen, cantidad pendiente y acción «Generar traslado».
+- Añade formulario operativo «Resolver ubicación» con «Generar traslado interno».
+- La pestaña Ubicaciones también permite editar inline «Viene de» y «Cantidad a mover» sin abrir formularios accidentalmente.
+- Los traslados correctivos siguen permitidos únicamente en el conteo principal, estado Por aprobar, y para Controlador/Administrador.
+- Al resolver la incidencia se conserva el picking, se actualiza el snapshot/KPI y deja de bloquear la aprobación global.
+- Añade pruebas de regresión del punto de entrada y vistas de resolución de ubicaciones.
+
+19.0.7.9.40
+- Corrige el falso bloqueo del reconteo al 100% cuando su sesión ya está Finalizada/Done.
+- can_finalize_recount ya no considera product_scanned=False de líneas legacy pertenecientes a sesiones Done; el resultado consolidado del snapshot es la fuente de verdad.
+- Las sesiones abiertas sí continúan bloqueando la aprobación si tienen líneas sin escanear.
+- Renombra «Finalizar reconteo» a «Aprobar reconteo» para dejar claro el paso posterior a las decisiones del Controlador.
+- Al aprobar el reconteo se consolida en el conteo principal; el ajuste definitivo sigue ejecutándose solo desde el conteo principal.
+- Añade prueba de regresión para sesiones de reconteo Done.
+
+19.0.7.9.39
+- Corrige el rebote del PDA de reconteo hacia la pantalla «INICIAR CONTEO» después de procesar una ubicación.
+- pda_fast_control('start') ahora inicia la sesión cuando current_state=Created, incluso si state ya es In Progress.
+- pda_fast_scan normaliza sesiones legacy/reconteos con state=In Progress y current_state=Created antes de procesar una lectura.
+- Mantiene activa la ubicación y el flujo de escaneo después de pulsar Procesar.
+- Añade pruebas de regresión específicas para el estado de inicio del reconteo PDA.
+
+19.0.7.9.38
+- Corrige Conteo PDA en sesiones de reconteo.
+- Todo reconteo nuevo activa use_barcode_scanner=True en conteo hijo y sesión.
+- Reconteos legacy se consideran habilitados por el backend aun si el flag histórico estaba desactivado.
+- Al actualizar el módulo, reconteos y sesiones existentes se normalizan automáticamente con PDA activo.
+- La interfaz identifica RECONTEO PDA y recuerda que se deben escanear solo las posiciones enviadas por el controlador.
+- Añade pruebas de regresión del flujo PDA de reconteo.
+
+19.0.7.9.37
+- Corrige definitivamente la selección en la pestaña Para revisión.
+- El one2many ya no está readonly a nivel contenedor, permitiendo editar inline el checkbox Sel.
+- La lista usa editable=bottom y open_form_view=0 para evitar abrir el formulario al seleccionar.
+- Todas las demás columnas de la bandeja quedan readonly; únicamente Sel. es editable según can_review_actions.
+- Añade prueba de regresión para la selección inline del Controlador.
+
+19.0.7.9.36
+- Corrige la bandeja Para revisión para que el clic en una fila no abra el formulario del snapshot.
+- La selección del Controlador se realiza directamente con el checkbox Sel.
+- Conserva las acciones masivas Seleccionar todos / Quitar selección.
+- Añade prueba de regresión para la lista Para revisión.
+
+19.0.7.9.35
+- Añade scroll interno a PRODUCTOS ESCANEADOS en Conteo PDA.
+- Limita el historial a 360px en escritorio y 300px en móvil.
+- Mantiene fijo el encabezado PRODUCTOS ESCANEADOS mientras se desplaza la lista.
+- Añade desplazamiento táctil fluido para PDA/celular.
+- Evita que una sesión con muchas lecturas alargue indefinidamente toda la pantalla.
+
+19.0.7.9.34
+- Corrige creación de contextos PDA huérfanos con session_id NULL.
+- _get_user_scan_context ya no crea registros cuando la sesión todavía es un NewId/registro virtual.
+- Los inverses de ubicación/producto/lote/cantidad son no-op hasta que la sesión tenga ID persistido.
+- Añade pruebas de regresión para sesión virtual y contexto de sesión persistida.
+- Mantiene el rediseño PDA de v19.0.7.9.33.
+
+19.0.7.9.33
+- Rediseña la vista Conteo PDA para hacerla más compacta y operativa.
+- Reduce significativamente el bloque visual del lector QR para mostrar más información sin scroll.
+- Mueve el simulador manual antes de los productos escaneados.
+- El simulador queda siempre visible y editable durante una sesión activa; ya no depende de un bloque colapsable.
+- Añade acceso rápido con campo ARTÍCULO/LOTE/CANTIDAD + botón Procesar.
+- Mejora el historial de productos escaneados y separa visualmente producto/ubicación de observaciones.
+- Mejora la adaptación móvil del simulador y del historial.
+- Añade prueba de regresión para orden y tamaño de la interfaz PDA.
+
+19.0.7.9.32
+- Unifica el conteo operativo en una sola interfaz: Conteo PDA (OWL).
+- Elimina el acceso funcional a la vista formulario móvil legacy.
+- Desactiva las vistas legacy inventory_count_session_mobile_form_view y su herencia PDA.
+- Todos los botones "Conteo móvil / PDA" ahora abren exclusivamente el cliente PDA.
+- Renombra accesos visibles a "Conteo PDA" / "Abrir Conteo PDA".
+- Añade prueba de regresión para impedir que reaparezca una segunda interfaz de escaneo.
+
+19.0.7.9.31
+- Corrige los textos del flujo PDA para que una observación no implique reconteo automático.
+- PDA: una observación queda pendiente de revisión por el controlador.
+- Dashboard: el controlador decide entre resolver, descartar, reconteo o ajuste.
+- Se conserva la lógica backend existente: observación => review_required, sin activar recount_required.
+- Se añade prueba de regresión para impedir que reaparezcan mensajes de reconteo automático.
+
+19.0.7.9.30
+- Corrige MissingError en _ensure_location_progress_records al eliminar filas obsoletas.
+- Después de detectar location.progress obsoletos, se retiran del recordset `existing`
+  antes de ejecutar unlink(), evitando que Odoo intente mapear registros ya eliminados.
+- Corrige el escenario reproducible al reconstruir snapshots/ubicaciones en pruebas.
+- Mantiene todos los ajustes de v19.0.7.9.29.
+
+19.0.7.9.29
+- Alinea las acciones visibles con los estados funcionales de conteo, reconteo y sesiones.
+- Para revisión queda en solo consulta en Aprobado, Inventario ajustado y Cancelado.
+- Las decisiones de revisión solo funcionan en Principal Por aprobar o Reconteo En progreso/Por aprobar.
+- Mandar a reconteo solo existe en el conteo principal Por aprobar.
+- Añade validaciones de servidor para impedir acciones RPC fuera de estado.
+- Mover reubicaciones solo funciona en el conteo principal Por aprobar.
+- Impacto económico se limita a estados de revisión/cierre del conteo principal.
+- Crear sesión y Cancelar quedan limitados al principal en Borrador.
+- Iniciar/Pausar/Reanudar/Finalizar/PDA de sesión respetan estrictamente state/current_state.
+- Los controles manuales del bloqueo desaparecen al cerrar el conteo.
+- Mantiene todos los ajustes de v19.0.7.9.28.
+
+19.0.7.9.28
+- Rediseña el flujo visual del Controlador para mostrar la siguiente acción según el estado real del conteo.
+- El botón Aprobar conteo solo aparece cuando no existen bloqueos funcionales.
+- Las observaciones ya resueltas dejan de contabilizarse como bloqueos.
+- Añade KPI reales: Para revisión, Aprobados para ajuste, En reconteo y revisiones resueltas.
+- Finalizar reconteo solo aparece cuando todas las posiciones fueron escaneadas y no quedan decisiones pendientes.
+- Añade banner específico de RECONTEO con referencia al conteo principal y aclaración de que no genera ajustes.
+- Oculta la acción global redundante Generar reconteo; el reconteo se genera desde las líneas seleccionadas en Para revisión.
+- Renombra Aprobar revisión a Resolver sin ajuste.
+- Simplifica las columnas visibles por defecto en Para revisión.
+- Restringe Sincronizar sesiones al conteo principal mientras está En progreso.
+- Mantiene todos los ajustes de v19.0.7.9.27.
+
+19.0.7.9.27
+- Corrige traslado correctivo de productos/lotes encontrados en ubicación incorrecta en Odoo 19.
+- Elimina el campo obsoleto/inexistente name al crear stock.move.
+- Usa description_picking cuando está disponible.
+- Permite de forma controlada movimientos internos originados por el propio conteo mientras el almacén está bloqueado.
+- El bypass del bloqueo solo aplica al mismo conteo raíz y entre ubicaciones internas del mismo almacén.
+- Propaga el contexto correctivo durante reserva y validación del picking.
+- Corrige DeprecationWarning de self._context en stock.move.line.
+- Mantiene todos los ajustes acumulados hasta v19.0.7.9.26.
+
 19.0.7.9.26
 - Limpieza de compatibilidad Odoo 19 para despliegues Odoo.sh.
 - root_count_id y recount_level ahora declaran recursive=True.

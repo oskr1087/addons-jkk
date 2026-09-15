@@ -210,6 +210,27 @@ class InventoryCountSessionLinePDA(models.Model):
 class InventoryCountSessionPDA(models.Model):
     _inherit = 'setu.inventory.count.session'
 
+    def init(self):
+        """Normaliza reconteos legacy para que siempre tengan PDA activo."""
+        self.env.cr.execute(
+            """
+            UPDATE setu_stock_inventory_count
+               SET use_barcode_scanner = TRUE
+             WHERE count_id IS NOT NULL
+               AND COALESCE(use_barcode_scanner, FALSE) = FALSE
+            """
+        )
+        self.env.cr.execute(
+            """
+            UPDATE setu_inventory_count_session AS session
+               SET use_barcode_scanner = TRUE
+              FROM setu_stock_inventory_count AS count
+             WHERE session.inventory_count_id = count.id
+               AND count.count_id IS NOT NULL
+               AND COALESCE(session.use_barcode_scanner, FALSE) = FALSE
+            """
+        )
+
     def action_open_mobile_count(self):
         """Open the lightweight OWL workspace instead of a full form view."""
         self.ensure_one()
@@ -251,6 +272,11 @@ class InventoryCountSessionPDA(models.Model):
         return {
             'id': self.id,
             'name': self.name or '',
+            'is_recount': bool(
+                self.inventory_count_id
+                and self.inventory_count_id.count_id
+            ),
+            'pda_enabled': self._pda_scanner_enabled(),
             'warehouse': {
                 'id': self.warehouse_id.id,
                 'name': self.warehouse_id.display_name or '',
@@ -328,6 +354,14 @@ class InventoryCountSessionPDA(models.Model):
 
     def pda_fast_scan(self, barcode):
         self.ensure_one()
+
+        # Compatibilidad con sesiones/reconteos existentes que pudieron quedar
+        # con state='In Progress' y current_state='Created'. El operador ya está
+        # dentro del flujo PDA; normalizamos antes de procesar la lectura para
+        # no devolver la pantalla de «INICIAR CONTEO» después de escanear.
+        if self.state == 'In Progress' and self.current_state == 'Created':
+            self.start()
+
         self.on_barcode_scanned(barcode)
         return self._get_pda_fast_state()
 
@@ -429,8 +463,15 @@ class InventoryCountSessionPDA(models.Model):
         multiuser = len(self.user_ids) > 1
 
         if operation == 'start':
-            if self.state == 'Draft':
+            # La sesión puede estar ya en estado In Progress mientras su
+            # current_state todavía está en Created (caso típico de reconteos
+            # creados desde un conteo principal ya avanzado). En ese escenario
+            # también debemos ejecutar start(); si no, el cliente parece entrar
+            # al PDA, pero la siguiente lectura devuelve current_state=Created
+            # y la interfaz regresa a «INICIAR CONTEO».
+            if self.current_state == 'Created':
                 self.start()
+            scan_context = self._get_user_scan_context(create=True)
             scan_context.write({
                 'paused': False,
                 'finished': False,
@@ -843,13 +884,24 @@ class InventoryCountSessionPDA(models.Model):
         scan_context = self._get_user_scan_context(create=True)
         scan_context.write({
             'last_feedback': (
-                _("Observación registrada. Este producto irá a reconteo.")
+                _("Observación registrada. Este producto quedará para revisión del controlador.")
                 if has_observation
                 else _("Observación retirada.")
             ),
             'last_feedback_type': 'warning' if has_observation else 'success',
         })
         return self._get_pda_fast_state()
+
+    def _pda_scanner_enabled(self):
+        """PDA efectivo: los reconteos siempre usan el mismo flujo PDA."""
+        self.ensure_one()
+        return bool(
+            self.use_barcode_scanner
+            or (
+                self.inventory_count_id
+                and self.inventory_count_id.count_id
+            )
+        )
 
     def on_barcode_scanned(self, barcode):
         """Flujo principal de lectura para PDA.
@@ -862,8 +914,11 @@ class InventoryCountSessionPDA(models.Model):
         barcode = (barcode or '').strip() if isinstance(barcode, str) else barcode
         if not barcode:
             return self.messege_return("Advertencia", "No se detectó ningún código de barras.")
-        if not self.use_barcode_scanner:
-            return self.messege_return("Advertencia", "El conteo por PDA no está habilitado.")
+        if not self._pda_scanner_enabled():
+            return self.messege_return(
+                "Advertencia",
+                "El conteo por PDA no está habilitado."
+            )
         if self.current_state not in ('Start', 'Resume'):
             return self.messege_return("Advertencia", "Inicie o reanude la sesión para escanear.")
 

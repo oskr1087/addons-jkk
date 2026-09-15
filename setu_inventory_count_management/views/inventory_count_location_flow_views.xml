@@ -9,6 +9,7 @@
             <xpath expr="//page[@name='snapshot_all']" position="before">
                 <page string="Ubicaciones" name="location_progress"
                       groups="setu_inventory_count_management.group_setu_inventory_count_manager">
+                    <field name="can_manage_relocations" invisible="1"/>
                     <div class="alert alert-info" role="status">
                         <strong>Control físico por ubicación.</strong>
                         Solo se muestran ubicaciones que tienen productos/lotes esperados,
@@ -59,7 +60,7 @@
                         Seleccione «Viene de», confirme la cantidad y genere el traslado interno antes de aprobar.
                     </div>
                     <field name="relocation_issue_ids">
-                        <list create="0" delete="0"
+                        <list create="0" delete="0" edit="1" editable="bottom" open_form_view="0"
                               decoration-warning="state in ('pending', 'partial')"
                               decoration-success="state == 'resolved'">
                             <field name="candidate_source_location_ids" column_invisible="True"/>
@@ -79,7 +80,7 @@
                                     groups="setu_inventory_count_management.group_setu_inventory_count_manager"
                                     icon="fa-exchange"
                                     class="btn-secondary"
-                                    invisible="state == 'resolved'"/>
+                                    invisible="state == 'resolved' or not parent.can_manage_relocations"/>
                             <field name="last_picking_id" optional="show"/>
                             <field name="state" widget="badge"
                                    decoration-warning="state in ('pending', 'partial')"
@@ -90,4 +91,122 @@
             </xpath>
         </field>
     </record>
+
+    <record id="view_setu_inventory_count_relocation_issue_list" model="ir.ui.view">
+        <field name="name">setu.inventory.count.relocation.issue.list</field>
+        <field name="model">setu.inventory.count.relocation.issue</field>
+        <field name="arch" type="xml">
+            <list string="Resolver ubicaciones" create="0" delete="0" edit="1"
+                  editable="bottom" open_form_view="1"
+                  decoration-warning="state in ('pending', 'partial')"
+                  decoration-success="state == 'resolved'">
+                <field name="candidate_source_location_ids" column_invisible="True"/>
+                <field name="count_id" readonly="1"/>
+                <field name="product_id" readonly="1"/>
+                <field name="lot_id" readonly="1"/>
+                <field name="found_location_id" readonly="1"/>
+                <field name="found_qty" readonly="1"/>
+                <field name="resolved_qty" readonly="1"/>
+                <field name="remaining_qty" readonly="1"/>
+                <field name="source_location_id"
+                       string="Viene de"
+                       domain="[('id', 'in', candidate_source_location_ids)]"
+                       readonly="state == 'resolved'"/>
+                <field name="quantity_to_move"
+                       string="Cantidad a mover"
+                       readonly="state == 'resolved'"/>
+                <button name="action_create_internal_transfer"
+                        type="object"
+                        string="Generar traslado"
+                        icon="fa-exchange"
+                        class="btn-primary"
+                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
+                        invisible="state == 'resolved'"/>
+                <field name="last_picking_id" readonly="1" optional="show"/>
+                <field name="state" widget="badge" readonly="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_setu_inventory_count_relocation_issue_form" model="ir.ui.view">
+        <field name="name">setu.inventory.count.relocation.issue.form</field>
+        <field name="model">setu.inventory.count.relocation.issue</field>
+        <field name="arch" type="xml">
+            <form string="Resolver ubicación" create="0" delete="0">
+                <header>
+                    <button name="action_create_internal_transfer"
+                            type="object"
+                            string="Generar traslado interno"
+                            class="btn-primary"
+                            icon="fa-exchange"
+                            groups="setu_inventory_count_management.group_setu_inventory_count_manager"
+                            invisible="state == 'resolved'"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="pending,partial,resolved"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-warning" role="status"
+                         invisible="state == 'resolved'">
+                        <strong>Producto encontrado en otra ubicación.</strong>
+                        Seleccione la ubicación «Viene de», confirme la cantidad y genere
+                        el traslado interno. Al completarse, el bloqueo del conteo se
+                        actualizará automáticamente.
+                    </div>
+                    <div class="alert alert-success" role="status"
+                         invisible="state != 'resolved'">
+                        <strong>Ubicación resuelta.</strong>
+                        El traslado quedó registrado y esta incidencia ya no bloquea
+                        la aprobación del conteo.
+                    </div>
+                    <group>
+                        <group string="Encontrado físicamente">
+                            <field name="count_id" readonly="1"/>
+                            <field name="product_id" readonly="1"/>
+                            <field name="lot_id" readonly="1"/>
+                            <field name="found_location_id" readonly="1"/>
+                            <field name="found_qty" readonly="1"/>
+                        </group>
+                        <group string="Corrección">
+                            <field name="candidate_source_location_ids" invisible="1"/>
+                            <field name="source_location_id"
+                                   string="Viene de"
+                                   domain="[('id', 'in', candidate_source_location_ids)]"
+                                   readonly="state == 'resolved'"/>
+                            <field name="quantity_to_move"
+                                   readonly="state == 'resolved'"/>
+                            <field name="resolved_qty" readonly="1"/>
+                            <field name="remaining_qty" readonly="1"/>
+                            <field name="last_picking_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <separator string="Traslados realizados"/>
+                    <field name="resolution_line_ids" readonly="1">
+                        <list create="0" delete="0">
+                            <field name="source_location_id"/>
+                            <field name="quantity"/>
+                            <field name="picking_id"/>
+                            <field name="user_id"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_setu_inventory_count_relocation_issue_search" model="ir.ui.view">
+        <field name="name">setu.inventory.count.relocation.issue.search</field>
+        <field name="model">setu.inventory.count.relocation.issue</field>
+        <field name="arch" type="xml">
+            <search string="Resolver ubicaciones">
+                <field name="product_id"/>
+                <field name="lot_id"/>
+                <field name="found_location_id"/>
+                <filter name="pending" string="Pendientes"
+                        domain="[('state', '!=', 'resolved')]"/>
+                <filter name="resolved" string="Resueltos"
+                        domain="[('state', '=', 'resolved')]"/>
+            </search>
+        </field>
+    </record>
+
 </odoo>

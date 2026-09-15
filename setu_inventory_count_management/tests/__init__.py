@@ -76,3 +76,37 @@ from . import test_review_mass_selection
 from . import test_recount_finalize_flow
 
 from . import test_review_approve_action
+
+from . import test_internal_transfer_odoo19
+
+from . import test_controller_guided_ux
+
+from . import test_action_state_matrix
+
+from . import test_location_progress_unlink
+
+from . import test_observation_review_ux
+
+from . import test_single_pda_interface
+
+from . import test_pda_compact_layout
+
+from . import test_scan_user_context_virtual_session
+
+from . import test_pda_recent_scroll
+
+from . import test_review_selection_no_form_open
+
+from . import test_review_inline_selection
+
+from . import test_recount_pda_enabled
+
+from . import test_recount_pda_start_state
+
+from . import test_recount_done_session_readiness
+
+from . import test_relocation_resolution_entrypoint
+
+from . import test_relocation_after_recount
+
+from . import test_recount_closure_normalization

@@ -685,6 +685,26 @@ class StockInventoryCountWorkflow(models.Model):
         return self.create_re_count()
 
 
+    def _ensure_review_action_state(self, allow_recount=False):
+        """Impide decisiones de revisión fuera del estado funcional permitido."""
+        self.ensure_one()
+        if self.state in ("Approved", "Inventory Adjusted", "Cancel"):
+            raise ValidationError(
+                _("El conteo está cerrado. No se permiten nuevas decisiones de revisión.")
+            )
+        if self.count_id:
+            if self.state not in ("In Progress", "To Be Approved"):
+                raise ValidationError(
+                    _("El reconteo debe estar En progreso o Por aprobar para gestionar novedades.")
+                )
+            if allow_recount:
+                raise ValidationError(_("Un reconteo no puede generar otro reconteo."))
+        elif self.state != "To Be Approved":
+            raise ValidationError(
+                _("Las novedades del conteo principal se gestionan cuando está Por aprobar.")
+            )
+        return True
+
     def _selected_review_lines(self):
         self.ensure_one()
         return self.snapshot_line_ids.filtered(
@@ -698,6 +718,7 @@ class StockInventoryCountWorkflow(models.Model):
     def action_review_select_all(self):
         """Selecciona todas las líneas pendientes de decisión en «Para revisión»."""
         self.ensure_one()
+        self._ensure_review_action_state()
         lines = self.snapshot_line_ids.filtered(
             lambda line: (
                 line.review_required
@@ -718,6 +739,7 @@ class StockInventoryCountWorkflow(models.Model):
     def action_review_unselect_all(self):
         """Quita la selección masiva sin modificar la decisión del Controlador."""
         self.ensure_one()
+        self._ensure_review_action_state()
         lines = self.snapshot_line_ids.filtered("review_selected")
         if lines:
             lines.write({"review_selected": False})
@@ -730,6 +752,7 @@ class StockInventoryCountWorkflow(models.Model):
     def action_review_selected_approve(self):
         """Aprueba la revisión sin generar reconteo ni ajuste de inventario."""
         self.ensure_one()
+        self._ensure_review_action_state()
         lines = self._selected_review_lines()
         if not lines:
             raise ValidationError(
@@ -758,6 +781,7 @@ class StockInventoryCountWorkflow(models.Model):
 
     def action_review_selected_adjust(self):
         self.ensure_one()
+        self._ensure_review_action_state()
         lines = self._selected_review_lines()
         if not lines:
             raise ValidationError(_("Seleccione al menos una línea de «Para revisión»."))
@@ -772,6 +796,7 @@ class StockInventoryCountWorkflow(models.Model):
 
     def action_review_selected_discard(self):
         self.ensure_one()
+        self._ensure_review_action_state()
         lines = self._selected_review_lines()
         if not lines:
             raise ValidationError(_("Seleccione al menos una línea de «Para revisión»."))
@@ -786,6 +811,7 @@ class StockInventoryCountWorkflow(models.Model):
 
     def action_review_selected_recount(self):
         self.ensure_one()
+        self._ensure_review_action_state(allow_recount=True)
         lines = self._selected_review_lines()
         if not lines:
             raise ValidationError(_("Seleccione al menos una línea de «Para revisión»."))
@@ -832,6 +858,13 @@ class StockInventoryCountWorkflow(models.Model):
         if self.state != "To Be Approved":
             raise ValidationError(_("El conteo debe estar Por aprobar."))
 
+        # Normalizar incidencias históricas antes del cierre. Esto cubre
+        # conteos creados con versiones anteriores donde un reconteo ya
+        # corrigió la novedad pero quedó una incidencia de ubicación abierta.
+        if hasattr(self, "_sync_relocation_issues"):
+            self._sync_relocation_issues()
+        self._refresh_persistent_kpis()
+
         self._validate_controlled_closure()
         self._validate_review_decisions()
 
@@ -857,6 +890,10 @@ class StockInventoryCountWorkflow(models.Model):
     def action_open_financial_adjustment_preview(self):
         """Abre el impacto económico únicamente sobre la vista previa real."""
         self.ensure_one()
+        if self.count_id:
+            raise ValidationError(_("El impacto económico se consulta desde el conteo principal."))
+        if self.state not in ("To Be Approved", "Approved", "Inventory Adjusted"):
+            raise ValidationError(_("El impacto económico está disponible desde el estado Por aprobar."))
         self._refresh_persistent_kpis()
         preview = self.snapshot_line_ids.filtered(
             lambda line: line.status in ("difference", "zero", "unexpected")

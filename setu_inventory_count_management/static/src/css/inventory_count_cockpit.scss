@@ -594,3 +594,49 @@
     min-height: 3.5rem;
     resize: vertical;
 }
+
+
+/* 7.9.28 - Flujo guiado del Controlador */
+.o_form_view {
+    .o_setu_next_action {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 0 0 14px 0;
+        padding: 13px 15px;
+        border: 1px solid var(--border-color, #d8dee4);
+        border-radius: 10px;
+        background: rgba(113, 75, 103, .06);
+    }
+
+    .o_setu_next_action_icon {
+        display: flex;
+        width: 36px;
+        height: 36px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: rgba(113, 75, 103, .12);
+        font-size: 1.05rem;
+    }
+
+    .o_setu_next_action strong,
+    .o_setu_next_action span {
+        display: block;
+    }
+
+    .o_setu_next_action strong {
+        font-size: .82rem;
+        letter-spacing: .02em;
+    }
+
+    .o_setu_next_action span {
+        margin-top: 2px;
+        opacity: .82;
+        font-size: .76rem;
+    }
+
+    .o_setu_recount_banner {
+        margin-bottom: 12px;
+    }
+}

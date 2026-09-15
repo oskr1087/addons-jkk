@@ -239,7 +239,7 @@
                                     <h3>Observaciones reportadas desde la PDA</h3>
                                     <span>
                                         Esta información se actualiza automáticamente cada 5 segundos.
-                                        Las líneas observadas serán candidatas a reconteo al cerrar el conteo.
+                                        Las líneas observadas quedarán para revisión. El controlador decidirá si se resuelven, se descartan, se envían a reconteo o se aprueban para ajuste.
                                     </span>
                                 </div>
                             </div>

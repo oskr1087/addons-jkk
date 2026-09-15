@@ -55,9 +55,10 @@
 
     <!-- Workspace PDA: sin cámara; el gatillo del lector es la entrada principal. -->
     <record id="inventory_count_session_mobile_form_pda" model="ir.ui.view">
-        <field name="name">setu.inventory.count.session.mobile.form.pda</field>
+        <field name="name">setu.inventory.count.session.mobile.form.pda.legacy.disabled</field>
         <field name="model">setu.inventory.count.session</field>
         <field name="inherit_id" ref="setu_inventory_count_management.inventory_count_session_mobile_form_view"/>
+        <field name="active" eval="False"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='mobile_is_serial']" position="after">
                 <field name="pda_counted_lines" invisible="1"/>
@@ -149,9 +150,9 @@
 
             <xpath expr="//div[hasclass('setu_mobile_qty_zone')]/field[@name='mobile_count_qty']" position="before">
                 <div class="setu_mobile_qty_shortcuts">
-                    <button name="action_mobile_qty_minus" type="object" string="−1" class="btn-secondary"/>
-                    <button name="action_mobile_qty_zero" type="object" string="0" class="btn-secondary"/>
-                    <button name="action_mobile_qty_plus" type="object" string="+1" class="btn-secondary"/>
+                    <button name="action_mobile_qty_minus" type="object" invisible="state != 'In Progress'" string="−1" class="btn-secondary"/>
+                    <button name="action_mobile_qty_zero" type="object" invisible="state != 'In Progress'" string="0" class="btn-secondary"/>
+                    <button name="action_mobile_qty_plus" type="object" invisible="state != 'In Progress'" string="+1" class="btn-secondary"/>
                 </div>
             </xpath>
 
