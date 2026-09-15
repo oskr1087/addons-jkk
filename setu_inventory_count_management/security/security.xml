@@ -8,7 +8,7 @@
         </record>
 
         <record id="group_setu_inventory_count_user" model="res.groups">
-            <field name="name">Usuario</field>
+            <field name="name">Contador</field>
             <field name="privilege_id" ref="setu_inventory_count_management.categ_setu_inventory_count"/>
             <field name="implied_ids" eval="[(4, ref('stock.group_stock_user'))]"/>
         </record>
@@ -60,7 +60,7 @@
             <field name="perm_create" eval="True"/>
             <field name="perm_unlink" eval="False"/>
             <field name="groups" eval="[(4, ref('group_setu_inventory_count_user'))]"/>
-            <field name="domain_force">['|', ('user_ids','=',user.id), ('approver_id','=',user.id)]</field>
+            <field name="domain_force">[('user_ids','=',user.id)]</field>
 
         </record>
         <record id="ir_rule_user_wise_inventory_count_session_manager" model="ir.rule">
@@ -68,7 +68,7 @@
             <field name="active">True</field>
             <field name="model_id" ref="model_setu_inventory_count_session"/>
             <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
-            <field name="domain_force">['|', ('user_ids','=',user.id), ('approver_id','=',user.id)]</field>
+            <field name="domain_force">[('approver_id','=',user.id)]</field>
 
         </record>
         <record id="ir_rule_user_wise_inventory_count_manager" model="ir.rule">
@@ -156,7 +156,7 @@
             <field name="name">Contexto PDA: controlador</field>
             <field name="model_id" ref="model_setu_inventory_count_session_user_context"/>
             <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
-            <field name="domain_force">['|', ('session_id.approver_id', '=', user.id), ('session_id.user_ids', '=', user.id)]</field>
+            <field name="domain_force">[('session_id.approver_id', '=', user.id)]</field>
         </record>
         <record id="rule_session_user_scan_context_admin_all" model="ir.rule">
             <field name="name">Contexto PDA: administrador</field>
@@ -175,7 +175,7 @@
             <field name="name">Avance ubicación: controlador</field>
             <field name="model_id" ref="model_setu_inventory_count_location_progress"/>
             <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
-            <field name="domain_force">['|', ('count_id.approver_id', '=', user.id), ('count_id.session_ids.user_ids', '=', user.id)]</field>
+            <field name="domain_force">[('count_id.approver_id', '=', user.id)]</field>
         </record>
         <record id="rule_location_progress_admin_all" model="ir.rule">
             <field name="name">Avance ubicación: administrador</field>
@@ -194,7 +194,7 @@
             <field name="name">Incidencia ubicación: controlador</field>
             <field name="model_id" ref="model_setu_inventory_count_relocation_issue"/>
             <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
-            <field name="domain_force">['|', ('count_id.approver_id', '=', user.id), ('count_id.session_ids.user_ids', '=', user.id)]</field>
+            <field name="domain_force">[('count_id.approver_id', '=', user.id)]</field>
         </record>
         <record id="rule_relocation_issue_admin_all" model="ir.rule">
             <field name="name">Incidencia ubicación: administrador</field>
@@ -213,7 +213,7 @@
             <field name="name">Traslado de conteo: controlador</field>
             <field name="model_id" ref="model_setu_inventory_count_relocation_line"/>
             <field name="groups" eval="[(4, ref('group_setu_inventory_count_manager'))]"/>
-            <field name="domain_force">['|', ('issue_id.count_id.approver_id', '=', user.id), ('issue_id.count_id.session_ids.user_ids', '=', user.id)]</field>
+            <field name="domain_force">[('issue_id.count_id.approver_id', '=', user.id)]</field>
         </record>
         <record id="rule_relocation_line_admin_all" model="ir.rule">
             <field name="name">Traslado de conteo: administrador</field>

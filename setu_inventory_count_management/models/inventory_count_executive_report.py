@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 from collections import defaultdict
+import base64
+import io
 
 from odoo import _, fields, models
 from odoo.exceptions import ValidationError
@@ -18,6 +20,130 @@ class StockInventoryCountExecutiveReport(models.Model):
         return self.env.ref(
             "setu_inventory_count_management.action_report_inventory_count_executive"
         ).report_action(self)
+
+    def action_export_final_xlsx(self):
+        """Exporta el cierre auditable en Excel con las 4 secciones definitivas."""
+        self.ensure_one()
+        if self.state not in ("Approved", "Inventory Adjusted"):
+            raise ValidationError(
+                _("El Excel final solo está disponible cuando el conteo ya está cerrado.")
+            )
+
+        try:
+            import xlsxwriter
+        except ImportError as exc:
+            raise ValidationError(
+                _("El servidor no tiene disponible la librería xlsxwriter.")
+            ) from exc
+
+        data = self._get_executive_report_data()
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {"in_memory": True})
+        title = workbook.add_format({"bold": True, "font_size": 14})
+        section = workbook.add_format({"bold": True, "font_size": 12, "bottom": 1})
+        header = workbook.add_format({"bold": True, "border": 1})
+        cell = workbook.add_format({"border": 1})
+        qty = workbook.add_format({"border": 1, "num_format": "#,##0.00"})
+        money = workbook.add_format({"border": 1, "num_format": '#,##0.00'})
+        percent = workbook.add_format({"border": 1, "num_format": "0.00%"})
+
+        ws = workbook.add_worksheet("Cierre de inventario")
+        ws.freeze_panes(4, 0)
+        ws.set_column("A:A", 20)
+        ws.set_column("B:B", 42)
+        ws.set_column("C:D", 22)
+        ws.set_column("E:H", 16)
+        ws.set_column("I:L", 28)
+
+        row = 0
+        ws.write(row, 0, "CIERRE DEFINITIVO DE CONTEO DE INVENTARIO", title)
+        row += 2
+
+        # 1. Resumen ejecutivo
+        ws.write(row, 0, "1. RESUMEN EJECUTIVO", section); row += 1
+        summary = [
+            ("Conteo", self.display_name),
+            ("Almacén", self.warehouse_id.display_name),
+            ("Fecha", str(self.inventory_count_date or "")),
+            ("Estado", data["final_status_label"]),
+            ("Sesiones", data["session_count"]),
+            ("Participantes", ", ".join(data["participants"].mapped("display_name"))),
+            ("Posiciones esperadas", data["expected_positions"]),
+            ("Posiciones procesadas", data["counted_positions"]),
+            ("Avance %", data["progress"] / 100.0),
+            ("Efectividad %", data["resolution_rate"] / 100.0),
+            ("Reconteos", data["recount_count"]),
+            ("Ajuste", data["adjustment"].display_name if data["adjustment"] else "No requerido"),
+            ("Impacto neto", self.net_adjustment_value),
+        ]
+        for label, value in summary:
+            ws.write(row, 0, label, header)
+            fmt = percent if label.endswith("%") else (money if label == "Impacto neto" else cell)
+            ws.write(row, 1, value, fmt)
+            row += 1
+        row += 2
+
+        # 2. Sin novedad
+        ws.write(row, 0, "2. PRODUCTOS SIN NOVEDAD", section); row += 1
+        cols = ["Ubicación", "Producto", "Código", "Lote/Serie", "Sistema", "Físico", "Diferencia", "Usuario"]
+        for c, label in enumerate(cols): ws.write(row, c, label, header)
+        row += 1
+        for item in data["location_detail_rows"]:
+            if abs(item["difference_qty"]) > 0.000001 or item["status"] not in ("Coincide", "Matched", "matched"):
+                continue
+            values = [item["location"], item["product"], item["code"], item["lot"],
+                      item["expected_qty"], item["counted_qty"], item["difference_qty"], item["user"]]
+            for c, value in enumerate(values):
+                ws.write(row, c, value, qty if c in (4,5,6) else cell)
+            row += 1
+        row += 2
+
+        # 3. Novedades / observaciones / reconteos
+        ws.write(row, 0, "3. PRODUCTOS CON NOVEDAD, OBSERVACIONES Y RECONTEOS", section); row += 1
+        cols = ["Ubicación", "Producto", "Lote/Serie", "Sistema", "Físico final", "Diferencia",
+                "Estado", "Decisión", "Observación", "Última sesión", "Último usuario"]
+        for c, label in enumerate(cols): ws.write(row, c, label, header)
+        row += 1
+        for item in data["novelty_rows"]:
+            values = [
+                item["location"], item["product"], item["lot"], item["expected_qty"],
+                item["counted_qty"], item["difference_qty"], item["status"],
+                item["decision"], item["observation"], item["session"], item["user"],
+            ]
+            for c, value in enumerate(values):
+                ws.write(row, c, value, qty if c in (3,4,5) else cell)
+            row += 1
+        row += 2
+
+        # 4. Movimientos y contabilidad
+        ws.write(row, 0, "4. MOVIMIENTOS DE STOCK Y CONTABILIDAD", section); row += 1
+        cols = ["Tipo", "Documento", "Producto/Referencia", "Origen", "Destino",
+                "Cantidad", "Estado", "Asiento", "Diario", "Fecha"]
+        for c, label in enumerate(cols): ws.write(row, c, label, header)
+        row += 1
+        for item in data["movement_accounting_rows"]:
+            values = [item[k] for k in ("type", "document", "reference", "source", "destination",
+                                        "quantity", "state", "account_move", "journal", "date")]
+            for c, value in enumerate(values):
+                ws.write(row, c, value, qty if c == 5 else cell)
+            row += 1
+
+        workbook.close()
+        content = base64.b64encode(output.getvalue())
+        filename = "Cierre_%s.xlsx" % (self.name or str(self.id)).replace("/", "_")
+        attachment = self.env["ir.attachment"].create({
+            "name": filename,
+            "type": "binary",
+            "datas": content,
+            "mimetype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "res_model": self._name,
+            "res_id": self.id,
+        })
+        return {
+            "type": "ir.actions.act_url",
+            "url": "/web/content/%s?download=true" % attachment.id,
+            "target": "self",
+        }
 
     def _executive_money(self, amount):
         self.ensure_one()
@@ -171,6 +297,37 @@ class StockInventoryCountExecutiveReport(models.Model):
                 "relocated": line.relocation_resolved,
             })
 
+        novelty_rows = []
+        decision_selection = dict(
+            self.env["setu.inventory.count.snapshot.line"]._fields[
+                "review_decision"
+            ]._description_selection(self.env)
+        )
+        for line in lines.sorted("id"):
+            if (
+                not line.review_required
+                and not line.has_observation
+                and float_is_zero(line.difference_qty, precision_rounding=0.000001)
+                and not line.unexpected
+                and not line.duplicate
+            ):
+                continue
+            novelty_rows.append({
+                "location": line.location_id.display_name,
+                "product": line.product_id.display_name,
+                "lot": line.lot_id.name if line.lot_id else "",
+                "expected_qty": line.expected_qty,
+                "counted_qty": line.counted_qty,
+                "difference_qty": line.difference_qty,
+                "status": dict(
+                    line._fields["status"]._description_selection(self.env)
+                ).get(line.status, line.status),
+                "decision": decision_selection.get(line.review_decision, line.review_decision or ""),
+                "observation": line.observation_note or "",
+                "session": line.last_session_id.display_name if line.last_session_id else "",
+                "user": line.last_user_id.display_name if line.last_user_id else "",
+            })
+
         relocation_rows = []
         for issue in self.relocation_issue_ids.filtered(
             lambda rec: rec.state == "resolved"
@@ -185,6 +342,46 @@ class StockInventoryCountExecutiveReport(models.Model):
                     "picking": resolution.picking_id.display_name,
                     "user": resolution.user_id.display_name,
                     "date": resolution.date,
+                })
+
+        movement_accounting_rows = []
+        # Traslados de reubicación ya resueltos.
+        for row in relocation_rows:
+            movement_accounting_rows.append({
+                "type": _("Traslado interno"),
+                "document": row["picking"],
+                "reference": "%s%s" % (
+                    row["product"],
+                    (" · " + row["lot"]) if row["lot"] else "",
+                ),
+                "source": row["source"],
+                "destination": row["destination"],
+                "quantity": row["quantity"],
+                "state": _("Realizado"),
+                "account_move": "",
+                "journal": "",
+                "date": str(row["date"] or ""),
+            })
+
+        # Movimientos y asientos generados por el ajuste definitivo.
+        for inventory in self.inventory_adj_ids.filtered(lambda adj: adj.state != "cancel"):
+            for move in inventory.move_ids:
+                account_move = (
+                    move.account_move_id
+                    if "account_move_id" in move._fields
+                    else self.env["account.move"]
+                )
+                movement_accounting_rows.append({
+                    "type": _("Ajuste de inventario"),
+                    "document": inventory.display_name,
+                    "reference": move.product_id.display_name,
+                    "source": move.location_id.display_name,
+                    "destination": move.location_dest_id.display_name,
+                    "quantity": move.product_uom_qty,
+                    "state": move.state,
+                    "account_move": account_move.display_name if account_move else "",
+                    "journal": account_move.journal_id.display_name if account_move else "",
+                    "date": str(account_move.date or "") if account_move else "",
                 })
 
         active_sessions = self.session_ids.filtered(lambda s: s.state != "Cancel")
@@ -224,7 +421,9 @@ class StockInventoryCountExecutiveReport(models.Model):
             "product_rows": product_rows,
             "location_rows": location_rows,
             "location_detail_rows": location_detail_rows,
+            "novelty_rows": novelty_rows,
             "relocation_rows": relocation_rows,
+            "movement_accounting_rows": movement_accounting_rows,
             "shortages": shortages,
             "surpluses": surpluses,
             "product_count": len(product_rows),

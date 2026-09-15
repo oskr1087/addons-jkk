@@ -9,7 +9,7 @@
                     <header>
                         <field name="state" readonly="1" widget="statusbar" statusbar_visible="confirm, done"/>
                         <button name="action_cancel" type="object" string="Cancelar" invisible="state not in ['draft', 'confirm']" confirm="¿Está seguro de cancelar este ajuste de inventario?"/>
-                        <button name="action_validate" type="object" string="Validar" class="oe_highlight" confirm="¿Está seguro de validar este ajuste de inventario?" invisible="state != 'confirm'"/>
+                        <button name="action_validate" type="object" string="Aplicar ajuste definitivo" class="oe_highlight" groups="setu_inventory_count_management.group_setu_inventory_count_admin" confirm="Se modificarán las existencias y Odoo generará la valoración/contabilidad correspondiente. ¿Desea aplicar el ajuste definitivo?" invisible="state != 'confirm'"/>
                     </header>
                     <sheet>
                         <div class="oe_button_box" name="button_box">

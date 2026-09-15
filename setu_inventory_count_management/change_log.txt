@@ -1,3 +1,22 @@
+19.0.7.9.45
+- Corrige KPIs de sesiones: ahora cuentan registros/posiciones (producto+lote+ubicación), no productos únicos.
+- Una sesión de 13 líneas muestra 13 registros y 13 escaneados cuando todos están procesados.
+- Corrige KPI móvil con la misma regla por líneas.
+- Corrige avance por ubicación: una posición cerrada explícitamente como cero cuenta como procesada.
+- Una ubicación solo aparece Finalizada cuando no quedan snapshots esperados pendientes.
+- Ajusta textos de formulario/kanban para diferenciar Registros, Registros escaneados y Pendientes.
+- Agrega pruebas de regresión para evitar volver al conteo por producto único.
+19.0.7.9.44
+- Flujo definitivo cliente: Contador -> Controlador -> Administrador.
+- Renombra el perfil operativo «Usuario» a «Contador».
+- El Controlador gestiona conteos bajo su responsabilidad sin requerir ser contador de la sesión.
+- Separa aprobación operativa del conteo y aplicación definitiva del ajuste.
+- Solo Administrador puede ejecutar «Aplicar ajuste definitivo», protegido también en backend.
+- El ajuste aprobado queda auditable en estado Aprobado hasta que Administrador lo aplica.
+- Al aplicar el ajuste, Odoo genera movimientos/valoración/contabilidad y el conteo pasa a Inventario ajustado.
+- Agrega Excel final auditable sin dependencia de report_xlsx.
+- Estructura PDF/Excel en 4 bloques: resumen, sin novedad, novedades/reconteos, movimientos y contabilidad.
+- Mejora mensajes de cierre para indicar claramente el siguiente responsable.
 19.0.7.9.43
 - Corrige definitivamente el bloqueo del conteo principal después de consolidar un reconteo.
 - El dashboard ya no usa incidencias históricas de ubicación como bloqueo: valida el snapshot consolidado vigente.

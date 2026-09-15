@@ -110,3 +110,7 @@ from . import test_relocation_resolution_entrypoint
 from . import test_relocation_after_recount
 
 from . import test_recount_closure_normalization
+
+from . import test_final_client_flow_contract
+
+from . import test_session_kpi_regression

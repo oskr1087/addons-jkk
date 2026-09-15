@@ -178,10 +178,22 @@ class StockInventory(models.Model):
     def action_validate(self):
         """Aplica físicamente el ajuste y deja que Odoo genere valoración/contabilidad.
 
+        Separación de responsabilidades del flujo definitivo:
+        - Controlador: aprueba el conteo y las diferencias.
+        - Administrador: aplica el ajuste definitivo de existencias.
+
         La opción ``auto_inventory_adjustment`` no controla si se aplica o no el
         inventario. Controla únicamente si esta validación se ejecuta de forma
         automática al crear el ajuste desde el conteo.
         """
+        if not self.env.user.has_group(
+            "setu_inventory_count_management.group_setu_inventory_count_admin"
+        ):
+            raise UserError(_(
+                "Solo un Administrador de Conteo de Inventario puede aplicar "
+                "el ajuste definitivo. El Controlador únicamente aprueba el conteo."
+            ))
+
         self._check_odoo19_inventory_adjustment_accounting()
 
         for inventory in self:

@@ -53,6 +53,6 @@
             </field>
         </record>
 
-        <menuitem name="Inventory Adjustments" id="inventory_count_adjustments_menu" groups="setu_inventory_count_management.group_setu_inventory_count_manager" parent="setu_inventory_count_management.main_documents_menu" action="action_setu_stock_inventory_count_adjustment_act_window" sequence="11"/>
+        <menuitem name="Inventory Adjustments" id="inventory_count_adjustments_menu" groups="setu_inventory_count_management.group_setu_inventory_count_admin" parent="setu_inventory_count_management.main_documents_menu" action="action_setu_stock_inventory_count_adjustment_act_window" sequence="11"/>
     </data>
 </odoo>

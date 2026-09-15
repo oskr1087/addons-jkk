@@ -138,7 +138,7 @@
                                 </tr>
                             </table>
 
-                            <div class="ei-section">Cierre y trazabilidad</div>
+                            <div class="ei-section">1. Resumen ejecutivo · cierre y trazabilidad</div>
                             <table class="ei-trace ei-nobreak">
                                 <tr>
                                     <td style="width:40%;">
@@ -167,7 +167,7 @@
                             </table>
 
                             <t t-if="data['shortages'] or data['surpluses']">
-                                <div class="ei-section">Principales diferencias por impacto</div>
+                                <div class="ei-section">3. Productos con novedad · principales diferencias por impacto</div>
                                 <table class="ei-table ei-nobreak">
                                     <thead>
                                         <tr>
@@ -190,6 +190,33 @@
                                 </table>
                             </t>
 
+                            <t t-if="data['movement_accounting_rows']">
+                                <div class="ei-section">4. Movimientos de stock y contabilidad</div>
+                                <table class="ei-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Tipo</th><th>Documento</th><th>Referencia</th>
+                                            <th>Origen</th><th>Destino</th><th class="num">Cantidad</th>
+                                            <th>Asiento</th><th>Diario</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="data['movement_accounting_rows']" t-as="row">
+                                            <tr>
+                                                <td t-esc="row['type']"/>
+                                                <td t-esc="row['document']"/>
+                                                <td t-esc="row['reference']"/>
+                                                <td t-esc="row['source']"/>
+                                                <td t-esc="row['destination']"/>
+                                                <td class="num" t-esc="'{:,.2f}'.format(row['quantity'])"/>
+                                                <td t-esc="row['account_move'] or '-'"/>
+                                                <td t-esc="row['journal'] or '-'"/>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </t>
+
                             <div class="ei-footer">
                                 Informe emitido el <span t-esc="data['issued_at_fmt']"/>.
                                 Los importes se basan en cantidades y costos congelados durante el conteo y representan el resultado histórico del proceso.
@@ -197,7 +224,7 @@
 
                             <!-- UBICACIONES Y DETALLE EN PÁGINA NUEVA -->
                             <div class="ei-pagebreak"/>
-                            <div class="ei-detail-title">Resultado por ubicación</div>
+                            <div class="ei-detail-title">2. Productos sin novedad y avance por ubicación</div>
                             <div class="ei-detail-sub">
                                 Estado físico de las ubicaciones y responsables que participaron en el conteo.
                             </div>
@@ -231,7 +258,7 @@
                             </table>
 
                             <t t-if="data['relocation_rows']">
-                                <div class="ei-section">Correcciones de ubicación mediante traslado interno</div>
+                                <div class="ei-section">4. Movimientos de stock · traslados internos</div>
                                 <table class="ei-table">
                                     <thead>
                                         <tr>
@@ -262,7 +289,7 @@
                             </t>
 
                             <div class="ei-pagebreak"/>
-                            <div class="ei-detail-title">Detalle físico por ubicación</div>
+                            <div class="ei-detail-title">3. Productos con novedad, observaciones y resultado físico</div>
                             <div class="ei-detail-sub">
                                 Cada línea indica dónde se esperaba el producto/lote, dónde fue contado y quién realizó la última lectura.
                             </div>

@@ -100,7 +100,20 @@ class InventoryCountLocationProgress(models.Model):
             pending = expected.filtered(
                 lambda line: line.status == "pending" and not line.closed_as_zero
             )
-            scanned = snapshots.filtered(lambda line: line.scan_count > 0)
+            # "Procesada" incluye lectura física y cierre explícito como cero.
+            # scan_count por sí solo hacía que una ubicación cerrada mostrara 33 %
+            # aunque todas sus posiciones ya hubieran sido resueltas.
+            processed_expected = expected.filtered(
+                lambda line: (
+                    line.status != "pending"
+                    or line.closed_as_zero
+                    or line.scan_count > 0
+                )
+            )
+            unexpected_scanned = snapshots.filtered(
+                lambda line: line.unexpected and line.scan_count > 0
+            )
+            scanned = processed_expected | unexpected_scanned
             differences = snapshots.filtered(
                 lambda line: line.status in (
                     "difference", "zero", "unexpected", "duplicate"
@@ -123,22 +136,23 @@ class InventoryCountLocationProgress(models.Model):
             active_users = contexts.mapped("user_id")
 
             denominator = len(expected)
+            processed_count = len(processed_expected)
             progress.expected_position_count = denominator
-            progress.scanned_position_count = len(scanned)
+            progress.scanned_position_count = processed_count
             progress.pending_position_count = len(pending)
             progress.difference_position_count = len(differences)
             progress.progress_percent = (
-                min(len(scanned), denominator) * 100.0 / denominator
-                if denominator else (100.0 if session_lines else 0.0)
+                min(processed_count, denominator) * 100.0 / denominator
+                if denominator else (100.0 if unexpected_scanned else 0.0)
             )
             progress.active_user_ids = active_users
             progress.participant_user_ids = participants | active_users
 
             if active_users:
                 progress.state = "in_progress"
-            elif progress.finished_at:
+            elif progress.finished_at and not pending:
                 progress.state = "done"
-            elif progress.started_at or session_lines:
+            elif progress.started_at or session_lines or progress.finished_at:
                 progress.state = "in_progress"
             else:
                 progress.state = "not_started"

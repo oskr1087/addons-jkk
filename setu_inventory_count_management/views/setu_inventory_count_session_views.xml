@@ -432,8 +432,8 @@
                                         <br/>
                                         <strong>
                                             <a name="open_scanned_products" type="object" class="mr-auto">
-                                                <field name="total_scanned_products" string="Products Scanned"/>
-                                                - Products Scanned
+                                                <field name="total_scanned_products" string="Registros escaneados"/>
+                                                - Registros escaneados
                                             </a>
                                         </strong>
                                         <br/>

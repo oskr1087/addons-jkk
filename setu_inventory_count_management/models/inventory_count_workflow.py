@@ -882,8 +882,16 @@ class StockInventoryCountWorkflow(models.Model):
         self._notify_count_event("COUNT_APPROVED", {"count_id": self.id})
         self.message_post(
             body=_(
-                "Conteo global aprobado. %(adjust)s posiciones fueron aprobadas para ajuste."
-            ) % {"adjust": len(adjustment_lines)}
+                "Conteo global aprobado por el Controlador. %(adjust)s posición(es) "
+                "quedaron aprobadas para ajuste. %(next_step)s"
+            ) % {
+                "adjust": len(adjustment_lines),
+                "next_step": (
+                    _("El Administrador debe revisar y aplicar el ajuste definitivo.")
+                    if adjustment
+                    else _("No se requiere ajuste de inventario.")
+                ),
+            }
         )
         return {"type": "ir.actions.client", "tag": "reload"}
 

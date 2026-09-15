@@ -118,6 +118,13 @@
                         confirm="Se aprobará el reconteo y sus resultados se consolidarán en el conteo principal. El ajuste de inventario se realizará únicamente desde el conteo principal. ¿Desea continuar?"/>
                 <button name="action_prepare_directed_recount" type="object" string="Generar reconteo" invisible="1"/>
                 <button name="action_open_financial_adjustment_preview" type="object" string="Impacto económico" icon="fa-search" class="btn-secondary" groups="setu_inventory_count_management.group_setu_inventory_count_manager" invisible="not can_view_financial_preview"/>
+                <button name="action_export_final_xlsx"
+                        type="object"
+                        string="Excel final"
+                        icon="fa-file-excel-o"
+                        class="btn-secondary"
+                        groups="setu_inventory_count_management.group_setu_inventory_count_manager"
+                        invisible="state not in ['Approved', 'Inventory Adjusted'] or count_id"/>
             </xpath>
 
             <xpath expr="//sheet/notebook" position="before">

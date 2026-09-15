@@ -129,11 +129,11 @@
                             <div class="setu_kcard_metrics">
                                 <div>
                                     <strong><field name="total_products"/></strong>
-                                    <span>Productos</span>
+                                    <span>Registros</span>
                                 </div>
                                 <div>
                                     <strong><field name="total_scanned_products"/></strong>
-                                    <span>Escaneados</span>
+                                    <span>Registros escaneados</span>
                                 </div>
                                 <div>
                                     <strong><field name="to_be_scanned"/></strong>
@@ -365,7 +365,7 @@
                             </div>
                             <div class="setu_kcard_metrics">
                                 <div><strong><field name="total_sessions"/></strong><span>Sesiones</span></div>
-                                <div><strong><field name="scanned_products"/></strong><span>Escaneados</span></div>
+                                <div><strong><field name="scanned_products"/></strong><span>Registros escaneados</span></div>
                                 <div><strong><field name="discrepancy_products"/></strong><span>Errores</span></div>
                             </div>
                             <div class="setu_kcard_footer">
@@ -554,7 +554,7 @@
                         <strong><field name="user_ids_count" readonly="1" nolabel="1"/></strong>
                     </div>
                     <div class="setu_summary_item">
-                        <span>Escaneados</span>
+                        <span>Registros escaneados</span>
                         <strong><field name="total_scanned_products" readonly="1" nolabel="1"/></strong>
                     </div>
                     <div class="setu_summary_item">

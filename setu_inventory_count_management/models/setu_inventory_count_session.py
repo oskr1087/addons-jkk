@@ -24,11 +24,11 @@ class SetuInventoryCountSession(models.Model):
     session_end_date = fields.Datetime(string="Fecha de fin de sesión")
 
     color = fields.Integer(compute="_compute_color", string="Color")
-    total_products = fields.Integer(compute="_compute_scanned_products", store=True, string="Total de productos")
+    total_products = fields.Integer(compute="_compute_scanned_products", store=True, string="Total de registros")
     count_child_session_ids = fields.Integer(compute="_compute_child_session_ids", string="Sesiones hijas")
     total_scanned_products = fields.Integer(compute="_compute_scanned_products",
-                                            store=True, string="Total de productos escaneados")
-    to_be_scanned = fields.Integer(compute="_compute_scanned_products", store=True, string="Pendientes por escanear")
+                                            store=True, string="Total de registros escaneados")
+    to_be_scanned = fields.Integer(compute="_compute_scanned_products", store=True, string="Registros pendientes")
     rejected_lines_count = fields.Integer(compute="_compute_rejected_lines_count", string="Líneas rechazadas")
     session_history_count = fields.Integer(compute="_compute_session_history_count", string="Cantidad de historial de sesiones")
     user_ids_count = fields.Integer(compute="_compute_user_ids_count", string="Cantidad de usuarios", store=True)
@@ -224,12 +224,17 @@ class SetuInventoryCountSession(models.Model):
     )
     def _compute_mobile_status(self):
         for session in self:
-            counted_products = len(session.session_line_ids.filtered(
-                lambda line: line.scanned_qty > 0
-            ).mapped('product_id'))
-            total = session.total_products or len(session.session_line_ids.mapped('product_id'))
-            session.mobile_counted_products = counted_products
-            session.mobile_progress_percent = (counted_products / total * 100.0) if total else 0.0
+            completed_lines = session.session_line_ids.filtered(
+                lambda line: (
+                    line.product_scanned
+                    or line.pda_status in ('counted', 'zero', 'unexpected')
+                )
+            )
+            total = session.total_products or len(session.session_line_ids)
+            session.mobile_counted_products = len(completed_lines)
+            session.mobile_progress_percent = (
+                len(completed_lines) / total * 100.0 if total else 0.0
+            )
 
             product = session.current_scanning_product_id
             session.mobile_is_serial = bool(product and product.tracking == 'serial')
@@ -738,24 +743,31 @@ class SetuInventoryCountSession(models.Model):
             'domain': [('session_id', '=', self.id)]
         }
 
-    @api.depends('session_line_ids.product_scanned')
+    @api.depends(
+        'session_line_ids.product_scanned',
+        'session_line_ids.pda_status',
+        'session_line_ids.scanned_qty',
+    )
     def _compute_scanned_products(self):
+        """KPIs de sesión por POSICIÓN/REGISTRO, nunca por producto único.
+
+        Una misma referencia puede tener múltiples lotes/series/ubicaciones y cada
+        combinación es una lectura física independiente. Por eso una sesión con
+        13 líneas debe mostrar 13 registros, no 4 productos únicos.
+        """
         for session in self:
-            lines = session.session_line_ids
-            session.total_products = len(lines.mapped('product_id'))
-            product_dict = {product_id.id: [0, 0] for product_id in lines.mapped('product_id')}
-            for line in lines:
-                if product_dict.get(line.product_id.id, False):
-                    product_dict[line.product_id.id][0] += 1
-                    if line.product_scanned:
-                        product_dict[line.product_id.id][1] += 1
-            total_scanned_products = 0
-            for product, scan_value in product_dict.items():
-                if lines.mapped('product_id') and scan_value[0] == scan_value[1]:
-                    total_scanned_products += 1
-            to_be_scanned = session.total_products - total_scanned_products
-            session.total_scanned_products = total_scanned_products
-            session.to_be_scanned = to_be_scanned
+            lines = session.session_line_ids.filtered(
+                lambda line: line.product_id and line.location_id
+            )
+            completed = lines.filtered(
+                lambda line: (
+                    line.product_scanned
+                    or line.pda_status in ('counted', 'zero', 'unexpected')
+                )
+            )
+            session.total_products = len(lines)
+            session.total_scanned_products = len(completed)
+            session.to_be_scanned = max(len(lines) - len(completed), 0)
 
     def write(self, vals):
         # El operador necesita write para el flujo de conteo, pero no debe poder
