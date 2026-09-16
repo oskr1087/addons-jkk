@@ -1,0 +1,50 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<odoo>
+ <record id="view_mrp_reconditioning_list" model="ir.ui.view">
+  <field name="name">mrp.reconditioning.list</field><field name="model">mrp.reconditioning</field>
+  <field name="arch" type="xml"><list string="Reacondicionamientos" decoration-info="state == 'reconditioning'" decoration-success="state == 'done'">
+   <field name="name" decoration-bf="1"/><field name="product_id"/><field name="lot_id"/><field name="quantity"/>
+   <field name="available_qty" optional="show"/><field name="production_id" optional="show"/><field name="state"/>
+  </list></field>
+ </record>
+ <record id="view_mrp_reconditioning_form" model="ir.ui.view">
+  <field name="name">mrp.reconditioning.form</field><field name="model">mrp.reconditioning</field>
+  <field name="arch" type="xml"><form string="Reacondicionamiento">
+   <header>
+    <button name="action_generate_production" type="object" string="Generar OF" class="btn-primary" invisible="state != 'draft'"/>
+    <button name="action_open_production" type="object" string="Abrir OF" class="btn-primary" invisible="not production_id"/>
+    <button name="action_cancel" type="object" string="Cancelar" invisible="state in ('done','cancel')"/>
+    <field name="state" widget="statusbar" statusbar_visible="draft,reconditioning,done"/>
+   </header>
+   <sheet>
+    <field name="available_location_ids" invisible="1"/><field name="available_lot_ids" invisible="1"/><field name="available_product_ids" invisible="1"/><div class="oe_title"><label for="name"/><h1><field name="name"/></h1></div>
+    <group><group>
+     <field name="product_id" readonly="state != 'draft'" options="{'no_create': True, 'no_create_edit': True}" domain="[('id', 'in', available_product_ids)]"/>
+     <field name="lot_id" readonly="state != 'draft'" options="{'no_create': True, 'no_create_edit': True}" domain="[('id', 'in', available_lot_ids)]"/>
+     <field name="quantity" readonly="state != 'draft'"/><field name="product_uom_id" readonly="1"/>
+    </group><group>
+     <field name="location_id" readonly="state != 'draft'" options="{'no_create': True, 'no_create_edit': True}" domain="[('id', 'in', available_location_ids)]"/>
+     <field name="available_qty" readonly="1"/><field name="production_id" readonly="1" invisible="not production_id"/>
+    </group></group>
+    <separator string="Componentes adicionales"/>
+    <field name="component_line_ids" readonly="state != 'draft'">
+     <list editable="bottom"><field name="available_product_ids" invisible="1" column_invisible="True"/><field name="available_location_ids" invisible="1" column_invisible="True"/><field name="product_id" options="{'no_create': True, 'no_create_edit': True}" domain="[('id', 'in', available_product_ids)]"/>
+      <field name="quantity"/><field name="location_id" domain="[('id', 'in', available_location_ids)]"/><field name="available_qty" readonly="1"/><field name="product_uom_id" readonly="1"/></list>
+    </field>
+   </sheet><chatter/>
+  </form></field>
+ </record>
+ <record id="view_mrp_reconditioning_search" model="ir.ui.view">
+  <field name="name">mrp.reconditioning.search</field><field name="model">mrp.reconditioning</field>
+  <field name="arch" type="xml"><search><field name="name"/><field name="product_id"/><field name="lot_id"/>
+   <filter string="Borrador" name="draft" domain="[('state','=','draft')]"/>
+   <filter string="Reacondicionando" name="working" domain="[('state','=','reconditioning')]"/>
+   <filter string="Reacondicionado" name="done" domain="[('state','=','done')]"/>
+   <group><filter string="Producto" name="gp" context="{'group_by':'product_id'}"/><filter string="Estado" name="gs" context="{'group_by':'state'}"/></group>
+  </search></field>
+ </record>
+ <record id="action_mrp_reconditioning" model="ir.actions.act_window">
+  <field name="name">Reacondicionamientos</field><field name="res_model">mrp.reconditioning</field><field name="view_mode">list,form</field>
+  <field name="search_view_id" ref="view_mrp_reconditioning_search"/>
+ <field name="domain">[]</field><field name="context">{}</field></record>
+<record id="action_mrp_reconditioning_list_view" model="ir.actions.act_window.view"><field name="sequence">1</field><field name="view_mode">list</field><field name="view_id" ref="view_mrp_reconditioning_list"/><field name="act_window_id" ref="action_mrp_reconditioning"/></record><record id="action_mrp_reconditioning_form_view" model="ir.actions.act_window.view"><field name="sequence">2</field><field name="view_mode">form</field><field name="view_id" ref="view_mrp_reconditioning_form"/><field name="act_window_id" ref="action_mrp_reconditioning"/></record></odoo>

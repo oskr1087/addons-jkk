@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Migración de la arquitectura anterior basada directamente en mrp.production. -->
+    <record id="view_mrp_production_form_reconditioning" model="ir.ui.view">
+        <field name="name">mrp.production.form.reconditioning.compat</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <field name="is_reconditioning" invisible="1"/>
+                <field name="reconditioning_id" invisible="1"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Estos IDs existían como vistas de mrp.production. Se dejan válidos y mínimos
+         para que cualquier referencia almacenada no provoque OwlError. -->
+    <record id="view_mrp_reconditioning_list_legacy" model="ir.ui.view">
+        <field name="name">mrp.production.reconditioning.list.compat</field>
+        <field name="model">mrp.production</field>
+        <field name="arch" type="xml">
+            <list string="Órdenes de fabricación de reacondicionamiento">
+                <field name="name"/>
+                <field name="product_id"/>
+                <field name="product_qty"/>
+                <field name="reconditioning_id"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+</odoo>

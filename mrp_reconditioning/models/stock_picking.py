@@ -146,6 +146,7 @@ class StockPicking(models.Model):
                 "location_id": self.location_dest_id.id,
                 "location_dest_id": production_location.id,
                 "company_id": self.company_id.id,
+                "is_reconditioning_return_component": True,
             }
             if product.tracking in ("lot", "serial") and lots:
                 returned_component_vals["lot_ids"] = [Command.set(lots.ids)]
