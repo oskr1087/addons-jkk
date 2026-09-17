@@ -176,40 +176,6 @@
                         <button class="btn btn-primary" t-on-click="resumeSession">REANUDAR</button>
                     </section>
 
-                    <!-- Simulador manual: siempre accesible antes del historial -->
-                    <section t-if="state.data.running" class="setu_pda_mobile_simulator">
-                        <div class="setu_pda_mobile_simulator_header">
-                            <div>
-                                <strong>
-                                    <t t-if="!state.data.location">SIMULAR UBICACIÓN</t>
-                                    <t t-else="">SIMULAR LECTURA</t>
-                                </strong>
-                                <small>
-                                    <t t-if="!state.data.location">
-                                        Ingrese o pegue el código de una ubicación.
-                                    </t>
-                                    <t t-else="">
-                                        Ingrese ARTÍCULO/LOTE/CANTIDAD y presione Enter o Procesar.
-                                    </t>
-                                </small>
-                            </div>
-                            <i class="fa fa-keyboard-o" title="Simulación manual"/>
-                        </div>
-                        <div class="setu_pda_mobile_simulator_row">
-                            <input type="text"
-                                   autocomplete="off"
-                                   enterkeyhint="done"
-                                   t-att-placeholder="state.data.location ? 'ARTÍCULO/LOTE/CANTIDAD' : 'Código de ubicación'"
-                                   t-att-value="state.manualBarcode"
-                                   t-on-input="onManualBarcodeInput"
-                                   t-on-keydown="onManualBarcodeKeydown"/>
-                            <button class="btn btn-primary" t-on-click="processManualBarcode">
-                                <i class="fa fa-play" title="Procesar"/>
-                                Procesar
-                            </button>
-                        </div>
-                    </section>
-
                     <!-- Lecturas confirmadas automáticamente -->
                     <section t-if="state.data.recent &amp;&amp; state.data.recent.length"
                              class="setu_pda_mobile_recent">
@@ -258,6 +224,13 @@
                 </main>
 
                 <!-- Barra fija inferior, pensada para pulgar -->
+                <footer t-if="state.data.paused and !state.data.finished"
+                        class="setu_pda_mobile_footer is-single">
+                    <button class="btn btn-primary" t-on-click="resumeSession">
+                        <i class="fa fa-play" title="Reanudar"/> REANUDAR CONTEO
+                    </button>
+                </footer>
+
                 <footer t-if="state.data.running" class="setu_pda_mobile_footer">
                     <button class="btn btn-secondary" t-on-click="pauseSession">
                         <i class="fa fa-pause" title="Pausar"/> Pausar

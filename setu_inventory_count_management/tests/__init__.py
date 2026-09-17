@@ -119,3 +119,7 @@ from . import test_pda_refresh_persistence
 
 
 from . import test_clean_install_no_model_sql
+
+from . import test_pda_real_scanner_only
+
+from . import test_pda_pause_resume_state

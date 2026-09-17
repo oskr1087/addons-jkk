@@ -272,7 +272,13 @@ class InventoryCountSessionPDA(models.Model):
                 and not scan_context.paused
                 and not scan_context.finished
             ),
-            'paused': scan_context.paused,
+            # En sesión de un solo usuario pause()/resume() cambia current_state.
+            # El contexto por usuario no necesariamente queda con paused=True.
+            # La UI debe reconocer ambas fuentes para no ocultar REANUDAR.
+            'paused': (
+                self.current_state == 'Pause'
+                or scan_context.paused
+            ),
             'finished': (
                 self.state in ('Submitted', 'Done', 'Cancel')
                 or scan_context.finished
@@ -465,11 +471,16 @@ class InventoryCountSessionPDA(models.Model):
                 })
             else:
                 self.resume()
+                scan_context.write({
+                    'paused': False,
+                    'finished': False,
+                })
         elif operation == 'pause':
             if multiuser:
                 scan_context.paused = True
             else:
                 self.pause()
+                scan_context.paused = True
         elif operation == 'submit':
             if self.current_scanning_location_id:
                 self.pda_fast_finish_location()

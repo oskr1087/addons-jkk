@@ -1,3 +1,15 @@
+19.0.7.9.51
+- Corrige PDA pausado: reconoce current_state=Pause además del contexto por usuario.
+- Sincroniza paused=True/False también en sesiones de un solo usuario.
+- Agrega botón fijo REANUDAR CONTEO cuando la sesión está pausada.
+- El estado se conserva correctamente después de refrescar.
+19.0.7.9.50
+- Elimina completamente el bloque SIMULAR UBICACIÓN / SIMULAR LECTURA del Conteo PDA.
+- El PDA queda dedicado exclusivamente al lector físico de códigos/QR.
+- Refuerza la captura del evento barcode_scanned para distintos payloads del servicio barcode de Odoo.
+- Cada lectura del lector físico entra directamente a pda_fast_scan y actualiza el estado.
+- Elimina estado y métodos manualBarcode/processManualBarcode para evitar foco/captura accidental.
+- Conserva persistencia de sesión PDA al refrescar y las correcciones de KPIs.
 19.0.7.9.48
 - Elimina completamente pda_counting.init() y sus UPDATE SQL.
 - Corrige definitivamente la instalación limpia cuando setu_stock_inventory_count todavía no existe.

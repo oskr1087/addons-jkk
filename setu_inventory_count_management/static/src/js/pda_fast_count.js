@@ -36,13 +36,18 @@ export class PDAFastCount extends Component {
             busy: false,
             data: {},
             quantity: 1,
-            manualBarcode: "",
             scanCounter: 0,
         });
 
         useBus(this.barcode.bus, "barcode_scanned", (event) => {
-            const detail = event.detail || {};
-            const barcode = detail.barcode || detail;
+            // El servicio barcode de Odoo puede entregar el valor directamente o
+            // dentro de event.detail.barcode según el dispositivo/navegador.
+            const detail = event?.detail;
+            const barcode = (
+                typeof detail === "string"
+                    ? detail
+                    : detail?.barcode ?? detail?.value ?? event?.barcode ?? ""
+            );
             this.enqueueBarcode(barcode);
         });
 
@@ -89,7 +94,11 @@ export class PDAFastCount extends Component {
 
     enqueueBarcode(barcode) {
         const value = String(barcode || "").trim();
-        if (!value || this.state.data.finished) {
+        if (!value) {
+            return;
+        }
+        if (this.state.data.finished) {
+            this.notification.add(_t("La sesión ya está finalizada."), { type: "warning" });
             return;
         }
         this.scanQueue.push(value);
@@ -134,7 +143,6 @@ export class PDAFastCount extends Component {
         if (this.state.busy) {
             return;
         }
-        this.state.manualBarcode = "";
         await this.callServer("pda_fast_clear_location");
     }
 
@@ -142,29 +150,9 @@ export class PDAFastCount extends Component {
         if (this.state.busy || !this.state.data.location) {
             return;
         }
-        this.state.manualBarcode = "";
         await this.callServer("pda_fast_finish_location");
     }
 
-    onManualBarcodeInput(event) {
-        this.state.manualBarcode = event.target.value;
-    }
-
-    onManualBarcodeKeydown(event) {
-        if (event.key === "Enter") {
-            event.preventDefault();
-            this.processManualBarcode();
-        }
-    }
-
-    processManualBarcode() {
-        const barcode = String(this.state.manualBarcode || "").trim();
-        if (!barcode) {
-            return;
-        }
-        this.state.manualBarcode = "";
-        this.enqueueBarcode(barcode);
-    }
 
     async onObservationToggle(event) {
         if (this.state.busy) {
