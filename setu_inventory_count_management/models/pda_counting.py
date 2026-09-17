@@ -210,37 +210,6 @@ class InventoryCountSessionLinePDA(models.Model):
 class InventoryCountSessionPDA(models.Model):
     _inherit = 'setu.inventory.count.session'
 
-    def init(self):
-        """Migraciones defensivas para bases existentes.
-
-        Durante una instalación limpia Odoo puede ejecutar ``init()`` antes de que
-        la tabla de este modelo exista. Nunca debemos lanzar UPDATE contra una
-        relación inexistente: en una base nueva no hay datos históricos que migrar.
-        """
-        self.env.cr.execute(
-            "SELECT to_regclass(%s)",
-            ("setu_stock_inventory_count",),
-        )
-        if not self.env.cr.fetchone()[0]:
-            return
-        self.env.cr.execute(
-            """
-            UPDATE setu_stock_inventory_count
-               SET use_barcode_scanner = TRUE
-             WHERE count_id IS NOT NULL
-               AND COALESCE(use_barcode_scanner, FALSE) = FALSE
-            """
-        )
-        self.env.cr.execute(
-            """
-            UPDATE setu_inventory_count_session AS session
-               SET use_barcode_scanner = TRUE
-              FROM setu_stock_inventory_count AS count
-             WHERE session.inventory_count_id = count.id
-               AND count.count_id IS NOT NULL
-               AND COALESCE(session.use_barcode_scanner, FALSE) = FALSE
-            """
-        )
 
     def action_open_mobile_count(self):
         """Open the lightweight OWL workspace instead of a full form view."""

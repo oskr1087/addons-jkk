@@ -1,3 +1,8 @@
+19.0.7.9.48
+- Elimina completamente pda_counting.init() y sus UPDATE SQL.
+- Corrige definitivamente la instalación limpia cuando setu_stock_inventory_count todavía no existe.
+- La normalización legacy deja de ejecutarse durante registry.init_models.
+- Conserva las correcciones PDA, refresh F5 y KPIs de 9.45-9.47.
 19.0.7.9.47
 - Corrige instalación limpia: pda_counting.init() ya no ejecuta UPDATE antes de existir setu_stock_inventory_count.
 - Las migraciones SQL históricas se ejecutan únicamente cuando la tabla ya existe.

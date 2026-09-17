@@ -117,4 +117,5 @@ from . import test_session_kpi_regression
 
 from . import test_pda_refresh_persistence
 
-from . import test_clean_install_init_guard
+
+from . import test_clean_install_no_model_sql
