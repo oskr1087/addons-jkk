@@ -114,3 +114,5 @@ from . import test_recount_closure_normalization
 from . import test_final_client_flow_contract
 
 from . import test_session_kpi_regression
+
+from . import test_pda_refresh_persistence

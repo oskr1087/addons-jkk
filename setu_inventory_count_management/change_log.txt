@@ -1,3 +1,9 @@
+19.0.7.9.46
+- Corrige el refresco (F5) del Conteo PDA: conserva la sesión activa en la pestaña.
+- Al refrescar ya no se pierde session_id ni aparece una sesión vacía/lista distinta.
+- Abrir otra sesión PDA reemplaza correctamente la sesión persistida.
+- Al salir del PDA se limpia la sesión persistida.
+- Corrige el mensaje de observación: una observación va a revisión del Controlador y no fuerza reconteo automático.
 19.0.7.9.45
 - Corrige KPIs de sesiones: ahora cuentan registros/posiciones (producto+lote+ubicación), no productos únicos.
 - Una sesión de 13 líneas muestra 13 registros y 13 escaneados cuando todos están procesados.

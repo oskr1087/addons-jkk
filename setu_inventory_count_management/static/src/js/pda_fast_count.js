@@ -14,7 +14,20 @@ export class PDAFastCount extends Component {
         this.notification = useService("notification");
         this.action = useService("action");
 
-        this.sessionId = this.props.action.params.session_id;
+        // Los params de una ir.actions.client dinámica no siempre sobreviven a F5.
+        // Persistimos únicamente el ID de la sesión PDA de esta pestaña. Cuando se
+        // abre otra sesión, el parámetro fresco reemplaza inmediatamente al anterior.
+        const actionSessionId = Number(this.props.action?.params?.session_id || 0);
+        const storedSessionId = Number(
+            window.sessionStorage.getItem("setu_inventory_count_pda_session_id") || 0
+        );
+        this.sessionId = actionSessionId || storedSessionId;
+        if (actionSessionId) {
+            window.sessionStorage.setItem(
+                "setu_inventory_count_pda_session_id",
+                String(actionSessionId)
+            );
+        }
         this.scanQueue = [];
         this.processingQueue = false;
 
@@ -39,6 +52,11 @@ export class PDAFastCount extends Component {
     async loadState() {
         this.state.loading = true;
         try {
+            if (!this.sessionId) {
+                throw new Error(_t(
+                    "No se pudo recuperar la sesión PDA activa. Vuelva a abrir Conteo PDA desde la sesión."
+                ));
+            }
             const data = await this.orm.call(
                 "setu.inventory.count.session",
                 "pda_fast_get_state",
@@ -217,6 +235,9 @@ export class PDAFastCount extends Component {
     }
 
     async goBack() {
+        window.sessionStorage.removeItem(
+            "setu_inventory_count_pda_session_id"
+        );
         await this.action.doAction(
             "setu_inventory_count_management.inventory_count_session_act_window"
         );
