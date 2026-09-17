@@ -6,12 +6,6 @@
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//div[@name='button_box']" position="inside">
-                <button name="action_open_aps_lot_reassignment"
-                        type="object"
-                        class="oe_stat_button"
-                        icon="fa-random"
-                        invisible="not advanced_plan_id or state in ('done', 'cancel')"
-                        string="Reasignar lotes"/>
                 <button name="action_open_component_purchases"
                         type="object"
                         class="oe_stat_button"
