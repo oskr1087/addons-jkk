@@ -1,6 +1,6 @@
 {
     "name": "Conteo de Inventario Multiusuario - Móvil/PDA",
-    "version": "19.0.7.9.46",
+    "version": "19.0.7.9.47",
     "category": "Inventario",
     "license": "OPL-1",
     "author": "Oscar Morocho",

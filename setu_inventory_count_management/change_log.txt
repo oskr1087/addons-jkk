@@ -1,3 +1,7 @@
+19.0.7.9.47
+- Corrige instalación limpia: pda_counting.init() ya no ejecuta UPDATE antes de existir setu_stock_inventory_count.
+- Las migraciones SQL históricas se ejecutan únicamente cuando la tabla ya existe.
+- Conserva las correcciones PDA/KPI de 9.45 y 9.46.
 19.0.7.9.46
 - Corrige el refresco (F5) del Conteo PDA: conserva la sesión activa en la pestaña.
 - Al refrescar ya no se pierde session_id ni aparece una sesión vacía/lista distinta.

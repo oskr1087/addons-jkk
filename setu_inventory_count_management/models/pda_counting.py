@@ -211,7 +211,18 @@ class InventoryCountSessionPDA(models.Model):
     _inherit = 'setu.inventory.count.session'
 
     def init(self):
-        """Normaliza reconteos legacy para que siempre tengan PDA activo."""
+        """Migraciones defensivas para bases existentes.
+
+        Durante una instalación limpia Odoo puede ejecutar ``init()`` antes de que
+        la tabla de este modelo exista. Nunca debemos lanzar UPDATE contra una
+        relación inexistente: en una base nueva no hay datos históricos que migrar.
+        """
+        self.env.cr.execute(
+            "SELECT to_regclass(%s)",
+            ("setu_stock_inventory_count",),
+        )
+        if not self.env.cr.fetchone()[0]:
+            return
         self.env.cr.execute(
             """
             UPDATE setu_stock_inventory_count
