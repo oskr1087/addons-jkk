@@ -1,3 +1,9 @@
+19.0.7.9.52
+- Corrige lectura física de ubicaciones/productos en PDA para lectores tipo teclado (keyboard wedge).
+- Mantiene barcode_service de Odoo y agrega fallback global por ráfaga de teclado + Enter/Tab.
+- Soporta lectores que no envían Enter mediante cierre automático de ráfaga.
+- No captura teclas mientras el usuario escribe una observación.
+- La lectura física sigue entrando por enqueueBarcode -> pda_fast_scan.
 19.0.7.9.51
 - Corrige PDA pausado: reconoce current_state=Pause además del contexto por usuario.
 - Sincroniza paused=True/False también en sesiones de un solo usuario.

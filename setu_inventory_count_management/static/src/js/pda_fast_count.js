@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, onWillStart, useState } from "@odoo/owl";
+import { Component, onMounted, onWillStart, onWillUnmount, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useBus, useService } from "@web/core/utils/hooks";
 import { _t } from "@web/core/l10n/translation";
@@ -31,6 +31,14 @@ export class PDAFastCount extends Component {
         this.scanQueue = [];
         this.processingQueue = false;
 
+        // Fallback para lectores físicos configurados como teclado (keyboard wedge).
+        // Algunos handhelds Android/Windows no disparan barcode_service y escriben
+        // carácter por carácter terminando con Enter/Tab.
+        this.keyboardScanBuffer = "";
+        this.keyboardScanLastAt = 0;
+        this.keyboardScanTimer = null;
+        this.onPhysicalScannerKeydown = this.onPhysicalScannerKeydown.bind(this);
+
         this.state = useState({
             loading: true,
             busy: false,
@@ -52,6 +60,68 @@ export class PDAFastCount extends Component {
         });
 
         onWillStart(() => this.loadState());
+        onMounted(() => {
+            document.addEventListener("keydown", this.onPhysicalScannerKeydown, true);
+        });
+        onWillUnmount(() => {
+            document.removeEventListener("keydown", this.onPhysicalScannerKeydown, true);
+            if (this.keyboardScanTimer) {
+                window.clearTimeout(this.keyboardScanTimer);
+            }
+        });
+    }
+
+    onPhysicalScannerKeydown(event) {
+        if (this.state.loading || this.state.busy || this.state.data.finished || this.state.data.paused) {
+            return;
+        }
+
+        // No secuestrar escritura humana en observaciones u otros controles.
+        const target = event.target;
+        const tag = target?.tagName?.toLowerCase();
+        if (tag === "input" || tag === "textarea" || target?.isContentEditable) {
+            return;
+        }
+
+        const now = Date.now();
+        // Un lector físico entrega caracteres muy rápido. Si hubo una pausa larga,
+        // empezamos un payload nuevo y evitamos acumular teclas humanas.
+        if (now - this.keyboardScanLastAt > 250) {
+            this.keyboardScanBuffer = "";
+        }
+        this.keyboardScanLastAt = now;
+
+        if (event.key === "Enter" || event.key === "Tab") {
+            const value = this.keyboardScanBuffer.trim();
+            this.keyboardScanBuffer = "";
+            if (this.keyboardScanTimer) {
+                window.clearTimeout(this.keyboardScanTimer);
+                this.keyboardScanTimer = null;
+            }
+            if (value.length >= 2) {
+                event.preventDefault();
+                event.stopPropagation();
+                this.enqueueBarcode(value);
+            }
+            return;
+        }
+
+        if (event.key?.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+            this.keyboardScanBuffer += event.key;
+            if (this.keyboardScanTimer) {
+                window.clearTimeout(this.keyboardScanTimer);
+            }
+            this.keyboardScanTimer = window.setTimeout(() => {
+                // Algunos lectores no envían Enter. Cerramos automáticamente una
+                // ráfaga de teclado tras 120 ms sin caracteres.
+                const value = this.keyboardScanBuffer.trim();
+                this.keyboardScanBuffer = "";
+                this.keyboardScanTimer = null;
+                if (value.length >= 2) {
+                    this.enqueueBarcode(value);
+                }
+            }, 120);
+        }
     }
 
     async loadState() {
