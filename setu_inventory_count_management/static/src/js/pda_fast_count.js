@@ -46,6 +46,7 @@ export class PDAFastCount extends Component {
             data: {},
             quantity: 1,
             scanCounter: 0,
+            scannerValue: "",
         });
 
         useBus(this.barcode.bus, "barcode_scanned", (event) => {
@@ -87,33 +88,31 @@ export class PDAFastCount extends Component {
     }
 
     onScannerInput(event) {
-        const el = event.currentTarget;
-        const value = String(el?.value || "");
+        const value = String(event.currentTarget?.value || "");
+        this.state.scannerValue = value;
         if (!value) {
             return;
         }
-        // Android/handheld scanners pueden insertar todo el payload mediante
-        // input/paste sin emitir una secuencia keydown utilizable.
         if (this.keyboardScanTimer) {
             window.clearTimeout(this.keyboardScanTimer);
         }
+        // Procesamiento industrial: NO requiere Enter ni Tab.
+        // Cada evento input reinicia el temporizador; cuando el lector termina de
+        // enviar la ráfaga, procesamos inmediatamente el payload completo.
         this.keyboardScanTimer = window.setTimeout(() => {
-            const payload = String(el.value || "").trim();
-            el.value = "";
+            const payload = String(this.state.scannerValue || "").trim();
             this.keyboardScanTimer = null;
             if (payload.length >= 2) {
-                this.enqueueBarcode(payload);
+                this.submitScannerValue(payload);
             }
-            this.focusScannerInput();
-        }, 100);
+        }, 80);
     }
 
     onScannerKeydown(event) {
         if (event.key !== "Enter" && event.key !== "Tab") {
             return;
         }
-        const el = event.currentTarget;
-        const payload = String(el?.value || "").trim();
+        const payload = String(this.state.scannerValue || event.currentTarget?.value || "").trim();
         if (!payload) {
             return;
         }
@@ -123,9 +122,17 @@ export class PDAFastCount extends Component {
             window.clearTimeout(this.keyboardScanTimer);
             this.keyboardScanTimer = null;
         }
-        el.value = "";
-        this.enqueueBarcode(payload);
-        this.focusScannerInput();
+        this.submitScannerValue(payload);
+    }
+
+    submitScannerValue(payload = null) {
+        const value = String(payload ?? this.state.scannerValue ?? "").trim();
+        if (!value) {
+            return;
+        }
+        this.state.scannerValue = "";
+        this.enqueueBarcode(value);
+        window.setTimeout(() => this.focusScannerInput(), 0);
     }
 
     onPhysicalScannerKeydown(event) {
@@ -177,7 +184,7 @@ export class PDAFastCount extends Component {
                 if (value.length >= 2) {
                     this.enqueueBarcode(value);
                 }
-            }, 120);
+            }, 80);
         }
     }
 

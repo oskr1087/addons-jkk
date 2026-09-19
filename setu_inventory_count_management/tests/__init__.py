@@ -125,3 +125,7 @@ from . import test_pda_real_scanner_only
 from . import test_pda_pause_resume_state
 
 from . import test_pda_keyboard_scanner
+
+from . import test_pda_visible_scanner_input
+
+from . import test_pda_zero_touch_scanner

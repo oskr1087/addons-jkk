@@ -641,14 +641,41 @@
     }
 }
 
-/* Input técnico para lectores keyboard-wedge/Android. Debe permanecer
-   enfocable sin ocupar espacio ni mostrarse como campo de simulación. */
-.setu_pda_scanner_sink {
-    position: fixed !important;
-    width: 1px !important;
-    height: 1px !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-    left: -10px !important;
-    top: -10px !important;
+/* Campo real y visible de captura del lector PDA. */
+.setu_pda_scanner_capture {
+    max-width: 700px;
+    margin: 0 auto 12px;
+    padding: 12px;
+    border: 1px solid #d8dadd;
+    border-radius: 12px;
+    background: #fff;
+
+    label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .04em;
+    }
+
+    small {
+        display: block;
+        margin-top: 6px;
+    }
+}
+
+.setu_pda_scanner_capture_row {
+    display: flex;
+    gap: 8px;
+
+    .setu_pda_scanner_input {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+    .btn {
+        flex: 0 0 auto;
+    }
 }

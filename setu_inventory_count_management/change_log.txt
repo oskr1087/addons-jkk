@@ -1,3 +1,15 @@
+19.0.7.9.55
+- El lector PDA procesa automáticamente cada lectura sin requerir Enter ni Tab.
+- Reduce a 80 ms la detección de fin de ráfaga para respuesta inmediata.
+- El campo visible permanece como receptor/diagnóstico y se limpia tras procesar.
+- El botón queda únicamente como respaldo manual, no forma parte del flujo normal.
+19.0.7.9.54
+- Hace visible el campo real de captura del escáner PDA.
+- La lectura sigue siendo automática por Enter/Tab o por fin de ráfaga del lector.
+- Muestra exactamente el texto que entrega el dispositivo antes de procesarlo.
+- Agrega botón Procesar como respaldo para dispositivos que no finalizan correctamente la lectura.
+- El campo se limpia automáticamente tras enviar el código y recupera el foco.
+- No reintroduce el simulador.
 19.0.7.9.53
 - Corrige lectura de ubicación impresa como ruta (ej. 13/E/P/AE/01), además de stock.location.barcode.
 - Limita la resolución de ubicación al alcance interno de la sesión y bloquea coincidencias ambiguas.

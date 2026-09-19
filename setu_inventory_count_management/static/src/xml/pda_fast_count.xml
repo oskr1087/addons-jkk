@@ -25,17 +25,36 @@
                 </header>
 
                 <main class="setu_pda_mobile_body">
-                    <!-- Capturador técnico del lector. No es un simulador ni un campo manual. -->
-                    <input t-ref="scannerInput"
-                           class="setu_pda_scanner_sink"
-                           type="text"
-                           inputmode="none"
-                           autocomplete="off"
-                           autocapitalize="off"
-                           spellcheck="false"
-                           aria-label="Capturador del lector de códigos"
-                           t-on-input="onScannerInput"
-                           t-on-keydown="onScannerKeydown"/>
+                    <!-- Campo REAL del lector: visible para diagnosticar exactamente
+                         qué texto entrega el dispositivo. No es un simulador. -->
+                    <section t-if="state.data.running and !state.data.paused and !state.data.finished"
+                             class="setu_pda_scanner_capture">
+                        <label for="setu_pda_scanner_input">LECTURA DEL ESCÁNER</label>
+                        <div class="setu_pda_scanner_capture_row">
+                            <input id="setu_pda_scanner_input"
+                                   t-ref="scannerInput"
+                                   class="form-control setu_pda_scanner_input"
+                                   type="text"
+                                   autocomplete="off"
+                                   autocapitalize="off"
+                                   spellcheck="false"
+                                   placeholder="Escanee aquí ubicación o QR del producto"
+                                   t-att-value="state.scannerValue"
+                                   t-on-input="onScannerInput"
+                                   t-on-keydown="onScannerKeydown"/>
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    title="Respaldo manual"
+                                    t-att-disabled="!state.scannerValue"
+                                    t-on-click="() => this.submitScannerValue()">
+                                Procesar
+                            </button>
+                        </div>
+                        <small>
+                            Lectura automática: escanee y el sistema procesa el código inmediatamente.
+                            No necesita presionar Enter, Tab ni ningún botón.
+                        </small>
+                    </section>
                     <!-- Ubicación siempre visible -->
                     <section class="setu_pda_mobile_location">
                         <div class="setu_pda_mobile_location_icon">
