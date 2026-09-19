@@ -25,6 +25,17 @@
                 </header>
 
                 <main class="setu_pda_mobile_body">
+                    <!-- Capturador técnico del lector. No es un simulador ni un campo manual. -->
+                    <input t-ref="scannerInput"
+                           class="setu_pda_scanner_sink"
+                           type="text"
+                           inputmode="none"
+                           autocomplete="off"
+                           autocapitalize="off"
+                           spellcheck="false"
+                           aria-label="Capturador del lector de códigos"
+                           t-on-input="onScannerInput"
+                           t-on-keydown="onScannerKeydown"/>
                     <!-- Ubicación siempre visible -->
                     <section class="setu_pda_mobile_location">
                         <div class="setu_pda_mobile_location_icon">

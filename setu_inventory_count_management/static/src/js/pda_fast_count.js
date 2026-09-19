@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, onMounted, onWillStart, onWillUnmount, useState } from "@odoo/owl";
+import { Component, onMounted, onWillStart, onWillUnmount, useRef, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useBus, useService } from "@web/core/utils/hooks";
 import { _t } from "@web/core/l10n/translation";
@@ -37,6 +37,7 @@ export class PDAFastCount extends Component {
         this.keyboardScanBuffer = "";
         this.keyboardScanLastAt = 0;
         this.keyboardScanTimer = null;
+        this.scannerInput = useRef("scannerInput");
         this.onPhysicalScannerKeydown = this.onPhysicalScannerKeydown.bind(this);
 
         this.state = useState({
@@ -62,6 +63,7 @@ export class PDAFastCount extends Component {
         onWillStart(() => this.loadState());
         onMounted(() => {
             document.addEventListener("keydown", this.onPhysicalScannerKeydown, true);
+            this.focusScannerInput();
         });
         onWillUnmount(() => {
             document.removeEventListener("keydown", this.onPhysicalScannerKeydown, true);
@@ -69,6 +71,61 @@ export class PDAFastCount extends Component {
                 window.clearTimeout(this.keyboardScanTimer);
             }
         });
+    }
+
+    focusScannerInput() {
+        const el = this.scannerInput.el;
+        if (!el || this.state.data.paused || this.state.data.finished) {
+            return;
+        }
+        const active = document.activeElement;
+        const tag = active?.tagName?.toLowerCase();
+        if (tag === "textarea" || active?.isContentEditable) {
+            return;
+        }
+        el.focus({ preventScroll: true });
+    }
+
+    onScannerInput(event) {
+        const el = event.currentTarget;
+        const value = String(el?.value || "");
+        if (!value) {
+            return;
+        }
+        // Android/handheld scanners pueden insertar todo el payload mediante
+        // input/paste sin emitir una secuencia keydown utilizable.
+        if (this.keyboardScanTimer) {
+            window.clearTimeout(this.keyboardScanTimer);
+        }
+        this.keyboardScanTimer = window.setTimeout(() => {
+            const payload = String(el.value || "").trim();
+            el.value = "";
+            this.keyboardScanTimer = null;
+            if (payload.length >= 2) {
+                this.enqueueBarcode(payload);
+            }
+            this.focusScannerInput();
+        }, 100);
+    }
+
+    onScannerKeydown(event) {
+        if (event.key !== "Enter" && event.key !== "Tab") {
+            return;
+        }
+        const el = event.currentTarget;
+        const payload = String(el?.value || "").trim();
+        if (!payload) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        if (this.keyboardScanTimer) {
+            window.clearTimeout(this.keyboardScanTimer);
+            this.keyboardScanTimer = null;
+        }
+        el.value = "";
+        this.enqueueBarcode(payload);
+        this.focusScannerInput();
     }
 
     onPhysicalScannerKeydown(event) {

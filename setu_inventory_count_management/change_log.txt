@@ -1,3 +1,8 @@
+19.0.7.9.53
+- Corrige lectura de ubicación impresa como ruta (ej. 13/E/P/AE/01), además de stock.location.barcode.
+- Limita la resolución de ubicación al alcance interno de la sesión y bloquea coincidencias ambiguas.
+- Agrega capturador técnico invisible y autoenfocado para lectores Android/keyboard-wedge que emiten input/paste.
+- Mantiene barcode_service y fallback keydown; no reintroduce la interfaz de simulación.
 19.0.7.9.52
 - Corrige lectura física de ubicaciones/productos en PDA para lectores tipo teclado (keyboard wedge).
 - Mantiene barcode_service de Odoo y agrega fallback global por ráfaga de teclado + Enter/Tab.

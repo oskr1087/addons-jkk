@@ -640,3 +640,15 @@
         margin-bottom: 12px;
     }
 }
+
+/* Input técnico para lectores keyboard-wedge/Android. Debe permanecer
+   enfocable sin ocupar espacio ni mostrarse como campo de simulación. */
+.setu_pda_scanner_sink {
+    position: fixed !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    left: -10px !important;
+    top: -10px !important;
+}

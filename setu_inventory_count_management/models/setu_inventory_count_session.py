@@ -299,19 +299,40 @@ class SetuInventoryCountSession(models.Model):
         return bool(allowed)
 
     def _find_scanning_location(self, barcode):
-        """Busca una ubicación por el contenido exacto del QR/código."""
+        """Resuelve la ubicación escaneada dentro del alcance de la sesión.
+
+        Las etiquetas operativas pueden contener el ``barcode`` técnico de Odoo o
+        la ruta visible de la ubicación (p. ej. ``13/E/P/AE/01``). Ambos formatos
+        son válidos; nunca se acepta una coincidencia ambigua o fuera del alcance.
+        """
         self.ensure_one()
+        value = (barcode or '').strip() if isinstance(barcode, str) else barcode
+        if not value:
+            return self.env['stock.location']
+
         Location = self.env['stock.location'].sudo()
-        locations = Location.search([
-            ('barcode', '=', barcode),
-            ('usage', '=', 'internal'),
-        ], limit=2)
+        scope = self._get_scanning_location_scope()
+        base_domain = [('usage', '=', 'internal')]
+        if scope:
+            base_domain.append(('id', 'child_of', scope.id))
+
+        # 1. Código técnico configurado en la ubicación.
+        locations = Location.search(base_domain + [('barcode', '=', value)], limit=2)
+
+        # 2. Ruta/nombre completo impreso en las etiquetas de ubicación.
+        if not locations:
+            locations = Location.search(base_domain + [('complete_name', '=', value)], limit=2)
+
+        # 3. Compatibilidad: si la etiqueta solo contiene el nombre corto,
+        # se acepta únicamente cuando es único dentro del alcance.
+        if not locations:
+            locations = Location.search(base_domain + [('name', '=', value)], limit=2)
 
         if len(locations) > 1:
             raise UserError(_(
-                'El código "%s" está asignado a más de una ubicación. '
-                'Corrija los códigos de barras de las ubicaciones antes de continuar.'
-            ) % barcode)
+                'El código de ubicación "%(code)s" coincide con más de una ubicación '
+                'dentro del alcance. Configure un código de barras único.'
+            ) % {'code': value})
 
         return locations[:1]
 
